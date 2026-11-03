@@ -1,0 +1,253 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/fraunces';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces Variable', ui-serif, Georgia, serif;
+
+  --color-ink-950: #06090f;
+  --color-ink-900: #0a0e16;
+  --color-ink-850: #0d121b;
+  --color-ink-800: #111823;
+  --color-ink-750: #151d2a;
+  --color-ink-700: #1b2433;
+  --color-ink-600: #263044;
+  --color-ink-500: #38445b;
+
+  --color-mist-50: #f5f7fa;
+  --color-mist-100: #e9edf3;
+  --color-mist-200: #cfd6e1;
+  --color-mist-300: #a7b1c1;
+  --color-mist-400: #7d899c;
+  --color-mist-500: #5c677a;
+
+  --color-brass-200: #f4e2bd;
+  --color-brass-300: #e9cb8f;
+  --color-brass-400: #d9b26f;
+  --color-brass-500: #c09550;
+  --color-brass-600: #8f6d36;
+
+  --animate-fade-in: fade-in 220ms ease-out both;
+  --animate-rise: rise 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+}
+
+:root {
+  color-scheme: dark;
+  --land: #1a2332;
+  --land-hover: #2a3850;
+  --land-dim: #121924;
+  --land-neighbor: #3a3426;
+  --land-selected: #d9b26f;
+  --ocean: #080c14;
+  --border: #0a0f18;
+  --coast: rgba(138, 160, 190, 0.32);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink-950);
+  color: var(--color-mist-200);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-600) transparent;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-brass-400) 35%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brass-400);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ map */
+
+.map-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.map-svg:active {
+  cursor: grabbing;
+}
+
+.map-land {
+  fill: var(--land);
+  transition: fill 180ms ease;
+  cursor: pointer;
+}
+.map-land:hover {
+  fill: var(--land-hover);
+}
+.map-land.is-dim {
+  fill: var(--land-dim);
+}
+.map-land.is-dim:hover {
+  fill: #1d2635;
+}
+.map-land.is-neighbor {
+  fill: var(--land-neighbor);
+}
+.map-land.is-neighbor:hover {
+  fill: #4a4231;
+}
+.map-land.is-selected {
+  fill: var(--land-selected);
+}
+.map-land.is-inert {
+  cursor: default;
+  fill: #161d29;
+}
+
+.map-borders {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 0.7px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.map-coast {
+  fill: none;
+  stroke: var(--coast);
+  stroke-width: 0.6px;
+  pointer-events: none;
+}
+.map-graticule {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.045);
+  stroke-width: 0.6px;
+  pointer-events: none;
+}
+.map-selected-outline {
+  fill: none;
+  stroke: var(--color-brass-200);
+  stroke-width: 1.4px;
+  stroke-linejoin: round;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(217, 178, 111, 0.45));
+}
+
+.map-marker {
+  fill: var(--color-ink-950);
+  stroke: var(--color-mist-400);
+  stroke-width: 1.1px;
+  cursor: pointer;
+  transition:
+    stroke 150ms ease,
+    fill 150ms ease;
+}
+.map-marker:hover {
+  stroke: var(--color-mist-100);
+  fill: var(--land-hover);
+}
+.map-marker.is-selected {
+  fill: var(--land-selected);
+  stroke: var(--color-brass-200);
+}
+.map-marker.is-dim {
+  opacity: 0.35;
+}
+
+.map-label {
+  fill: rgba(214, 222, 235, 0.62);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(6, 9, 15, 0.75);
+  stroke-linejoin: round;
+}
+.map-label.is-selected {
+  fill: #1a1408;
+  stroke: rgba(240, 214, 160, 0.6);
+  font-weight: 650;
+}
+
+.globe-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+.globe-canvas.is-dragging {
+  cursor: grabbing;
+}
+.globe-canvas.is-pointing {
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- utils */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-ink-700) 0%,
+    color-mix(in oklab, var(--color-ink-600) 80%, white 4%) 50%,
+    var(--color-ink-700) 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

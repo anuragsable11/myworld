@@ -1,0 +1,454 @@
+/**
+ * Generates the static geographic assets the app loads at runtime:
+ *
+ *   public/data/world.topo.json   Natural Earth 1:50m boundaries (via world-atlas), keyed by ISO 3166-1 alpha-3
+ *   public/data/mountains.json    Notable peaks and mountain ranges per country (Natural Earth 1:10m)
+ *   src/data/factbook-index.json  ISO alpha-3 -> CIA World Factbook profile path (factbook/factbook.json)
+ *
+ * Usage: npm run data
+ */
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { feature } from 'topojson-client';
+import { geoArea, geoCentroid, geoContains, geoDistance } from 'd3-geo';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const COUNTRIES_URL = 'https://cdn.jsdelivr.net/gh/mledoze/countries@master/countries.json';
+const NE_BASE = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson';
+const FACTBOOK_TREE = 'https://api.github.com/repos/factbook/factbook.json/git/trees/master?recursive=1';
+const FACTBOOK_CDN = 'https://cdn.jsdelivr.net/gh/factbook/factbook.json@master';
+
+// Natural Earth features that carry no ISO numeric id.
+const UNCODED_FEATURES = {
+  Kosovo: 'UNK',
+  'N. Cyprus': 'CYP',
+  Somaliland: 'SOM',
+  'Siachen Glacier': null, // disputed between India and Pakistan; drawn but not selectable
+};
+
+// Natural Earth draws these overseas areas inside their parent country's geometry, while the
+// country datasets list them as separate entries. Polygon parts near each territory are split out.
+const TERRITORY_SPLITS = {
+  FRA: ['GUF', 'GLP', 'MTQ', 'MYT', 'REU'],
+  NOR: ['SJM'],
+  NLD: ['BES'],
+  'Indian Ocean Ter.': ['CXR', 'CCK'],
+};
+const SPLIT_RADIUS_KM = 450;
+
+// Factbook profiles whose names differ too much from any name/alt-spelling in the country dataset.
+const FACTBOOK_OVERRIDES = {
+  'Congo, Democratic Republic of the': 'COD',
+  'Congo, Republic of the': 'COG',
+  'Korea, North': 'PRK',
+  'Korea, South': 'KOR',
+  'Gambia, The': 'GMB',
+  'Bahamas, The': 'BHS',
+  'Micronesia, Federated States of': 'FSM',
+  'Holy See (Vatican City)': 'VAT',
+  'Saint Helena, Ascension, and Tristan da Cunha': 'SHN',
+  'Heard Island and McDonald Islands': 'HMD',
+  'Burma': 'MMR',
+  'Cabo Verde': 'CPV',
+  'Czechia': 'CZE',
+  'Eswatini': 'SWZ',
+  'Timor-Leste': 'TLS',
+  'Turkey (Turkiye)': 'TUR',
+  'Turkiye': 'TUR',
+  "Cote d'Ivoire": 'CIV',
+  'Gaza Strip': null,
+  'West Bank': 'PSE',
+  'Svalbard': 'SJM',
+  'Jan Mayen': null,
+  'Saint Barthelemy': 'BLM',
+  'Saint Martin': 'MAF',
+  'Sint Maarten': 'SXM',
+  'Curacao': 'CUW',
+  'Aruba': 'ABW',
+  'Virgin Islands': 'VIR',
+  'British Virgin Islands': 'VGB',
+  'Pitcairn Islands': 'PCN',
+  'Falkland Islands (Islas Malvinas)': 'FLK',
+  'French Southern and Antarctic Lands': 'ATF',
+  'South Georgia and South Sandwich Islands': 'SGS',
+  'Wallis and Futuna': 'WLF',
+  'Macau': 'MAC',
+  'Hong Kong': 'HKG',
+  'Taiwan': 'TWN',
+  'Kosovo': 'UNK',
+  'Western Sahara': 'ESH',
+  'United States Pacific Island Wildlife Refuges': 'UMI',
+  'Wake Island': null,
+  'Midway Islands': null,
+};
+
+// Factbook profiles keyed by file, where the profile name is a list of places.
+const FACTBOOK_FILE_OVERRIDES = {
+  'australia-oceania/um.json': 'UMI',
+};
+
+const decodeEntities = (s) =>
+  String(s ?? '')
+    .replace(/&([a-zA-Z])(acute|grave|circ|uml|tilde|cedil|ring|slash);/g, '$1')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;|&rsquo;|&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+
+const norm = (s) =>
+  decodeEntities(s)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/&[a-z]+;/g, '')
+    .toLowerCase()
+    .replace(/^the\s+/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+async function getJson(url, init) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await res.json();
+    } catch (err) {
+      if (attempt >= 3) throw new Error(`GET ${url} failed: ${err.message}`);
+      await new Promise((r) => setTimeout(r, 800 * attempt));
+    }
+  }
+}
+
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: limit }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i], i);
+      }
+    }),
+  );
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Boundaries
+// ---------------------------------------------------------------------------------------------
+async function buildBoundaries(countries) {
+  const topo = JSON.parse(
+    await fs.readFile(path.join(root, 'node_modules/world-atlas/countries-50m.json'), 'utf8'),
+  );
+  const byNumeric = new Map(countries.filter((c) => c.ccn3).map((c) => [c.ccn3, c]));
+  const byCode = new Map(countries.map((c) => [c.cca3, c]));
+  const object = topo.objects.countries;
+  const geometries = [];
+
+  const polygonsOf = (g) => (g.type === 'Polygon' ? [g.arcs] : g.type === 'MultiPolygon' ? g.arcs : []);
+  const asFeature = (arcs) => feature(topo, { type: 'MultiPolygon', arcs });
+
+  for (const g of object.geometries) {
+    const name = g.properties?.name;
+    let code = g.id != null ? byNumeric.get(g.id)?.cca3 : undefined;
+    if (code === undefined && name in UNCODED_FEATURES) code = UNCODED_FEATURES[name];
+    if (code === undefined && name in TERRITORY_SPLITS) code = null;
+    if (code === undefined) {
+      console.warn(`  ! unmatched boundary feature: ${name} (${g.id})`);
+      continue;
+    }
+
+    const splitKey = code && TERRITORY_SPLITS[code] ? code : TERRITORY_SPLITS[name] ? name : null;
+    if (!splitKey) {
+      geometries.push({ ...g, id: code ?? undefined, properties: { name } });
+      continue;
+    }
+
+    // Partition polygon parts between the parent and nearby territories.
+    const territories = TERRITORY_SPLITS[splitKey].map((t) => byCode.get(t)).filter(Boolean);
+    const buckets = new Map();
+    const polys = polygonsOf(g);
+    const largest = polys.reduce(
+      (best, arcs, i) => {
+        const a = geoArea(asFeature([arcs]));
+        return a > best.a ? { a, i } : best;
+      },
+      { a: -1, i: 0 },
+    ).i;
+    polys.forEach((arcs, i) => {
+      const centroid = geoCentroid(asFeature([arcs]));
+      let owner = splitKey === code && i === largest ? code : null;
+      if (!owner) {
+        let bestKm = Infinity;
+        for (const t of territories) {
+          const km = geoDistance(centroid, [t.latlng[1], t.latlng[0]]) * 6371;
+          if (km < bestKm && km < SPLIT_RADIUS_KM) {
+            bestKm = km;
+            owner = t.cca3;
+          }
+        }
+      }
+      owner ??= code;
+      if (!buckets.has(owner)) buckets.set(owner, []);
+      buckets.get(owner).push(arcs);
+    });
+    for (const [owner, arcs] of buckets) {
+      geometries.push({
+        type: 'MultiPolygon',
+        arcs,
+        id: owner,
+        properties: { name: owner === code ? name : byCode.get(owner)?.name.common ?? name },
+      });
+    }
+  }
+
+  object.geometries = geometries;
+  const out = path.join(root, 'public/data/world.topo.json');
+  await fs.mkdir(path.dirname(out), { recursive: true });
+  await fs.writeFile(out, JSON.stringify(topo));
+
+  const covered = new Set(geometries.map((g) => g.id).filter(Boolean));
+  const without = countries.filter((c) => !covered.has(c.cca3)).map((c) => c.cca3);
+  console.log(`  boundaries: ${geometries.length} geometries, ${covered.size} countries`);
+  console.log(`  no polygon (rendered as markers): ${without.join(', ')}`);
+  return feature(topo, object).features;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Mountains
+// ---------------------------------------------------------------------------------------------
+async function buildMountains(features) {
+  const [points, regions] = await Promise.all([
+    getJson(`${NE_BASE}/ne_10m_geography_regions_elevation_points.geojson`),
+    getJson(`${NE_BASE}/ne_10m_geography_regions_polys.geojson`),
+  ]);
+  const selectable = features.filter((f) => f.id).map((f) => ({ f, box: lonLatBox(f) }));
+  const BORDER = 1.5 / 6371; // peaks within ~1.5 km of a boundary belong to both countries
+  const COAST = 25 / 6371; // coastal points can fall just outside 1:50m polygons
+
+  const containing = (pt) => {
+    const near = selectable.filter(({ box }) => inBox(box, pt, 0.5));
+    const hits = new Set(near.filter(({ f }) => geoContains(f, pt)).map(({ f }) => f.id));
+    let nearest = null;
+    let nearestD = COAST;
+    for (const { f } of near) {
+      if (hits.has(f.id)) continue;
+      const d = nearestEdge(f, pt);
+      if (hits.size && d < BORDER) hits.add(f.id);
+      if (d < nearestD) {
+        nearestD = d;
+        nearest = f.id;
+      }
+    }
+    if (!hits.size && nearest) hits.add(nearest);
+    return [...hits];
+  };
+
+  const result = {};
+  const entry = (code) => (result[code] ??= { peaks: [], ranges: [] });
+  const mountains = points.features.filter(
+    (f) => f.properties.featurecla === 'mountain' && f.properties.elevation > 0,
+  );
+  const peakCountries = await wikidataCountries(mountains.map((f) => f.properties.wikidataid));
+
+  for (const f of mountains) {
+    const p = f.properties;
+    const name = p.name_en || p.name;
+    if (!name) continue;
+    const [lon, lat] = f.geometry.coordinates;
+    // Geometry decides the owner; Wikidata adds countries sharing the summit (e.g. Mont Blanc),
+    // but not distant sovereigns of overseas territories (e.g. the UK for Tristan da Cunha).
+    const codes = new Set(containing([lon, lat]));
+    for (const code of peakCountries.get(p.wikidataid) ?? []) {
+      const owner = selectable.find(({ f: c }) => c.id === code);
+      if (owner && nearestEdge(owner.f, [lon, lat]) < 30 / 6371) codes.add(code);
+    }
+    if (peakCountries.has(p.wikidataid)) {
+      const wd = peakCountries.get(p.wikidataid);
+      for (const code of [...codes]) if (!wd.includes(code) && codes.size > 1) codes.delete(code);
+    }
+    for (const code of codes) {
+      entry(code).peaks.push({
+        name,
+        elevation: Math.round(p.elevation),
+        lat: +lat.toFixed(3),
+        lng: +lon.toFixed(3),
+        ...(p.wikidataid ? { wikidata: p.wikidataid } : {}),
+      });
+    }
+  }
+
+  for (const f of regions.features) {
+    const p = f.properties;
+    if (p.FEATURECLA !== 'Range/mtn' || !p.NAME) continue;
+    const codes = new Map();
+    for (const pt of samplePoints(f.geometry, 60)) {
+      const candidates = selectable.filter(({ box }) => inBox(box, pt, 0));
+      for (const code of candidates.filter(({ f: c }) => geoContains(c, pt)).map(({ f: c }) => c.id)) {
+        codes.set(code, (codes.get(code) ?? 0) + 1);
+      }
+    }
+    for (const [code] of codes) {
+      entry(code).ranges.push({ name: p.NAME_EN || p.NAME, rank: p.SCALERANK ?? 9 });
+    }
+  }
+
+  for (const code of Object.keys(result)) {
+    const e = result[code];
+    const seen = new Set();
+    e.peaks = e.peaks
+      .sort((a, b) => b.elevation - a.elevation)
+      .filter((pk, _, all) => pk.elevation >= all[0].elevation * 0.1)
+      .filter((pk) => !seen.has(pk.name) && seen.add(pk.name))
+      .slice(0, 8);
+    const seenR = new Set();
+    e.ranges = e.ranges
+      .sort((a, b) => a.rank - b.rank)
+      .filter((r) => !seenR.has(r.name) && seenR.add(r.name))
+      .slice(0, 8)
+      .map((r) => r.name);
+  }
+
+  await fs.writeFile(path.join(root, 'public/data/mountains.json'), JSON.stringify(result));
+  console.log(`  mountains: ${Object.keys(result).length} countries with peaks or ranges`);
+}
+
+/** Country (P17) of each Wikidata item, as ISO alpha-3 codes. Boundary geometry is the fallback. */
+async function wikidataCountries(ids) {
+  const qids = [...new Set(ids.filter((id) => /^Q\d+$/.test(id ?? '')))];
+  const out = new Map();
+  for (let i = 0; i < qids.length; i += 150) {
+    const values = qids.slice(i, i + 150).map((q) => `wd:${q}`).join(' ');
+    const query = `SELECT ?m ?iso WHERE { VALUES ?m { ${values} } ?m wdt:P17 ?c . ?c wdt:P298 ?iso . }`;
+    try {
+      const data = await getJson('https://query.wikidata.org/sparql', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/sparql-results+json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'world-atlas-explorer/1.0 (build script)',
+        },
+        body: new URLSearchParams({ query }),
+      });
+      for (const b of data.results.bindings) {
+        const q = b.m.value.split('/').pop();
+        const iso = b.iso.value === 'XKX' ? 'UNK' : b.iso.value;
+        if (!out.has(q)) out.set(q, []);
+        if (!out.get(q).includes(iso)) out.get(q).push(iso);
+      }
+    } catch (err) {
+      console.warn(`  ! wikidata lookup failed, using geometry for this batch: ${err.message}`);
+    }
+  }
+  return out;
+}
+
+function lonLatBox(feat) {
+  const box = [Infinity, Infinity, -Infinity, -Infinity];
+  const g = feat.geometry;
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  for (const poly of polys)
+    for (const [x, y] of poly[0]) {
+      box[0] = Math.min(box[0], x);
+      box[1] = Math.min(box[1], y);
+      box[2] = Math.max(box[2], x);
+      box[3] = Math.max(box[3], y);
+    }
+  return box;
+}
+
+function inBox(box, [x, y], pad) {
+  return x >= box[0] - pad && x <= box[2] + pad && y >= box[1] - pad && y <= box[3] + pad;
+}
+
+/** Distance in radians from a point to a polygon boundary, using a local equirectangular plane. */
+function nearestEdge(feat, [px, py]) {
+  const kx = Math.cos((py * Math.PI) / 180);
+  let best = Infinity;
+  const visit = (ring) => {
+    for (let i = 1; i < ring.length; i++) {
+      const ax = (ring[i - 1][0] - px) * kx;
+      const ay = ring[i - 1][1] - py;
+      const bx = (ring[i][0] - px) * kx;
+      const by = ring[i][1] - py;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const len = dx * dx + dy * dy;
+      const t = len ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len)) : 0;
+      best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+    }
+  };
+  const g = feat.geometry;
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  polys.forEach((poly) => poly.forEach(visit));
+  return (best * Math.PI) / 180;
+}
+
+function samplePoints(geometry, max) {
+  const coords = [];
+  const polys = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+  for (const poly of polys) for (const p of poly[0]) coords.push(p);
+  const step = Math.max(1, Math.floor(coords.length / max));
+  const pts = coords.filter((_, i) => i % step === 0);
+  for (const poly of polys) pts.push(geoCentroid({ type: 'Polygon', coordinates: poly }));
+  return pts;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Factbook index
+// ---------------------------------------------------------------------------------------------
+async function buildFactbookIndex(countries) {
+  const tree = await getJson(FACTBOOK_TREE, { headers: { 'User-Agent': 'world-atlas-explorer' } });
+  const files = tree.tree
+    .map((t) => t.path)
+    .filter((p) => /^[a-z-]+\/[a-z]{2}\.json$/.test(p) && !p.startsWith('meta/'));
+
+  const lookup = new Map();
+  for (const c of countries) {
+    const names = [
+      c.name.common,
+      c.name.official,
+      ...(c.altSpellings ?? []),
+      ...Object.values(c.name.nativeName ?? {}).flatMap((n) => [n.common, n.official]),
+    ];
+    for (const n of names) if (n && !lookup.has(norm(n))) lookup.set(norm(n), c.cca3);
+  }
+
+  const index = {};
+  const unmatched = [];
+  await mapLimit(files, 12, async (file) => {
+    const data = await getJson(`${FACTBOOK_CDN}/${file}`);
+    const cn = data?.Government?.['Country name'] ?? {};
+    const short = decodeEntities(cn['conventional short form']?.text).trim();
+    const long = decodeEntities(cn['conventional long form']?.text).trim();
+    const label = (short && short !== 'none' ? short : long).replace(/\s*\(sometimes.*\)$/, '');
+    if (!label || label === 'none') return;
+    let code = FACTBOOK_FILE_OVERRIDES[file];
+    if (code === undefined && label in FACTBOOK_OVERRIDES) code = FACTBOOK_OVERRIDES[label];
+    if (code === undefined) code = lookup.get(norm(label)) ?? lookup.get(norm(long));
+    if (code === null) return;
+    if (!code) {
+      unmatched.push(`${file} (${label})`);
+      return;
+    }
+    if (!index[code]) index[code] = file.replace(/\.json$/, '');
+  });
+
+  const sorted = Object.fromEntries(Object.entries(index).sort(([a], [b]) => a.localeCompare(b)));
+  await fs.mkdir(path.join(root, 'src/data'), { recursive: true });
+  await fs.writeFile(path.join(root, 'src/data/factbook-index.json'), JSON.stringify(sorted, null, 0));
+  const missing = countries.filter((c) => !index[c.cca3]).map((c) => `${c.cca3} ${c.name.common}`);
+  console.log(`  factbook: ${Object.keys(index).length} profiles mapped`);
+  if (unmatched.length) console.log(`  factbook profiles not matched (non-country entities): ${unmatched.join('; ')}`);
+  if (missing.length) console.log(`  countries without a factbook profile: ${missing.join('; ')}`);
+}
+
+// ---------------------------------------------------------------------------------------------
+console.log('Fetching country dataset…');
+const countries = await getJson(COUNTRIES_URL);
+console.log('Building boundaries…');
+const features = await buildBoundaries(countries);
+console.log('Building mountains…');
+await buildMountains(features);
+console.log('Building factbook index…');
+await buildFactbookIndex(countries);
+console.log('Done.');
