@@ -1,0 +1,37 @@
+{
+  "id": "./",
+  "name": "World Atlas — Countries Explorer",
+  "short_name": "World Atlas",
+  "description": "Spin a cartoon globe and explore every country: flags, facts, people in traditional dress and live day & night.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#d8f1ff",
+  "theme_color": "#bde8ff",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "travel", "reference"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/desktop.jpg",
+      "sizes": "1440x900",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Spin the globe and open any country's profile"
+    },
+    {
+      "src": "screenshots/phone.jpg",
+      "sizes": "780x1688",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Every country in your pocket, even offline"
+    }
+  ]
+}

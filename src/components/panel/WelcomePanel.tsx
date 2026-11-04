@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import type { Country } from '../../types';
 import { isSovereign, type CountryIndex } from '../../hooks/queries';
 import { formatArea, formatInteger, formatPopulation } from '../../lib/format';
+import { InstallButton } from '../layout/Install';
 import { Flag } from '../ui/Flag';
 import { Skeleton } from '../ui/primitives';
 import { TONES, type Tone } from '../ui/tones';
@@ -51,17 +52,20 @@ export function WelcomePanel({
         Spin the globe, tap any country or search for one. Every country has a full profile packed with fun facts!
       </p>
 
-      <button
-        type="button"
-        onClick={onSurprise}
-        disabled={!facts}
-        className="toon toon-press group mt-5 inline-flex animate-rise items-center gap-2 rounded-2xl bg-sun px-5 py-3 font-display text-[17px] font-semibold text-ink [animation-delay:120ms] disabled:opacity-50"
-      >
-        <span aria-hidden className="text-[20px] transition-transform duration-500 group-hover:rotate-[360deg]">
-          🎲
-        </span>
-        Surprise me!
-      </button>
+      <div className="mt-5 flex animate-rise flex-wrap items-center gap-3 [animation-delay:120ms]">
+        <button
+          type="button"
+          onClick={onSurprise}
+          disabled={!facts}
+          className="toon toon-press group inline-flex items-center gap-2 rounded-2xl bg-sun px-5 py-3 font-display text-[17px] font-semibold text-ink disabled:opacity-50"
+        >
+          <span aria-hidden className="text-[20px] transition-transform duration-500 group-hover:rotate-[360deg]">
+            🎲
+          </span>
+          Surprise me!
+        </button>
+        <InstallButton />
+      </div>
 
       {facts ? (
         <>

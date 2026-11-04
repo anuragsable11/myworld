@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe680"/>
+      <stop offset="1" stop-color="#ffc61f"/>
+    </linearGradient>
+    <pattern id="dots" width="34" height="34" patternUnits="userSpaceOnUse">
+      <circle cx="17" cy="17" r="3.2" fill="#fff" opacity=".45"/>
+    </pattern>
+  </defs>
+  <rect x="34" y="36" width="452" height="452" rx="116" fill="#1e1b4b"/>
+  <rect x="22" y="22" width="452" height="452" rx="116" fill="url(#bg)"/>
+  <rect x="22" y="22" width="452" height="452" rx="116" fill="url(#dots)"/>
+  <rect x="22" y="22" width="452" height="452" rx="116" fill="none" stroke="#1e1b4b" stroke-width="14"/>
+  <g transform="translate(248 248) scale(.86) translate(-256 -256)">
+  <!-- sparkles -->
+  <path d="M0-1C.15-.15.15-.15 1 0 .15.15.15.15 0 1-.15.15-.15.15-1 0-.15-.15-.15-.15 0-1Z" transform="translate(112 120) scale(30)" fill="#fff" stroke="#1e1b4b" stroke-width=".16" stroke-linejoin="round"/>
+  <path d="M0-1C.15-.15.15-.15 1 0 .15.15.15.15 0 1-.15.15-.15.15-1 0-.15-.15-.15-.15 0-1Z" transform="translate(404 392) scale(20)" fill="#fff" stroke="#1e1b4b" stroke-width=".24" stroke-linejoin="round"/>
+  <!-- globe -->
+  <g transform="translate(246 266)">
+    <circle cx="11" cy="13" r="150" fill="#1e1b4b"/>
+    <circle r="150" fill="#5fbcf5" stroke="#1e1b4b" stroke-width="16"/>
+    <g transform="scale(7.895) translate(-22 -22)" stroke="#1e1b4b" stroke-width="1.9" stroke-linejoin="round">
+      <path d="M12 15c3-3 7-2 8 0s-1 5 1 7 6 1 7 5-2 7-6 7c-2-2-1-6-5-7s-6-3-6-6 0-4 1-6Z" fill="#7ee2a8"/>
+      <path d="M27 9c3 1 6 3 7 7-3 1-5 0-6-1s-2-4-1-6Z" fill="#ffe27a"/>
+      <ellipse cx="13" cy="11" rx="4.5" ry="2.2" fill="#fff" stroke="none" opacity=".8" transform="rotate(-35 13 11)"/>
+    </g>
+  </g>
+  <!-- map pin -->
+  <g transform="translate(232 300) rotate(-8) scale(2.5) translate(-28 -67)" stroke="#1e1b4b" stroke-linejoin="round">
+    <path d="M28 67C22 55 5 43 5 27a23 23 0 1 1 46 0c0 16-17 28-23 40Z" transform="translate(2.4 3)" fill="#1e1b4b" stroke="none" opacity=".35"/>
+    <path d="M28 67C22 55 5 43 5 27a23 23 0 1 1 46 0c0 16-17 28-23 40Z" fill="#ff6b81" stroke-width="3"/>
+    <circle cx="28" cy="27" r="17.5" fill="#fff" stroke-width="2.5"/>
+    <ellipse cx="16" cy="14" rx="5" ry="3" fill="#fff" stroke="none" opacity=".7" transform="rotate(-35 16 14)"/>
+    <path d="M0-26 6.47-8.9 24.73-8.03 10.46 3.4 15.28 21.03 0 11-15.28 21.03-10.46 3.4-24.73-8.03-6.47-8.9Z" transform="translate(28 27.5) scale(.42)" fill="#ffd23f" stroke-width="4.8"/>
+  </g>
+  </g>
+</svg>

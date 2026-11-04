@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef, type CSSProperties } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Country } from '../../types';
 import type { PinHandle } from './types';
 
@@ -11,6 +11,8 @@ const CONFETTI = ['#ffd23f', '#ff7a90', '#7ee2a8', '#7cc8ff', '#c3b1ff', '#ffbd7
  */
 export const MapPin = forwardRef<PinHandle, { country: Country }>(function MapPin({ country }, ref) {
   const el = useRef<HTMLDivElement>(null);
+  // Offline, the flag image may not be cached; the flag emoji stands in.
+  const [flagFailed, setFlagFailed] = useState(false);
 
   useImperativeHandle(
     ref,
@@ -70,12 +72,19 @@ export const MapPin = forwardRef<PinHandle, { country: Country }>(function MapPi
               <circle cx="28" cy="27" r="17.5" fill="#ffffff" stroke="#1e1b4b" strokeWidth="2.5" />
               <ellipse cx="16" cy="14" rx="5" ry="3" fill="#ffffff" opacity="0.7" transform="rotate(-35 16 14)" />
             </svg>
-            <img
-              src={country.flag.svg}
-              alt=""
-              className="absolute left-[13px] top-[12px] size-[30px] rounded-full object-cover"
-              draggable={false}
-            />
+            {flagFailed ? (
+              <span className="absolute left-[13px] top-[12px] grid size-[30px] place-items-center text-[19px] leading-none">
+                {country.flag.emoji ?? '🏳️'}
+              </span>
+            ) : (
+              <img
+                src={country.flag.svg}
+                alt=""
+                className="absolute left-[13px] top-[12px] size-[30px] rounded-full object-cover"
+                draggable={false}
+                onError={() => setFlagFailed(true)}
+              />
+            )}
           </div>
         </div>
       </div>

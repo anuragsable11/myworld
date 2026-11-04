@@ -4,6 +4,7 @@ import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMe
 import { useSelection } from './hooks/useSelection';
 import { AboutDialog } from './components/layout/AboutDialog';
 import { Brand, InfoButton, TopBar } from './components/layout/Header';
+import { InstallPill } from './components/layout/Install';
 import { BottomSheet, Drawer, SHEET_PEEK_PX } from './components/layout/Overlays';
 import { MapStage, type ViewMode } from './components/map/MapStage';
 import type { Insets } from './components/map/types';
@@ -246,6 +247,13 @@ export default function App() {
         <BottomSheet expanded={sheetExpanded} onExpandedChange={setSheetExpanded} onDismiss={handleClose}>
           {(handle) => panel(handle)}
         </BottomSheet>
+      )}
+
+      {/* Desktop offers installing from the welcome card instead. */}
+      {(layout === 'tablet' || (layout === 'mobile' && !selectedId)) && (
+        <div className="absolute z-10" style={{ left: insets.left + 12, bottom: insets.bottom + 16 }}>
+          <InstallPill />
+        </div>
       )}
 
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} index={index} />

@@ -53,7 +53,9 @@ public/data/mountains.json    Peaks and ranges per country
 src/data/factbook-index.json  ISO alpha-3 → Factbook profile path
 src/lib/sources/              One module per data source, each normalising into typed models
 src/lib/geo.ts                Boundary loading, low-detail globe geometry, per-country zoom framing
-src/hooks/                    React Query hooks, URL-hash selection, responsive layout
+src/hooks/                    React Query hooks, URL-hash selection, responsive layout, online/install state
+src/lib/pwa.ts                Service worker registration and the install prompt
+src/sw.js                     Service worker (offline support)
 src/components/map/           SVG map (d3-geo + d3-zoom), canvas globe, tooltip, controls
 src/components/sidebar/       Search, filters, alphabetical list
 src/components/panel/         Country profile and its sections
@@ -81,6 +83,24 @@ src/components/panel/         Country profile and its sections
   phones. Animations respect `prefers-reduced-motion`.
 - **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `N` toggles day and night, `Esc`
   closes the profile.
+
+## Install and offline use
+
+The production build is an installable app (PWA). Chrome, Edge and Android browsers show an **Install app** button. On an
+iPhone or iPad, use Share → Add to Home Screen; Safari on a Mac uses File → Add to Dock. The app explains these steps
+when you tap the button.
+
+- `public/manifest.webmanifest` holds the name, colours, icons and the screenshots shown in the install dialog. The icons
+  in `public/icons/` are rendered from `scripts/icons/icon.svg` and `scripts/icons/icon-maskable.svg`.
+- `src/sw.js` is the service worker. At build time, a small plugin in `vite.config.ts` fills in the list of files to
+  precache, with a content hash for each file. The worker precaches the app itself (code, fonts, map data and icons), so
+  it opens without a connection. It also caches the country list and the Factbook, Wikipedia, Wikidata and World Bank
+  data for each country you open, so those countries keep working offline. A sticker on the map shows when you're
+  offline.
+- REST Countries API responses are never stored by the service worker. The app keeps them in localStorage for at most
+  three days. Large flag images from its CDN follow the same three-day limit; offline, the flag emoji is shown instead.
+- The service worker only runs in production builds (`npm run build && npm run preview`). Installing on a phone needs
+  the site to be served over HTTPS, for example on Vercel or Netlify.
 
 ## Regenerating the geographic data
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ArrowUpRight, X } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
+import { InstallCard } from './Install';
 
 const SOURCES = [
   {
@@ -83,6 +84,8 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
             )}
           </div>
         )}
+
+        <InstallCard />
 
         <ul className="mt-5 divide-y-2 divide-dashed divide-indigo-100">
           {SOURCES.map((s) => (

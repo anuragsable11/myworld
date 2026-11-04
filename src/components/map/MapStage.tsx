@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Loader2, Minus, Plus, RotateCcw } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
 import type { World } from '../../lib/geo';
+import { ConnectionBadge } from '../layout/ConnectionBadge';
 import { CartoonSky } from './CartoonSky';
 import { FlatMap } from './FlatMap';
 import { GlobeView } from './GlobeView';
@@ -155,7 +156,7 @@ export function MapStage({
 
       {/* View switch, centred over the uncovered area */}
       <div
-        className="pointer-events-none absolute z-10 flex justify-center transition-[left,right,top] duration-500"
+        className="pointer-events-none absolute z-10 flex flex-col items-center gap-2.5 transition-[left,right,top] duration-500"
         style={{ left: area.left, right: area.right, top: area.top }}
       >
         <div className="toon pointer-events-auto flex gap-1 rounded-full bg-white p-1">
@@ -182,6 +183,7 @@ export function MapStage({
             </button>
           ))}
         </div>
+        <ConnectionBadge />
       </div>
 
       {/* Surprise + zoom controls */}
