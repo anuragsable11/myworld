@@ -108,8 +108,11 @@ when you tap the button.
 npm run data
 ```
 
-This rebuilds the boundary file from `world-atlas`, splits overseas regions (French Guiana, Réunion, Svalbard and
-others) into their own shapes, assigns Natural Earth peaks and ranges to countries (using Wikidata for summits on a
-border), and rebuilds the Factbook index.
+This rebuilds the boundary file from `world-atlas`, draws India as on its official map, splits overseas regions
+(French Guiana, Réunion, Svalbard and others) into their own shapes, assigns Natural Earth peaks and ranges to countries
+(using Wikidata for summits on a border), and rebuilds the Factbook index.
 
-Boundaries follow Natural Earth's de facto conventions and do not imply endorsement of any territorial claim.
+Boundaries follow Natural Earth's de facto conventions, except India, which is drawn as on the Government of India's
+official map: all of Jammu and Kashmir and Ladakh, including Gilgit-Baltistan, Aksai Chin, the Shaksgam valley and the
+Siachen glacier. Natural Earth's disputed-area polygons record which areas India's official view includes, and the
+build script moves those areas into India from the countries that administer them.

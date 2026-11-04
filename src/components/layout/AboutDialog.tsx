@@ -104,7 +104,9 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
           ))}
         </ul>
         <p className="mt-3 text-[12px] font-semibold leading-relaxed text-slate-400">
-          Boundaries follow Natural Earth's de facto conventions and do not imply endorsement of any territorial claim.
+          Boundaries follow Natural Earth's de facto conventions, except India, which is drawn as on the Government of
+          India's official map: all of Jammu and Kashmir and Ladakh, including Gilgit-Baltistan, Aksai Chin and the
+          Shaksgam valley.
         </p>
       </div>
     </dialog>

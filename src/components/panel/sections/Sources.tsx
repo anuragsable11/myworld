@@ -19,7 +19,7 @@ export function Sources({ country, index, wikidata, wikipedia }: CountryDetails)
     <footer className="px-1 pb-2 pt-1 text-[11.5px] leading-relaxed text-slate-400">
       <p>
         Figures come from several independent sources and can differ in date and method. Population, GDP and leaders update
-        live; boundaries follow Natural Earth's de facto conventions.
+        live; boundaries follow Natural Earth, with India as shown on its official map.
       </p>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
         {links.map((l) => (

@@ -8,7 +8,7 @@ import { assetUrl, fetchJson } from './http';
 /** One drawable boundary geometry. Several shapes can share a country id (e.g. Cyprus). */
 export interface Shape {
   key: string;
-  /** ISO alpha-3 code, or null for areas that are drawn but not selectable (Siachen Glacier). */
+  /** ISO alpha-3 code, or null for areas that are drawn but not selectable. */
   id: string | null;
   name: string;
   feature: Feature<Polygon | MultiPolygon>;

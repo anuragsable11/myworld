@@ -1,7 +1,8 @@
 /**
  * Generates the static geographic assets the app loads at runtime:
  *
- *   public/data/world.topo.json   Natural Earth 1:50m boundaries (via world-atlas), keyed by ISO 3166-1 alpha-3
+ *   public/data/world.topo.json   Natural Earth 1:50m boundaries (via world-atlas), keyed by ISO 3166-1 alpha-3,
+ *                                 with India drawn as the Government of India's official map shows it
  *   public/data/mountains.json    Notable peaks and mountain ranges per country (Natural Earth 1:10m)
  *   src/data/factbook-index.json  ISO alpha-3 -> CIA World Factbook profile path (factbook/factbook.json)
  *
@@ -11,6 +12,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feature } from 'topojson-client';
+import { topology } from 'topojson-server';
+import polygonClipping from 'polygon-clipping';
 import { geoArea, geoCentroid, geoContains, geoDistance } from 'd3-geo';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,7 +27,6 @@ const UNCODED_FEATURES = {
   Kosovo: 'UNK',
   'N. Cyprus': 'CYP',
   Somaliland: 'SOM',
-  'Siachen Glacier': null, // disputed between India and Pakistan; drawn but not selectable
 };
 
 // Natural Earth draws these overseas areas inside their parent country's geometry, while the
@@ -136,8 +138,8 @@ async function mapLimit(items, limit, fn) {
 // Boundaries
 // ---------------------------------------------------------------------------------------------
 async function buildBoundaries(countries) {
-  const topo = JSON.parse(
-    await fs.readFile(path.join(root, 'node_modules/world-atlas/countries-50m.json'), 'utf8'),
+  const topo = await withIndiaOfficialBoundaries(
+    JSON.parse(await fs.readFile(path.join(root, 'node_modules/world-atlas/countries-50m.json'), 'utf8')),
   );
   const byNumeric = new Map(countries.filter((c) => c.ccn3).map((c) => [c.ccn3, c]));
   const byCode = new Map(countries.map((c) => [c.cca3, c]));
@@ -212,6 +214,64 @@ async function buildBoundaries(countries) {
   console.log(`  no polygon (rendered as markers): ${without.join(', ')}`);
   return feature(topo, object).features;
 }
+
+/**
+ * Natural Earth's de facto boundaries give Pakistan-administered Kashmir and Gilgit-Baltistan to
+ * Pakistan, Aksai Chin and the Shaksgam valley to China, and leave the Siachen glacier on its own.
+ * India's official map shows all of them as part of India (Jammu and Kashmir, and Ladakh). Natural
+ * Earth's disputed-area polygons record each country's official view, so the areas India's view
+ * assigns to it move from the countries administering them into India. Other borders are unchanged.
+ */
+async function withIndiaOfficialBoundaries(base) {
+  const disputed = await getJson(`${NE_BASE}/ne_50m_admin_0_breakaway_disputed_areas.geojson`);
+  const { features } = feature(base, base.objects.countries);
+  const named = (name) => features.find((f) => f.properties.name === name);
+  const [india, pakistan, china, siachen] = ['India', 'Pakistan', 'China', 'Siachen Glacier'].map(named);
+
+  // The disputed areas come from a newer Natural Earth release than world-atlas. Snapping them to
+  // world-atlas's quantization grid lines up the borders the two releases draw identically.
+  const [kx, ky] = base.transform.scale;
+  const [tx, ty] = base.transform.translate;
+  const snap = ([x, y]) => [Math.round((x - tx) / kx) * kx + tx, Math.round((y - ty) / ky) * ky + ty];
+  const claimed = polygonClipping.union(
+    ...disputed.features
+      .filter((f) => f.properties.ADM0_A3_IN === 'IND' && f.properties.ADM0_A3 !== 'IND')
+      .map((f) => polygonCoords(f.geometry).map((poly) => poly.map((ring) => ring.map(snap)))),
+  );
+  const claimBox = coordsBox(claimed.flat(2));
+
+  const gained = [polygonCoords(india.geometry), polygonCoords(siachen.geometry)];
+  for (const f of [pakistan, china]) {
+    const coords = polygonCoords(f.geometry);
+    const kept = [];
+    for (const poly of polygonClipping.difference(coords, claimed)) {
+      // Where the two releases' lines differ slightly, slivers of a few km² are left behind.
+      if (clippedArea(poly) < 50 && boxesOverlap(coordsBox(poly[0]), claimBox)) gained.push([poly]);
+      else kept.push(poly);
+    }
+    gained.push(polygonClipping.intersection(coords, claimed));
+    f.geometry = clippedGeometry(kept);
+  }
+  india.geometry = clippedGeometry(polygonClipping.union(...gained));
+
+  const total = (polys) => Math.round(polys.reduce((sum, poly) => sum + clippedArea(poly), 0));
+  console.log(`  India's official boundaries: ${total(gained.slice(2).flat())} km² added from Pakistan and China`);
+  return topology({ countries: { type: 'FeatureCollection', features: features.filter((f) => f !== siachen) } }, 1e5);
+}
+
+const polygonCoords = (g) => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates);
+// polygon-clipping winds outer rings anticlockwise; d3 and world-atlas wind them clockwise.
+const clockwise = (poly) => poly.map((ring) => [...ring].reverse());
+const clippedGeometry = (polys) => ({ type: 'MultiPolygon', coordinates: polys.map(clockwise) });
+const clippedArea = (poly) => geoArea({ type: 'Polygon', coordinates: clockwise(poly) }) * 6371 ** 2;
+
+function coordsBox(points) {
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+
+const boxesOverlap = (a, b) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
 
 // ---------------------------------------------------------------------------------------------
 // Mountains
