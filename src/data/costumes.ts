@@ -10,7 +10,7 @@ import type { Country } from '../types';
  */
 
 export type Body = 'shirt-pants' | 'tunic-pants' | 'robe' | 'dress' | 'wrap' | 'kilt' | 'pleated' | 'parka';
-export type Pattern = 'stripes' | 'plaid' | 'dots' | 'zigzag' | 'floral' | 'batik' | 'kente' | 'embroidery';
+export type Pattern = 'stripes' | 'bands' | 'plaid' | 'dots' | 'zigzag' | 'floral' | 'batik' | 'kente' | 'embroidery';
 export type OverlayKind =
   | 'pallu'
   | 'dupatta'
@@ -51,8 +51,9 @@ export type HeadwearKind =
   | 'felt-hat'
   | 'straw-hat'
   | 'hood'
-  | 'veil';
-export type Hair = 'short' | 'long' | 'bun' | 'braid';
+  | 'veil'
+  | 'lace-cap';
+export type Hair = 'short' | 'long' | 'bun' | 'braid' | 'coily' | 'puff';
 
 export interface Layer {
   color: string;
@@ -74,6 +75,10 @@ export interface Outfit {
   accent?: string;
   /** How wide a skirt flares, 0–1. */
   flare?: number;
+  /** A skirt tied high on the chest, under a short jacket. */
+  waist?: 'high';
+  /** Puffed sleeves, gathered at the shoulder. */
+  sleeves?: 'puff';
   overlays?: (Layer & { kind: OverlayKind })[];
   headwear?: Layer & { kind: HeadwearKind };
   hair?: Hair;
@@ -194,6 +199,7 @@ const FAMILIES: Record<Family, { man: Outfit; woman: Outfit; varied?: boolean }>
       top: C.gold,
       bottom: C.pink,
       flare: 0.9,
+      waist: 'high',
       overlays: [{ kind: 'ribbon', color: C.red }],
       hair: 'bun',
     },
@@ -339,7 +345,7 @@ const FAMILIES: Record<Family, { man: Outfit; woman: Outfit; varied?: boolean }>
       accent: C.green,
       hem: { color: C.green, pattern: 'zigzag', accent: C.gold },
       flare: 0.3,
-      overlays: [{ kind: 'shawl', color: C.white }],
+      overlays: [{ kind: 'shawl', color: C.white, accent: C.green }],
       hair: 'braid',
     },
   },
@@ -572,6 +578,8 @@ interface CountryCostume {
   note?: string;
   man?: Partial<Outfit>;
   woman?: Partial<Outfit>;
+  /** Skin tones [man, woman], where the subregion's don't suit the country. */
+  skin?: [string, string];
 }
 
 const sari = FAMILIES.sari.woman;
@@ -653,7 +661,7 @@ const COUNTRY_COSTUMES: Record<string, CountryCostume> = {
     family: 'kebaya',
     labels: { man: 'Barong tagalog', woman: 'Filipiniana (terno)' },
     man: { top: '#f5f0e1', topPattern: 'embroidery', accent: '#c9b98f', bottom: C.black, headwear: undefined },
-    woman: { top: C.white, topPattern: undefined, bottom: C.pink, pattern: undefined, flare: 0.6 },
+    woman: { top: C.white, topPattern: undefined, bottom: C.pink, pattern: undefined, flare: 0.6, sleeves: 'puff' },
   },
   TLS: { family: 'wrap', labels: { man: 'Tais', woman: 'Tais' }, man: { bottom: C.crimson, pattern: 'zigzag', accent: C.gold } },
   SGP: { family: 'kebaya' },
@@ -815,14 +823,14 @@ const COUNTRY_COSTUMES: Record<string, CountryCostume> = {
     family: 'europefolk',
     labels: { man: 'Klederdracht & clogs', woman: 'Klederdracht & clogs' },
     man: { bottom: C.ink, overlays: [{ kind: 'jacket', color: C.ink }], headwear: { kind: 'kufi', color: C.ink }, shoes: '#f2d59b' },
-    woman: { bottom: C.ink, overlays: [{ kind: 'bodice', color: C.red, pattern: 'floral', accent: C.white }, { kind: 'apron', color: C.blue, pattern: 'stripes', accent: C.white }], headwear: { kind: 'headscarf', color: C.white }, shoes: '#f2d59b' },
+    woman: { bottom: C.ink, overlays: [{ kind: 'bodice', color: C.red, pattern: 'floral', accent: C.white }, { kind: 'apron', color: C.blue, pattern: 'stripes', accent: C.white }], headwear: { kind: 'lace-cap', color: C.white }, shoes: '#f2d59b' },
   },
   GBR: { family: 'kilt', labels: { man: 'Kilt (Scottish Highland dress)', woman: 'Tartan dress (Scotland)' } },
   FRA: {
     family: 'modern',
     note: 'A classic French look: the striped Breton marinière and beret (illustrative)',
-    man: { top: C.white, topPattern: 'stripes', accent: C.navy, overlays: [], headwear: { kind: 'beret', color: C.ink } },
-    woman: { body: 'dress', top: C.white, topPattern: 'stripes', accent: C.navy, bottom: C.red, flare: 0.4, headwear: { kind: 'beret', color: C.red } },
+    man: { top: C.white, topPattern: 'bands', accent: C.navy, overlays: [], headwear: { kind: 'beret', color: C.ink } },
+    woman: { body: 'dress', top: C.white, topPattern: 'bands', accent: C.navy, bottom: C.red, flare: 0.4, headwear: { kind: 'beret', color: C.red } },
   },
   ESP: {
     family: 'latin',
@@ -870,6 +878,7 @@ const COUNTRY_COSTUMES: Record<string, CountryCostume> = {
   MEX: {
     family: 'latin',
     labels: { man: 'Charro suit & sombrero', woman: 'China poblana' },
+    skin: ['#c99567', '#d7a274'],
     man: { top: C.white, bottom: C.ink, overlays: [{ kind: 'jacket', color: C.ink }, { kind: 'sash', color: C.red }] },
     woman: { bottom: C.red, pattern: 'zigzag', accent: C.green },
   },
@@ -916,6 +925,7 @@ const COUNTRY_COSTUMES: Record<string, CountryCostume> = {
   GRL: {
     family: 'europefolk',
     labels: { man: 'Kalaallisuut (white anorak)', woman: 'Kalaallisuut' },
+    skin: ['#d6a578', '#dcae80'],
     man: { body: 'shirt-pants', top: C.white, bottom: C.black, overlays: [], headwear: undefined },
     woman: {
       body: 'shirt-pants',
@@ -1018,6 +1028,9 @@ const HAIR: Record<string, [string, string]> = {
   'australia and new zealand': ['#a0703a', '#2b1a12'],
 };
 
+/** Subregions where the figures get tightly curled hair. */
+const COILY = new Set(['western africa', 'middle africa', 'eastern africa', 'southern africa', 'caribbean', 'melanesia']);
+
 const VIVID = ['#ff6b81', '#ffd23f', '#2ecc71', '#2e86de', '#8e44ad', '#ff9f1c', '#16a085', '#e63946'];
 
 const key = (s: string | undefined) =>
@@ -1054,11 +1067,15 @@ export function costumeFor(country: Country): ResolvedCostume {
     woman = { ...woman, bottom: VIVID[(h >> 3) % VIVID.length], top: woman.top === '#ffffff' ? woman.top : VIVID[(h >> 6) % VIVID.length] };
     if (woman.headwear) woman = { ...woman, headwear: { ...woman.headwear, color: VIVID[(h >> 9) % VIVID.length] } };
   }
+  if (COILY.has(sub)) {
+    if (!man.hair || man.hair === 'short') man = { ...man, hair: 'coily' };
+    if (!woman.hair || woman.hair === 'short' || woman.hair === 'bun') woman = { ...woman, hair: 'puff' };
+  }
 
   return {
     man,
     woman,
-    skin: SKIN[sub] ?? ['#d7a274', '#e0ae82'],
+    skin: entry?.skin ?? SKIN[sub] ?? ['#d7a274', '#e0ae82'],
     hair: HAIR[sub] ?? ['#2b1a12', '#2b1a12'],
     labels: entry?.labels,
     note: entry?.note,

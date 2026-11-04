@@ -30,6 +30,11 @@
   --animate-pin-bob: pin-bob 2.4s ease-in-out 1.8s infinite;
   --animate-pin-shadow: pin-shadow 900ms var(--ease-spring) 850ms both;
   --animate-confetti: confetti 1100ms cubic-bezier(0.15, 0.7, 0.3, 1) 1250ms both;
+  /* Cartoon people: blinking, waving, a gentle head bob, and a jump when tapped. */
+  --animate-blink: blink 4.6s ease-in-out infinite;
+  --animate-hand-wave: hand-wave 2.6s ease-in-out infinite;
+  --animate-bob: bob 3.4s ease-in-out infinite;
+  --animate-hop: hop 760ms ease-in-out both;
 
   @keyframes fade-in {
     from {
@@ -165,6 +170,64 @@
     100% {
       transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1);
       opacity: 0;
+    }
+  }
+  @keyframes blink {
+    0%,
+    90%,
+    100% {
+      transform: scaleY(1);
+    }
+    94% {
+      transform: scaleY(0.1);
+    }
+  }
+  @keyframes hand-wave {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    20% {
+      transform: rotate(16deg);
+    }
+    40% {
+      transform: rotate(-8deg);
+    }
+    60% {
+      transform: rotate(14deg);
+    }
+    80% {
+      transform: rotate(-4deg);
+    }
+  }
+  @keyframes bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-1.6px);
+    }
+  }
+  /* Squash, leap, land, settle */
+  @keyframes hop {
+    0% {
+      transform: translateY(0) scale(1);
+    }
+    15% {
+      transform: translateY(0) scale(1.07, 0.9);
+    }
+    45% {
+      transform: translateY(-20px) scale(0.95, 1.06);
+    }
+    70% {
+      transform: translateY(0) scale(1.06, 0.93);
+    }
+    85% {
+      transform: translateY(-4px) scale(0.99, 1.01);
+    }
+    100% {
+      transform: translateY(0) scale(1);
     }
   }
 }

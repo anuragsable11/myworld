@@ -73,10 +73,11 @@ src/components/panel/         Country profile and its sections
 - **Live day and night**: the night side is shaded from the real subsolar point (a low-precision solar ephemeris in
   `src/lib/sun.ts`), with civil, nautical and astronomical twilight bands, a sun where it is noon and a moon where it is
   midnight. It refreshes every minute and works on both the globe and the map; toggle it with the moon button or `N`.
-- **Traditional dress**: the People section shows a cartoon man and woman in traditional dress, drawn in SVG from
-  outfit building blocks (`src/components/panel/TraditionalDress.tsx`). About 100 countries name specific, widely
-  documented garments in `src/data/costumes.ts`; every other country gets the style of its subregion, labelled as
-  illustrative. They are simplified cartoons: real dress varies by region and community.
+- **Traditional dress**: the People section shows a cartoon man and woman in traditional dress: original characters in
+  a flat, chunky style (big eyes, open smiles, no outlines, one flat shade per shape) drawn in SVG from outfit building
+  blocks in `src/components/panel/dress/`. They blink, wave and jump when tapped. About 100 countries name specific,
+  widely documented garments in `src/data/costumes.ts`; every other country gets the style of its subregion, labelled
+  as illustrative. They are simplified cartoons: real dress varies by region and community.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
 - **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
   list and profile on floating cards (desktop); a list drawer and floating panel on tablets; a draggable bottom sheet on
