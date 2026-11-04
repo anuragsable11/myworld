@@ -68,11 +68,18 @@ src/components/panel/         Country profile and its sections
   drawn while it moves and full 1:50m detail once it stops; outlined clouds and an orbiting plane live on a separate
   canvas so they animate without redrawing the land. Countries use political-map colouring, so neighbours never share a
   colour. Selecting a country drops a flag pin on it; the dice button flies to a random country with a couple of spins.
+- **Live day and night**: the night side is shaded from the real subsolar point (a low-precision solar ephemeris in
+  `src/lib/sun.ts`), with civil, nautical and astronomical twilight bands, a sun where it is noon and a moon where it is
+  midnight. It refreshes every minute and works on both the globe and the map; toggle it with the moon button or `N`.
+- **Traditional dress**: the People section shows a cartoon man and woman in traditional dress, drawn in SVG from
+  outfit building blocks (`src/components/panel/TraditionalDress.tsx`). About 100 countries name specific, widely
+  documented garments in `src/data/costumes.ts`; every other country gets the style of its subregion, labelled as
+  illustrative. They are simplified cartoons: real dress varies by region and community.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
 - **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
   list and profile on floating cards (desktop); a list drawer and floating panel on tablets; a draggable bottom sheet on
   phones. Animations respect `prefers-reduced-motion`.
-- **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `Esc`
+- **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `N` toggles day and night, `Esc`
   closes the profile.
 
 ## Regenerating the geographic data

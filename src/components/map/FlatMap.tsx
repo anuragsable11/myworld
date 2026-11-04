@@ -8,6 +8,8 @@ import 'd3-transition';
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
 import polylabel from 'polylabel';
 import { colorSlotFor, type Focus } from '../../lib/geo';
+import { antipode, nightBands, NIGHT_COLOR, subsolarPoint } from '../../lib/sun';
+import { useMinute } from '../../hooks/useMinute';
 import type { MapHandle, MapViewProps } from './types';
 
 // A fixed projection in a 1000-unit viewBox: paths are computed once and the SVG scales to fit.
@@ -44,6 +46,52 @@ function labelFor(id: string, focus: Focus): Label | null {
   return { id, x, y, w: x1 - x0, h: y1 - y0 };
 }
 
+/** Cartoon sun (where it is noon) and crescent moon (where it is midnight), drawn around the origin. */
+function SunIcon() {
+  return (
+    <g>
+      {Array.from({ length: 8 }, (_, i) => (
+        <line
+          key={i}
+          x1={Math.cos((i * Math.PI) / 4) * 11}
+          y1={Math.sin((i * Math.PI) / 4) * 11}
+          x2={Math.cos((i * Math.PI) / 4) * 15}
+          y2={Math.sin((i * Math.PI) / 4) * 15}
+          stroke="#1e1b4b"
+          strokeWidth={4}
+          strokeLinecap="round"
+        />
+      ))}
+      {Array.from({ length: 8 }, (_, i) => (
+        <line
+          key={i}
+          x1={Math.cos((i * Math.PI) / 4) * 11}
+          y1={Math.sin((i * Math.PI) / 4) * 11}
+          x2={Math.cos((i * Math.PI) / 4) * 15}
+          y2={Math.sin((i * Math.PI) / 4) * 15}
+          stroke="#ffd23f"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+        />
+      ))}
+      <circle r={8} fill="#ffd23f" stroke="#1e1b4b" strokeWidth={2} />
+    </g>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <path
+      d="M4.2 7.96 A9 9 0 1 1 4.2 -7.96 A8 8 0 0 0 4.2 7.96 Z"
+      transform="rotate(-28.6)"
+      fill="#fff3b0"
+      stroke="#1e1b4b"
+      strokeWidth={2}
+      strokeLinejoin="round"
+    />
+  );
+}
+
 const polygon = (coordinates: MultiPolygon['coordinates'][number]): Feature<MultiPolygon> => ({
   type: 'Feature',
   properties: {},
@@ -51,12 +99,13 @@ const polygon = (coordinates: MultiPolygon['coordinates'][number]): Feature<Mult
 });
 
 export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(props, ref) {
-  const { world, markers, names, selectedId, neighborIds, activeIds, onSelect, onHover } = props;
+  const { world, markers, names, selectedId, neighborIds, activeIds, showNight, onSelect, onHover } = props;
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomLayerRef = useRef<SVGGElement>(null);
   const labelsRef = useRef<SVGGElement>(null);
   const markersRef = useRef<SVGGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const celestialRef = useRef<SVGGElement>(null);
   const transformRef = useRef<ZoomTransform>(zoomIdentity);
   const pxPerUnitRef = useRef(1);
   const sizeRef = useRef({ w: 0, h: 0 });
@@ -95,6 +144,19 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
     [markers, world],
   );
 
+  // Live day/night: twilight bands around the midnight point, refreshed every minute.
+  const minute = useMinute(showNight);
+  const night = useMemo(() => {
+    if (!showNight) return null;
+    const date = new Date(minute * 60_000);
+    const sun = subsolarPoint(date);
+    return {
+      bands: nightBands(date).map((b) => ({ d: path(b.feature) ?? '', alpha: b.alpha })),
+      sun: projection(sun),
+      moon: projection(antipode(sun)),
+    };
+  }, [showNight, minute]);
+
   /** Where the selection pin stands: the label point of the main landmass, or the marker. */
   const anchorPoint = useMemo(() => {
     if (!selectedId) return null;
@@ -122,6 +184,9 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
     const r = String(MARKER_PX / z);
     for (const el of (markersRef.current?.children ?? []) as HTMLCollectionOf<SVGCircleElement>) {
       el.setAttribute('r', r);
+    }
+    for (const el of (celestialRef.current?.children ?? []) as HTMLCollectionOf<SVGGElement>) {
+      el.setAttribute('transform', `translate(${el.dataset.x} ${el.dataset.y}) scale(${1 / z})`);
     }
     const pin = propsRef.current.pinRef.current;
     const anchor = anchorRef.current;
@@ -201,7 +266,7 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
     };
   }, [applyZoomStyles, initialTransform]);
 
-  useEffect(applyZoomStyles, [applyZoomStyles, layers, markerPoints, selectedId, anchorPoint]);
+  useEffect(applyZoomStyles, [applyZoomStyles, layers, markerPoints, selectedId, anchorPoint, night]);
 
   const animateTo = useCallback((t: ZoomTransform) => {
     const svg = svgRef.current;
@@ -299,6 +364,7 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
     return (
       <g pointerEvents="none">
         <path d={d} fill="none" stroke="#ffffff" strokeWidth={7} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        <path d={d} fill="var(--map-selected)" />
         <path d={d} className="map-selected-outline" vectorEffect="non-scaling-stroke" />
       </g>
     );
@@ -328,6 +394,13 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
         {countryLayer}
         <path d={layers.coast} className="map-coast" vectorEffect="non-scaling-stroke" />
         <path d={layers.borders} className="map-borders" vectorEffect="non-scaling-stroke" />
+        {night && (
+          <g pointerEvents="none">
+            {night.bands.map((b, i) => (
+              <path key={i} d={b.d} fill={`rgba(${NIGHT_COLOR}, ${b.alpha})`} />
+            ))}
+          </g>
+        )}
         {selectedOutline}
         <g ref={markersRef}>
           {markerPoints.map((m) => (
@@ -349,6 +422,20 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
             />
           ))}
         </g>
+        {night && (
+          <g ref={celestialRef} pointerEvents="none">
+            {night.sun && (
+              <g data-x={night.sun[0]} data-y={night.sun[1]}>
+                <SunIcon />
+              </g>
+            )}
+            {night.moon && (
+              <g data-x={night.moon[0]} data-y={night.moon[1]}>
+                <MoonIcon />
+              </g>
+            )}
+          </g>
+        )}
         <g ref={labelsRef} className="map-labels">
           {layers.labels.map((l) => (
             <text

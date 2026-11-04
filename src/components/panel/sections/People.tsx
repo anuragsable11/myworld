@@ -1,13 +1,18 @@
 import { BarList, ExpandableText, Fact, FactGrid, Missing, Skeleton, SubHeading } from '../../ui/primitives';
 import type { CountryDetails } from '../details';
 import { Section } from '../Section';
+import { TraditionalDress } from '../TraditionalDress';
 
-export function People({ factbook }: CountryDetails) {
+export function People({ country, factbook }: CountryDetails) {
   const fb = factbook.data;
   const loading = factbook.loading;
 
   return (
-    <Section tone="pink" order={4} id="people" title="People & society" emoji="👥" source="CIA World Factbook">
+    <Section tone="pink" order={4} id="people" title="People & society" emoji="👥" source="CIA World Factbook (facts); cartoon illustrations are simplified">
+      <SubHeading>Traditional dress</SubHeading>
+      <TraditionalDress country={country} />
+
+      <div className="mt-5" />
       <FactGrid>
         <Fact label="Median age" loading={loading}>
           {fb?.medianAge}

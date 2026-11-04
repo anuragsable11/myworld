@@ -127,6 +127,7 @@ export function WelcomePanel({
           {[
             ['/', 'Search countries'],
             ['G', 'Switch globe and map'],
+            ['N', 'Live day & night'],
             ['Esc', 'Close the profile'],
           ].map(([key, label]) => (
             <li key={key} className="flex items-center justify-between">

@@ -3,6 +3,7 @@ import { geoContains, geoDistance, geoGraticule10, geoOrthographic, geoPath, typ
 import { easeBackOut, easeCubicInOut } from 'd3-ease';
 import { interpolate } from 'd3-interpolate';
 import { boundsContain, colorSlotFor, type LowDetail, type Shape, type World } from '../../lib/geo';
+import { antipode, nightBands, NIGHT_COLOR, subsolarPoint } from '../../lib/sun';
 import type { FocusOptions, MapHandle, MapViewProps } from './types';
 
 const SPHERE: GeoSphere = { type: 'Sphere' };
@@ -92,6 +93,61 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
   ctx.restore();
 }
 
+/** Cartoon sun marking where the sun is directly overhead right now. */
+function drawSunIcon(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 4;
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 11, Math.sin(a) * 11);
+    ctx.lineTo(Math.cos(a) * 15, Math.sin(a) * 15);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#ffd23f';
+  ctx.lineWidth = 1.8;
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 11, Math.sin(a) * 11);
+    ctx.lineTo(Math.cos(a) * 15, Math.sin(a) * 15);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(0, 0, 8, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffd23f';
+  ctx.fill();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Cartoon crescent moon marking where it is midnight right now. */
+function drawMoonIcon(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(-0.5);
+  // Outer disc r=9 at the origin minus a disc r=8 at (5, 0). The circles cross at (4.2, ±7.96):
+  // 62.2° on the outer circle and 95.7° on the inner one.
+  const outer = (62.2 * Math.PI) / 180;
+  const inner = (95.7 * Math.PI) / 180;
+  ctx.beginPath();
+  ctx.arc(0, 0, 9, outer, Math.PI * 2 - outer);
+  ctx.arc(5, 0, 8, Math.PI * 2 - inner, inner, true);
+  ctx.closePath();
+  ctx.fillStyle = '#fff3b0';
+  ctx.fill();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.restore();
+}
+
 interface Animation {
   from: { rotate: [number, number, number]; scale: number };
   to: { rotate: [number, number, number]; scale: number };
@@ -123,6 +179,8 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     planeAngle: 0.6,
     introStarted: false,
     waves: null as { world: World; points: [number, number][] } | null,
+    /** Day/night shading for the current minute. */
+    night: null as { minute: number; bands: ReturnType<typeof nightBands>; sun: [number, number] } | null,
     hoverId: null as string | null,
     pointer: null as { x: number; y: number } | null,
     pointers: new Map<number, { x: number; y: number }>(),
@@ -266,7 +324,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     };
 
     const draw = (full: boolean) => {
-      const { world, markers, selectedId, neighborIds, activeIds } = propsRef.current;
+      const { world, markers, selectedId, neighborIds, activeIds, showNight } = propsRef.current;
       const geometry = full ? world : world.lowDetail;
       configure();
       const path = geoPath(projection, ctx);
@@ -359,6 +417,18 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
+      // Live night side (under the hover and selection, so those stay bright): nested twilight caps around the point where it is midnight.
+      if (showNight) {
+        const minute = Math.floor(Date.now() / 60_000);
+        if (s.night?.minute !== minute) s.night = { minute, bands: nightBands(), sun: subsolarPoint() };
+        for (const band of s.night.bands) {
+          ctx.beginPath();
+          path(band.feature);
+          ctx.fillStyle = `rgba(${NIGHT_COLOR}, ${band.alpha})`;
+          ctx.fill();
+        }
+      }
+
       if (s.hoverId && s.hoverId !== selectedId) {
         ctx.beginPath();
         for (const shape of geometry.shapes) if (shape.id === s.hoverId) path(shape.feature);
@@ -404,11 +474,13 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.clip();
-      ctx.beginPath();
-      ctx.rect(cx - r - 2, cy - r - 2, r * 2 + 4, r * 2 + 4);
-      ctx.arc(cx - r * 0.14, cy - r * 0.16, r * 1.02, 0, Math.PI * 2, true);
-      ctx.fillStyle = 'rgba(30, 27, 75, 0.14)';
-      ctx.fill('evenodd');
+      if (!showNight) {
+        ctx.beginPath();
+        ctx.rect(cx - r - 2, cy - r - 2, r * 2 + 4, r * 2 + 4);
+        ctx.arc(cx - r * 0.14, cy - r * 0.16, r * 1.02, 0, Math.PI * 2, true);
+        ctx.fillStyle = 'rgba(30, 27, 75, 0.14)';
+        ctx.fill('evenodd');
+      }
       // The gloss only makes sense while the whole ball is in view.
       ctx.fillStyle = `rgba(255, 255, 255, ${0.75 * Math.max(0, Math.min(1, 1.7 - 0.7 * s.scale))})`;
       ctx.beginPath();
@@ -424,6 +496,18 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       ctx.strokeStyle = INK;
       ctx.lineWidth = 3.5;
       ctx.stroke();
+
+      // Where it is noon (sun) and midnight (moon) right now, when on the visible side.
+      if (showNight && s.night) {
+        for (const [point, icon] of [
+          [s.night.sun, drawSunIcon],
+          [antipode(s.night.sun), drawMoonIcon],
+        ] as const) {
+          if (geoDistance(point, center) > Math.PI / 2 - 0.08) continue;
+          const p = projection(point);
+          if (p) icon(ctx, p[0], p[1]);
+        }
+      }
 
       placePin();
     };
@@ -478,6 +562,19 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         sctx.globalAlpha = opacity;
         sctx.drawImage(cloudBuffer, 0, 0, s.width, s.height);
         sctx.globalAlpha = 1;
+      }
+      // Darken the clouds that sit on the night side ('source-atop' only paints over cloud pixels).
+      if (propsRef.current.showNight && s.night) {
+        const nightPath = geoPath(projection, sctx);
+        sctx.save();
+        sctx.globalCompositeOperation = 'source-atop';
+        for (const band of s.night.bands) {
+          sctx.beginPath();
+          nightPath(band.feature);
+          sctx.fillStyle = `rgba(${NIGHT_COLOR}, ${band.alpha * 1.5})`;
+          sctx.fill();
+        }
+        sctx.restore();
       }
 
       // A little plane on a tilted orbit; it passes behind the globe on the far side.
@@ -561,6 +658,9 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         propsRef.current.onHover(hit ? { ...hit, x: s.pointer.x, y: s.pointer.y } : null);
         s.pointer = null;
       }
+
+      // The terminator moves a quarter of a degree a minute; refresh it once per minute.
+      if (propsRef.current.showNight && s.night && s.night.minute !== Math.floor(Date.now() / 60_000)) s.dirty = true;
 
       // Simplified geometry while moving; one full-detail frame once the view is still.
       const resting = now - s.lastMotion > 160;
@@ -675,10 +775,10 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
   }, []);
 
   // Redraw when anything visual changes (including a freshly mounted pin that needs placing).
-  const { selectedId, neighborIds, activeIds, world, markers, insets } = props;
+  const { selectedId, neighborIds, activeIds, world, markers, insets, showNight } = props;
   useEffect(() => {
     state.current.dirty = true;
-  }, [selectedId, neighborIds, activeIds, world, markers, insets]);
+  }, [selectedId, neighborIds, activeIds, world, markers, insets, showNight]);
 
   return (
     <div className="relative h-full w-full animate-fade-in">

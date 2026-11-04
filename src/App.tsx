@@ -12,6 +12,7 @@ import { WelcomePanel } from './components/panel/WelcomePanel';
 import { Sidebar, type Scope } from './components/sidebar/Sidebar';
 
 const VIEW_KEY = 'atlas:view';
+const NIGHT_KEY = 'atlas:night';
 const GAP = 12;
 const TOP_BAR_PX = 68;
 const TABLET_PANEL_PX = 392;
@@ -21,6 +22,14 @@ function readView(): ViewMode {
     return localStorage.getItem(VIEW_KEY) === 'map' ? 'map' : 'globe';
   } catch {
     return 'globe';
+  }
+}
+
+function readNight(): boolean {
+  try {
+    return localStorage.getItem(NIGHT_KEY) !== 'off';
+  } catch {
+    return true;
   }
 }
 
@@ -38,6 +47,7 @@ export default function App() {
   const reducedMotion = usePrefersReducedMotion();
 
   const [view, setView] = useState<ViewMode>(readView);
+  const [showNight, setShowNight] = useState(readNight);
   const [region, setRegion] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -59,6 +69,17 @@ export default function App() {
     } catch {
       // Preference simply isn't remembered.
     }
+  }, []);
+
+  const toggleNight = useCallback(() => {
+    setShowNight((on) => {
+      try {
+        localStorage.setItem(NIGHT_KEY, on ? 'off' : 'on');
+      } catch {
+        // Preference simply isn't remembered.
+      }
+      return !on;
+    });
   }, []);
 
   const handleSelect = useCallback(
@@ -104,6 +125,8 @@ export default function App() {
         }
       } else if (e.key.toLowerCase() === 'g' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         changeView(view === 'map' ? 'globe' : 'map');
+      } else if (e.key.toLowerCase() === 'n' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        toggleNight();
       } else if (e.key === 'Escape' && !aboutOpen) {
         if (drawerOpen) setDrawerOpen(false);
         else if (selectedId && !isTyping(e.target)) select(null);
@@ -111,7 +134,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layout, view, changeView, drawerOpen, selectedId, select, aboutOpen]);
+  }, [layout, view, changeView, toggleNight, drawerOpen, selectedId, select, aboutOpen]);
 
   const activeIds = useMemo(
     () => (region && index ? new Set(index.sorted.filter((c) => c.region === region).map((c) => c.cca3)) : null),
@@ -176,6 +199,8 @@ export default function App() {
           view={view}
           reducedMotion={reducedMotion}
           compact={layout === 'mobile'}
+          showNight={showNight}
+          onToggleNight={toggleNight}
           onViewChange={changeView}
           onSelect={handleSelect}
           onSurprise={handleSurprise}

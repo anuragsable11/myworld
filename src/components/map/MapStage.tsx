@@ -29,6 +29,8 @@ interface MapStageProps {
   view: ViewMode;
   reducedMotion: boolean;
   compact: boolean;
+  showNight: boolean;
+  onToggleNight: () => void;
   onViewChange: (view: ViewMode) => void;
   onSelect: (id: string) => void;
   onSurprise: () => void;
@@ -50,6 +52,8 @@ export function MapStage({
   view,
   reducedMotion,
   compact,
+  showNight,
+  onToggleNight,
   onViewChange,
   onSelect,
   onSurprise,
@@ -119,6 +123,7 @@ export function MapStage({
           activeIds={activeIds}
           insets={insets}
           reducedMotion={reducedMotion}
+          showNight={showNight}
           pinRef={pinRef}
           onSelect={onSelect}
           onHover={handleHover}
@@ -186,6 +191,19 @@ export function MapStage({
       >
         <button
           type="button"
+          onClick={onToggleNight}
+          aria-pressed={showNight}
+          title={showNight ? 'Hide live day & night' : 'Show live day & night'}
+          aria-label="Live day and night"
+          className={clsx(
+            'toon toon-press grid size-12 place-items-center rounded-2xl text-[22px]',
+            showNight ? 'bg-indigo-300' : 'bg-white',
+          )}
+        >
+          <span aria-hidden>{showNight ? '🌙' : '☀️'}</span>
+        </button>
+        <button
+          type="button"
           onClick={onSurprise}
           disabled={!index}
           title="Surprise me!"
@@ -239,6 +257,12 @@ export function MapStage({
             <span className="size-3 rounded-full border-2 border-ink bg-[#80e4dc]" />
             Tiny states
           </span>
+          {showNight && (
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-5 rounded-full border-2 border-ink bg-[linear-gradient(90deg,#ffffff_0%,#ffffff_45%,#5b55a0_55%,#5b55a0_100%)]" />
+              Live night
+            </span>
+          )}
         </div>
       )}
     </div>

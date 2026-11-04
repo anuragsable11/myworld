@@ -40,6 +40,8 @@ export interface MapViewProps {
   /** Screen area covered by floating cards and sheets on each side, in CSS px. */
   insets: Insets;
   reducedMotion: boolean;
+  /** Shade the night side of the Earth for the current time. */
+  showNight: boolean;
   pinRef: RefObject<PinHandle | null>;
   onSelect: (id: string) => void;
   onHover: (info: HoverInfo | null) => void;
