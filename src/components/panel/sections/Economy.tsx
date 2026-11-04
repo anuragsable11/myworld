@@ -1,4 +1,3 @@
-import { TrendingUp } from 'lucide-react';
 import { formatPercent, formatUsd } from '../../../lib/format';
 import { ChipList, ExpandableText, Fact, FactGrid, Missing, Skeleton, SubHeading } from '../../ui/primitives';
 import type { CountryDetails } from '../details';
@@ -10,7 +9,7 @@ export function Economy({ country, factbook, worldBank }: CountryDetails) {
   const loading = factbook.loading || worldBank.loading;
 
   return (
-    <Section id="economy" title="Economy" icon={TrendingUp} source="World Bank (World Development Indicators), CIA World Factbook">
+    <Section tone="orange" order={5} id="economy" title="Economy" emoji="💰" source="World Bank (World Development Indicators), CIA World Factbook">
       <FactGrid>
         <Fact
           label="GDP (nominal)"
@@ -82,8 +81,8 @@ export function Economy({ country, factbook, worldBank }: CountryDetails) {
       {fb?.exports && (
         <>
           <SubHeading>Main exports</SubHeading>
-          <p className="text-[13.5px] leading-relaxed text-mist-200">{fb.exports}</p>
-          {fb.exportPartners && <p className="mt-1 text-[12px] text-mist-400">Partners: {fb.exportPartners}</p>}
+          <p className="text-[13.5px] leading-relaxed text-slate-700">{fb.exports}</p>
+          {fb.exportPartners && <p className="mt-1 text-[12px] text-slate-500">Partners: {fb.exportPartners}</p>}
         </>
       )}
 

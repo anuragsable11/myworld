@@ -1,4 +1,12 @@
+import type { RefObject } from 'react';
 import type { World } from '../../lib/geo';
+
+export interface Insets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
 
 export interface HoverInfo {
   id: string | null;
@@ -15,6 +23,12 @@ export interface MapMarker {
   lat: number;
 }
 
+/** The selection pin is a DOM overlay; map views move it to the selected country every frame it changes. */
+export interface PinHandle {
+  move: (x: number, y: number) => void;
+  hide: () => void;
+}
+
 export interface MapViewProps {
   world: World;
   markers: MapMarker[];
@@ -23,16 +37,22 @@ export interface MapViewProps {
   neighborIds: Set<string>;
   /** When set, countries outside this set are dimmed (region filter). */
   activeIds: Set<string> | null;
-  /** Screen area covered by overlays (floating panel, bottom sheet), in CSS px. */
-  insets: { right: number; bottom: number };
+  /** Screen area covered by floating cards and sheets on each side, in CSS px. */
+  insets: Insets;
   reducedMotion: boolean;
+  pinRef: RefObject<PinHandle | null>;
   onSelect: (id: string) => void;
   onHover: (info: HoverInfo | null) => void;
+}
+
+export interface FocusOptions {
+  /** Take a couple of extra turns on the way (used by "Surprise me"). */
+  spin?: boolean;
 }
 
 export interface MapHandle {
   zoomIn: () => void;
   zoomOut: () => void;
   reset: () => void;
-  focus: (id: string) => void;
+  focus: (id: string, options?: FocusOptions) => void;
 }

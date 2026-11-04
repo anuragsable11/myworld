@@ -1,29 +1,25 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
+import { TONES, type Tone } from './tones';
 
 export function Skeleton({ className }: { className?: string }) {
-  return <span aria-hidden className={clsx('skeleton block rounded-md', className ?? 'h-4 w-24')} />;
+  return <span aria-hidden className={clsx('skeleton block rounded-lg', className ?? 'h-4 w-24')} />;
 }
 
 export function Chip({
   children,
   onClick,
   title,
-  tone = 'default',
   leading,
 }: {
   children: ReactNode;
   onClick?: () => void;
   title?: string;
-  tone?: 'default' | 'accent';
   leading?: ReactNode;
 }) {
   const cls = clsx(
-    'inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px] leading-tight',
-    tone === 'accent'
-      ? 'border-brass-500/30 bg-brass-400/10 text-brass-200'
-      : 'border-white/[0.07] bg-white/[0.035] text-mist-200',
-    onClick && 'transition-colors hover:border-brass-400/40 hover:bg-brass-400/10 hover:text-brass-200',
+    'inline-flex max-w-full items-center gap-1.5 rounded-full border-2 border-ink bg-white px-2.5 py-0.5 text-[12.5px] font-bold leading-snug text-ink',
+    onClick && 'toon-sm toon-press-sm hover:bg-sun',
   );
   if (onClick) {
     return (
@@ -58,7 +54,7 @@ export function ChipList({ items, limit = 18 }: { items: string[]; limit?: numbe
         <button
           type="button"
           onClick={() => setAll((v) => !v)}
-          className="rounded-full px-2.5 py-1 text-[12.5px] text-brass-300 hover:text-brass-200"
+          className="rounded-full px-2.5 py-1 text-[12.5px] font-extrabold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
         >
           {all ? 'Show less' : `+${items.length - limit} more`}
         </button>
@@ -82,7 +78,7 @@ export function ExpandableText({ text, lines = 4 }: { text: string; lines?: numb
     <div>
       <p
         ref={ref}
-        className="whitespace-pre-line text-[13.5px] leading-relaxed text-mist-200"
+        className="whitespace-pre-line text-[14.5px] font-medium leading-relaxed text-slate-700"
         style={open ? undefined : { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines, overflow: 'hidden' }}
       >
         {text}
@@ -91,7 +87,7 @@ export function ExpandableText({ text, lines = 4 }: { text: string; lines?: numb
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-1 text-[12.5px] font-medium text-brass-300 hover:text-brass-200"
+          className="mt-1.5 text-[13px] font-extrabold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
         >
           {open ? 'Show less' : 'Read more'}
         </button>
@@ -101,7 +97,7 @@ export function ExpandableText({ text, lines = 4 }: { text: string; lines?: numb
 }
 
 export function Missing({ children = 'Not available' }: { children?: ReactNode }) {
-  return <span className="text-[13px] italic text-mist-500">{children}</span>;
+  return <span className="text-[13px] font-semibold italic text-slate-400">{children}</span>;
 }
 
 /** A labelled fact. `value === undefined` while `loading` shows a skeleton; otherwise "Not available". */
@@ -121,10 +117,10 @@ export function Fact({
   const empty = children === undefined || children === null || children === '' || children === false;
   return (
     <div className={clsx('min-w-0', wide && 'col-span-full')}>
-      <dt className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-mist-500">{label}</dt>
-      <dd className="text-[14px] leading-snug text-mist-100">
+      <dt className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-indigo-400">{label}</dt>
+      <dd className="text-[15px] font-bold leading-snug text-ink">
         {empty ? loading ? <Skeleton className="h-4 w-3/4 max-w-40" /> : <Missing /> : children}
-        {!empty && hint && <div className="mt-0.5 text-[12px] leading-snug text-mist-400">{hint}</div>}
+        {!empty && hint && <div className="mt-0.5 text-[12.5px] font-semibold leading-snug text-slate-500">{hint}</div>}
       </dd>
     </div>
   );
@@ -137,43 +133,45 @@ export function FactGrid({ children }: { children: ReactNode }) {
 export function SubHeading({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
     <div className="mb-2.5 mt-6 flex items-baseline justify-between gap-3 first:mt-0">
-      <h4 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-mist-400">{children}</h4>
-      {aside && <span className="text-[11.5px] text-mist-500">{aside}</span>}
+      <h4 className="font-display text-[15px] font-semibold text-ink">{children}</h4>
+      {aside && <span className="text-[11.5px] font-bold text-slate-400">{aside}</span>}
     </div>
   );
 }
 
-/** Horizontal bars for shares and rankings (religions, cities, rivers). */
+/** Chunky outlined bars for shares and rankings (religions, cities, rivers). */
 export function BarList({
   items,
   format,
   max,
+  tone = 'indigo',
 }: {
   items: { key: string; label: ReactNode; value: number; detail?: ReactNode; highlight?: boolean }[];
   format: (v: number) => string;
   max?: number;
+  tone?: Tone;
 }) {
   const top = max ?? Math.max(...items.map((i) => i.value), 1);
   return (
-    <ul className="space-y-2.5">
+    <ul className="space-y-3">
       {items.map((item) => (
         <li key={item.key} className="min-w-0">
-          <div className="flex items-baseline justify-between gap-3 text-[13.5px]">
-            <span
-              title={typeof item.label === 'string' ? item.label : undefined}
-              className={clsx('min-w-0 truncate', item.highlight ? 'text-brass-200' : 'text-mist-100')}
-            >
+          <div className="flex items-baseline justify-between gap-3 text-[14px]">
+            <span title={typeof item.label === 'string' ? item.label : undefined} className="min-w-0 truncate font-bold text-ink">
               {item.label}
             </span>
-            <span className="tabular shrink-0 text-[12.5px] text-mist-300">{format(item.value)}</span>
+            <span className="tabular shrink-0 text-[12.5px] font-extrabold text-slate-500">{format(item.value)}</span>
           </div>
-          <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[0.05]">
+          <div className="mt-1.5 h-3 overflow-hidden rounded-full border-2 border-ink bg-white">
             <div
-              className={clsx('h-full rounded-full', item.highlight ? 'bg-brass-400' : 'bg-brass-400/55')}
-              style={{ width: `${Math.max(2, (item.value / top) * 100)}%` }}
+              className={clsx(
+                'h-full origin-left animate-grow rounded-full border-r-2 border-ink',
+                item.highlight ? 'bg-sun' : TONES[tone].bar,
+              )}
+              style={{ width: `${Math.max(4, (item.value / top) * 100)}%` }}
             />
           </div>
-          {item.detail && <div className="mt-1 text-[11.5px] leading-snug text-mist-500">{item.detail}</div>}
+          {item.detail && <div className="mt-1 text-[12px] font-semibold leading-snug text-slate-400">{item.detail}</div>}
         </li>
       ))}
     </ul>

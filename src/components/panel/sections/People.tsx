@@ -1,4 +1,3 @@
-import { Users } from 'lucide-react';
 import { BarList, ExpandableText, Fact, FactGrid, Missing, Skeleton, SubHeading } from '../../ui/primitives';
 import type { CountryDetails } from '../details';
 import { Section } from '../Section';
@@ -8,7 +7,7 @@ export function People({ factbook }: CountryDetails) {
   const loading = factbook.loading;
 
   return (
-    <Section id="people" title="People & society" icon={Users} source="CIA World Factbook">
+    <Section tone="pink" order={4} id="people" title="People & society" emoji="👥" source="CIA World Factbook">
       <FactGrid>
         <Fact label="Median age" loading={loading}>
           {fb?.medianAge}
@@ -30,6 +29,7 @@ export function People({ factbook }: CountryDetails) {
       ) : fb?.religions.length ? (
         <BarList
           max={100}
+          tone="pink"
           items={fb.religions.slice(0, 7).map((r) => ({ key: r.name, label: r.name, value: r.value ?? 0, detail: r.detail }))}
           format={(v) => `${v}%`}
         />

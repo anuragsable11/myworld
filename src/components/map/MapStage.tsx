@@ -1,12 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import clsx from 'clsx';
-import { Globe2, Loader2, Map as MapIcon, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Loader2, Minus, Plus, RotateCcw } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
 import type { World } from '../../lib/geo';
+import { CartoonSky } from './CartoonSky';
 import { FlatMap } from './FlatMap';
 import { GlobeView } from './GlobeView';
+import { MapPin } from './MapPin';
 import { MapTooltip, type TooltipHandle } from './MapTooltip';
-import type { HoverInfo, MapHandle, MapMarker } from './types';
+import type { HoverInfo, Insets, MapHandle, MapMarker, PinHandle } from './types';
 
 export type ViewMode = 'map' | 'globe';
 
@@ -23,11 +25,15 @@ interface MapStageProps {
   index: CountryIndex | undefined;
   selectedId: string | null;
   activeIds: Set<string> | null;
-  insets: { right: number; bottom: number };
+  insets: Insets;
   view: ViewMode;
   reducedMotion: boolean;
+  compact: boolean;
   onViewChange: (view: ViewMode) => void;
   onSelect: (id: string) => void;
+  onSurprise: () => void;
+  /** The country picked by "Surprise me"; the globe takes a few extra turns on the way there. */
+  spinFor: string | null;
   showLegend: boolean;
   /** Changing this re-centres the map on the selection ("Show on map"). */
   locateKey: number;
@@ -43,13 +49,17 @@ export function MapStage({
   insets,
   view,
   reducedMotion,
+  compact,
   onViewChange,
   onSelect,
+  onSurprise,
+  spinFor,
   showLegend,
   locateKey,
 }: MapStageProps) {
   const mapRef = useRef<MapHandle>(null);
   const tooltipRef = useRef<TooltipHandle>(null);
+  const pinRef = useRef<PinHandle>(null);
 
   const names = useMemo(() => {
     const out = new Map<string, string>();
@@ -76,8 +86,8 @@ export function MapStage({
   }, [index, selectedId]);
 
   useEffect(() => {
-    if (selectedId && world) mapRef.current?.focus(selectedId);
-  }, [selectedId, view, world, index, locateKey]);
+    if (selectedId && world) mapRef.current?.focus(selectedId, { spin: spinFor === selectedId });
+  }, [selectedId, view, world, index, locateKey, spinFor]);
 
   // Closing a profile returns to the world view.
   const previousId = useRef(selectedId);
@@ -88,10 +98,15 @@ export function MapStage({
 
   const handleHover = useCallback((info: HoverInfo | null) => tooltipRef.current?.update(info), []);
 
+  const selected = selectedId ? index?.byId.get(selectedId) : undefined;
   const MapView = view === 'globe' ? MemoGlobeView : MemoFlatMap;
+  // Controls sit inside the area the floating cards leave uncovered.
+  const area = { left: insets.left + 12, right: insets.right + 12, top: insets.top + 12, bottom: insets.bottom + 16 };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[radial-gradient(ellipse_at_50%_40%,#0d1422_0%,#06090f_70%)]">
+    <div className="relative h-full w-full overflow-hidden">
+      <CartoonSky insets={insets} compact={compact} />
+
       {world ? (
         <MapView
           ref={mapRef}
@@ -104,101 +119,128 @@ export function MapStage({
           activeIds={activeIds}
           insets={insets}
           reducedMotion={reducedMotion}
+          pinRef={pinRef}
           onSelect={onSelect}
           onHover={handleHover}
         />
       ) : (
-        <div className="absolute inset-0 grid place-items-center">
+        <div className="absolute grid place-items-center" style={area}>
           {worldError ? (
-            <div className="text-center">
-              <p className="text-sm text-mist-300">The world map could not be loaded.</p>
+            <div className="toon rounded-3xl bg-white px-6 py-5 text-center">
+              <p className="text-sm font-bold text-ink">Oops! The world map could not be loaded. 🙈</p>
               <button
                 type="button"
                 onClick={onRetry}
-                className="mt-3 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-mist-100 hover:bg-white/5"
+                className="toon-sm toon-press-sm mt-3 rounded-full bg-sun px-4 py-1.5 text-sm font-extrabold text-ink"
               >
                 Try again
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 text-sm text-mist-400">
-              <Loader2 className="size-4 animate-spin text-brass-400" />
-              Drawing the world…
+            <div className="toon flex items-center gap-2.5 rounded-full bg-white px-4 py-2 text-sm font-extrabold text-ink">
+              <Loader2 className="size-4 animate-spin" />
+              Painting the world… 🎨
             </div>
           )}
         </div>
       )}
 
+      {selected && <MapPin key={selected.cca3} ref={pinRef} country={selected} />}
       <MapTooltip ref={tooltipRef} byId={index?.byId} />
 
-      {/* View switch */}
-      <div className="absolute left-3 top-3 z-10 flex rounded-xl border border-white/[0.08] bg-ink-900/80 p-1 shadow-lg shadow-black/30 backdrop-blur-md">
-        {(
-          [
-            ['map', 'Map', MapIcon],
-            ['globe', 'Globe', Globe2],
-          ] as const
-        ).map(([mode, label, Icon]) => (
-          <button
-            key={mode}
-            type="button"
-            aria-pressed={view === mode}
-            onClick={() => onViewChange(mode)}
-            className={clsx(
-              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors',
-              view === mode ? 'bg-brass-400/15 text-brass-200' : 'text-mist-400 hover:text-mist-100',
-            )}
-          >
-            <Icon className="size-3.5" />
-            {label}
-          </button>
-        ))}
+      {/* View switch, centred over the uncovered area */}
+      <div
+        className="pointer-events-none absolute z-10 flex justify-center transition-[left,right,top] duration-500"
+        style={{ left: area.left, right: area.right, top: area.top }}
+      >
+        <div className="toon pointer-events-auto flex gap-1 rounded-full bg-white p-1">
+          {(
+            [
+              ['globe', 'Globe', '🌍'],
+              ['map', 'Map', '🗺️'],
+            ] as const
+          ).map(([mode, label, emoji]) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={view === mode}
+              onClick={() => onViewChange(mode)}
+              className={clsx(
+                'flex items-center gap-1.5 rounded-full border-2 px-4 py-1 font-display text-[14px] font-semibold transition-all duration-300',
+                view === mode ? 'border-ink bg-sun text-ink' : 'border-transparent text-slate-500 hover:bg-indigo-50 hover:text-ink',
+              )}
+            >
+              <span aria-hidden className="text-[16px]">
+                {emoji}
+              </span>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Zoom controls */}
+      {/* Surprise + zoom controls */}
       <div
-        className="absolute bottom-4 z-10 flex flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-ink-900/80 shadow-lg shadow-black/30 backdrop-blur-md transition-[right,bottom] duration-300"
-        style={{ right: insets.right + 12, bottom: insets.bottom + 16 }}
+        className="absolute z-10 flex flex-col items-center gap-3 transition-[right,bottom] duration-500"
+        style={{ right: area.right, bottom: area.bottom }}
       >
-        {(
-          [
-            ['Zoom in', Plus, () => mapRef.current?.zoomIn()],
-            ['Zoom out', Minus, () => mapRef.current?.zoomOut()],
-            ['Reset view', RotateCcw, () => mapRef.current?.reset()],
-          ] as const
-        ).map(([label, Icon, action]) => (
-          <button
-            key={label}
-            type="button"
-            title={label}
-            aria-label={label}
-            onClick={action}
-            className="grid size-9 place-items-center text-mist-300 transition-colors hover:bg-white/[0.06] hover:text-mist-50 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-white/[0.06]"
-          >
-            <Icon className="size-4" />
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={onSurprise}
+          disabled={!index}
+          title="Surprise me!"
+          aria-label="Surprise me: fly to a random country"
+          className="toon toon-press group grid size-12 place-items-center rounded-2xl bg-sun text-[24px] disabled:opacity-50"
+        >
+          <span aria-hidden className="transition-transform duration-500 group-hover:rotate-[360deg]">
+            🎲
+          </span>
+        </button>
+        <div className="toon flex flex-col overflow-hidden rounded-2xl bg-white">
+          {(
+            [
+              ['Zoom in', Plus, () => mapRef.current?.zoomIn()],
+              ['Zoom out', Minus, () => mapRef.current?.zoomOut()],
+              ['Reset view', RotateCcw, () => mapRef.current?.reset()],
+            ] as const
+          ).map(([label, Icon, action]) => (
+            <button
+              key={label}
+              type="button"
+              title={label}
+              aria-label={label}
+              onClick={action}
+              className="grid size-10 place-items-center text-ink transition-colors hover:bg-sun active:bg-amber-300 [&:not(:last-child)]:border-b-2 [&:not(:last-child)]:border-ink"
+            >
+              <Icon className="size-[18px]" strokeWidth={2.8} />
+            </button>
+          ))}
+        </div>
       </div>
 
       {showLegend && (
-        <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex items-center gap-4 rounded-xl border border-white/[0.06] bg-ink-900/70 px-3 py-2 text-[11.5px] text-mist-400 backdrop-blur-md">
-          <LegendSwatch className="bg-brass-400">Selected</LegendSwatch>
-          <LegendSwatch className="bg-[#3a3426]">Neighbours</LegendSwatch>
+        <div
+          className="toon pointer-events-none absolute z-10 flex items-center gap-4 rounded-full bg-white px-4 py-1.5 text-[12px] font-bold text-ink"
+          style={{ left: area.left, bottom: area.bottom }}
+        >
           <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full border border-mist-400 bg-ink-950" />
-            Small states
+            <span aria-hidden>📍</span>
+            Selected
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="flex h-3 w-5 overflow-hidden rounded-full border-2 border-ink">
+              <span className="flex-1 bg-[#7ee2a8]" />
+              <span className="flex-1 bg-[#ff9f9f]" />
+              <span className="flex-1 bg-[#c3b1ff]" />
+            </span>
+            One colour per country
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-3 rounded-full border-2 border-ink bg-[#80e4dc]" />
+            Tiny states
           </span>
         </div>
       )}
     </div>
-  );
-}
-
-function LegendSwatch({ className, children }: { className: string; children: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={clsx('h-2 w-3 rounded-[2px]', className)} />
-      {children}
-    </span>
   );
 }

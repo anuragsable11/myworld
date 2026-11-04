@@ -1,34 +1,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCountryIndex, useWorld } from './hooks/queries';
-import { useLayout, usePrefersReducedMotion } from './hooks/useMediaQuery';
+import { isSovereign, useCountryIndex, useWorld } from './hooks/queries';
+import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMediaQuery';
 import { useSelection } from './hooks/useSelection';
 import { AboutDialog } from './components/layout/AboutDialog';
-import { Header } from './components/layout/Header';
+import { Brand, InfoButton, TopBar } from './components/layout/Header';
 import { BottomSheet, Drawer, SHEET_PEEK_PX } from './components/layout/Overlays';
 import { MapStage, type ViewMode } from './components/map/MapStage';
+import type { Insets } from './components/map/types';
 import { CountryPanel } from './components/panel/CountryPanel';
 import { WelcomePanel } from './components/panel/WelcomePanel';
 import { Sidebar, type Scope } from './components/sidebar/Sidebar';
 
 const VIEW_KEY = 'atlas:view';
+const GAP = 12;
+const TOP_BAR_PX = 68;
 const TABLET_PANEL_PX = 392;
 
 function readView(): ViewMode {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'globe' ? 'globe' : 'map';
+    return localStorage.getItem(VIEW_KEY) === 'map' ? 'map' : 'globe';
   } catch {
-    return 'map';
+    return 'globe';
   }
 }
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 
+const card = 'toon-lg overflow-hidden rounded-[30px]';
+
 export default function App() {
   const countries = useCountryIndex();
   const world = useWorld();
   const [selectedId, select] = useSelection();
   const layout = useLayout();
+  const wide = useMediaQuery('(min-width: 1360px)');
   const reducedMotion = usePrefersReducedMotion();
 
   const [view, setView] = useState<ViewMode>(readView);
@@ -38,10 +44,13 @@ export default function App() {
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [locateNonce, setLocateNonce] = useState(0);
+  const [spinFor, setSpinFor] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const index = countries.data;
   const selected = selectedId ? index?.byId.get(selectedId) : undefined;
+  const sidebarPx = wide ? 320 : 292;
+  const panelPx = wide ? 420 : 380;
 
   const changeView = useCallback((next: ViewMode) => {
     setView(next);
@@ -61,6 +70,14 @@ export default function App() {
     [select],
   );
   const handleClose = useCallback(() => select(null), [select]);
+  /** Flies to a random sovereign state, with the globe taking a couple of extra spins on the way. */
+  const handleSurprise = useCallback(() => {
+    const pool = index?.sorted.filter((c) => isSovereign(c) && c.cca3 !== selectedId) ?? [];
+    if (!pool.length) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)].cca3;
+    setSpinFor(pick);
+    handleSelect(pick);
+  }, [index, selectedId, handleSelect]);
   const handleLocate = useCallback(() => {
     setSheetExpanded(false);
     setLocateNonce((n) => n + 1);
@@ -101,11 +118,13 @@ export default function App() {
     [region, index],
   );
 
-  const insets = useMemo(() => {
-    if (!selectedId || layout === 'desktop') return { right: 0, bottom: 0 };
-    if (layout === 'tablet') return { right: TABLET_PANEL_PX + 16, bottom: 0 };
-    return { right: 0, bottom: SHEET_PEEK_PX };
-  }, [selectedId, layout]);
+  // The map fills the screen; these are the parts covered by floating cards.
+  const insets = useMemo<Insets>(() => {
+    // Cards carry a 6px hard shadow, so leave room for it too.
+    if (layout === 'desktop') return { top: 0, bottom: 0, left: sidebarPx + GAP + 6, right: panelPx + GAP + 10 };
+    if (layout === 'tablet') return { top: TOP_BAR_PX, bottom: 0, left: 0, right: selectedId ? TABLET_PANEL_PX + GAP : 0 };
+    return { top: TOP_BAR_PX, bottom: selectedId ? SHEET_PEEK_PX : 0, left: 0, right: 0 };
+  }, [layout, selectedId, sidebarPx, panelPx]);
 
   const sidebar = (
     <Sidebar
@@ -121,6 +140,12 @@ export default function App() {
       onScopeChange={setScope}
       searchRef={searchRef}
       autoFocus={drawerOpen}
+      header={
+        <div className="flex items-center justify-between pb-1">
+          <Brand />
+          <InfoButton onClick={() => setAboutOpen(true)} />
+        </div>
+      }
     />
   );
 
@@ -137,56 +162,60 @@ export default function App() {
     ) : null;
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
-      <Header
-        provider={index?.provider}
-        showSearchButton={layout !== 'desktop'}
-        onOpenSearch={() => setDrawerOpen(true)}
-        onOpenAbout={() => setAboutOpen(true)}
-      />
+    <div className="relative h-dvh overflow-hidden">
+      <main className="absolute inset-0">
+        <MapStage
+          locateKey={locateNonce}
+          world={world.data}
+          worldError={world.isError}
+          onRetry={() => world.refetch()}
+          index={index}
+          selectedId={selectedId}
+          activeIds={activeIds}
+          insets={insets}
+          view={view}
+          reducedMotion={reducedMotion}
+          compact={layout === 'mobile'}
+          onViewChange={changeView}
+          onSelect={handleSelect}
+          onSurprise={handleSurprise}
+          spinFor={spinFor}
+          showLegend={layout === 'desktop'}
+        />
+      </main>
 
-      <div className="relative flex min-h-0 flex-1">
-        {layout === 'desktop' ? (
-          <aside className="w-[300px] shrink-0 border-r border-white/[0.06] bg-ink-900 2xl:w-[320px]">{sidebar}</aside>
-        ) : (
+      {layout === 'desktop' ? (
+        <>
+          <aside
+            className={`${card} absolute bottom-4 left-3 top-3 z-20 animate-rise bg-white`}
+            style={{ width: sidebarPx }}
+          >
+            {sidebar}
+          </aside>
+          <aside
+            className={`${card} absolute bottom-4 right-4 top-3 z-20 animate-rise bg-paper [animation-delay:90ms]`}
+            style={{ width: panelPx }}
+          >
+            {selectedId ? panel() : <WelcomePanel index={index} onSelect={handleSelect} onSurprise={handleSurprise} />}
+          </aside>
+        </>
+      ) : (
+        <>
+          <TopBar onOpenSearch={() => setDrawerOpen(true)} onOpenAbout={() => setAboutOpen(true)} />
           <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
             {sidebar}
           </Drawer>
-        )}
+        </>
+      )}
 
-        <main className="relative min-w-0 flex-1">
-          <MapStage
-            locateKey={locateNonce}
-            world={world.data}
-            worldError={world.isError}
-            onRetry={() => world.refetch()}
-            index={index}
-            selectedId={selectedId}
-            activeIds={activeIds}
-            insets={insets}
-            view={view}
-            reducedMotion={reducedMotion}
-            onViewChange={changeView}
-            onSelect={handleSelect}
-            showLegend={layout === 'desktop'}
-          />
-        </main>
-
-        {layout === 'desktop' && (
-          <aside className="w-[400px] shrink-0 border-l border-white/[0.06] 2xl:w-[440px]">
-            {selectedId ? panel() : <WelcomePanel index={index} onSelect={handleSelect} />}
-          </aside>
-        )}
-
-        {layout === 'tablet' && selectedId && (
-          <aside
-            className="absolute bottom-3 right-3 top-3 z-20 animate-rise overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/60"
-            style={{ width: TABLET_PANEL_PX }}
-          >
-            {panel()}
-          </aside>
-        )}
-      </div>
+      {layout === 'tablet' && selectedId && (
+        <aside
+          className={`${card} absolute bottom-4 right-4 z-20 animate-rise bg-paper`}
+          style={{ width: TABLET_PANEL_PX, top: TOP_BAR_PX + GAP }}
+        >
+          {panel()}
+        </aside>
+      )}
 
       {layout === 'mobile' && selectedId && (
         <BottomSheet expanded={sheetExpanded} onExpandedChange={setSheetExpanded} onDismiss={handleClose}>

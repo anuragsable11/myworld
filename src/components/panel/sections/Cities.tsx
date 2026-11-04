@@ -1,4 +1,3 @@
-import { Building2 } from 'lucide-react';
 import { formatPopulation } from '../../../lib/format';
 import { BarList, Missing, Skeleton } from '../../ui/primitives';
 import type { CountryDetails } from '../details';
@@ -9,10 +8,10 @@ export function Cities({ country, factbook }: CountryDetails) {
   const cities = fb?.cities ?? [];
 
   return (
-    <Section
+    <Section tone="teal" order={6}
       id="cities"
       title="Important cities"
-      icon={Building2}
+      emoji="🏙️"
       source={cities.length ? `CIA World Factbook — urban agglomerations${fb?.citiesYear ? `, ${fb.citiesYear}` : ''}` : undefined}
     >
       {factbook.loading ? (
@@ -23,13 +22,14 @@ export function Cities({ country, factbook }: CountryDetails) {
         </div>
       ) : cities.length ? (
         <BarList
+          tone="teal"
           items={cities.map((c) => ({
             key: c.name,
             label: (
               <>
                 {c.name}
                 {c.capital && (
-                  <span className="ml-2 rounded border border-brass-400/30 px-1 py-px align-[1px] text-[10px] uppercase tracking-wide text-brass-300">
+                  <span className="ml-2 rounded-full border-2 border-ink bg-sun px-1.5 py-px align-[1px] text-[10px] font-extrabold uppercase tracking-wide text-ink">
                     Capital
                   </span>
                 )}
@@ -41,9 +41,9 @@ export function Cities({ country, factbook }: CountryDetails) {
           format={formatPopulation}
         />
       ) : country.capitals.length ? (
-        <p className="text-[13.5px] text-mist-200">
+        <p className="text-[13.5px] text-slate-700">
           {country.capitals.map((c) => c.name).join(', ')}{' '}
-          <span className="text-mist-500">(capital — no urban population figures available)</span>
+          <span className="text-slate-400">(capital — no urban population figures available)</span>
         </p>
       ) : (
         <Missing />

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Info } from 'lucide-react';
 import {
   formatArea,
   formatAreaMiles,
@@ -60,7 +59,7 @@ export function Basics(details: CountryDetails) {
   const density = population && country.area ? population.value / country.area : undefined;
 
   return (
-    <Section id="basics" title="Basic information" icon={Info} source="REST Countries data, CIA World Factbook, IANA time zone database">
+    <Section tone="violet" order={1} id="basics" title="Basic information" emoji="📋" source="REST Countries data, CIA World Factbook, IANA time zone database">
       <FactGrid>
         <Fact label="Official name" hint={nativeOfficial} wide>
           {country.officialName}
@@ -127,7 +126,7 @@ export function Basics(details: CountryDetails) {
               {country.currencies.map((c) => (
                 <div key={c.code}>
                   {c.name}{' '}
-                  <span className="text-mist-400">
+                  <span className="text-slate-500">
                     ({c.code}
                     {c.symbol ? ` · ${c.symbol}` : ''})
                   </span>

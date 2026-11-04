@@ -1,6 +1,6 @@
 import type { Feature, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import { geoArea, geoBounds, geoCentroid, geoDistance } from 'd3-geo';
-import { feature, mesh } from 'topojson-client';
+import { feature, mesh, neighbors } from 'topojson-client';
 import { presimplify, quantile, simplify, sphericalTriangleArea } from 'topojson-simplify';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import { assetUrl, fetchJson } from './http';
@@ -39,7 +39,12 @@ export interface World {
   lowDetail: LowDetail;
   ids: Set<string>;
   focus: Map<string, Focus>;
+  /** Political-map palette slot per country; countries sharing a border never share a slot. */
+  colorSlots: Map<string, number>;
 }
+
+/** Number of distinct land colours used for political colouring. */
+export const COLOR_SLOTS = 7;
 
 // Keep this share of arc vertices in the low-detail geometry (by spherical-area importance).
 const LOW_DETAIL_SHARE = 0.14;
@@ -76,7 +81,46 @@ export async function loadWorld(signal?: AbortSignal): Promise<World> {
     lowDetail: buildLowDetail(topo),
     ids: new Set(polygonsById.keys()),
     focus,
+    colorSlots: assignColorSlots(object.geometries),
   };
+}
+
+const hashCode = (s: string) => [...s].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
+
+/** Colour slot for any country, including ones drawn only as markers. */
+export const colorSlotFor = (world: World, id: string) => world.colorSlots.get(id) ?? hashCode(id) % COLOR_SLOTS;
+
+/**
+ * Greedy graph colouring over shared boundaries, most-connected countries first. Each country
+ * starts its search at a hashed slot so colours spread evenly instead of clustering on slot 0.
+ */
+function assignColorSlots(geometries: CountriesTopology['objects']['countries']['geometries']): Map<string, number> {
+  const ids = geometries.map((g) => (typeof g.id === 'string' ? g.id : null));
+  const adjacency = new Map<string, Set<string>>();
+  neighbors(geometries).forEach((list, i) => {
+    const a = ids[i];
+    if (!a) return;
+    const set = adjacency.get(a) ?? new Set<string>();
+    for (const j of list) if (ids[j] && ids[j] !== a) set.add(ids[j]!);
+    adjacency.set(a, set);
+  });
+
+  const slots = new Map<string, number>();
+  const order = [...adjacency.keys()].sort((a, b) => adjacency.get(b)!.size - adjacency.get(a)!.size);
+  for (const id of order) {
+    const taken = new Set([...adjacency.get(id)!].map((n) => slots.get(n)));
+    const start = hashCode(id) % COLOR_SLOTS;
+    let slot = start;
+    for (let i = 0; i < COLOR_SLOTS; i++) {
+      const candidate = (start + i) % COLOR_SLOTS;
+      if (!taken.has(candidate)) {
+        slot = candidate;
+        break;
+      }
+    }
+    slots.set(id, slot);
+  }
+  return slots;
 }
 
 function buildLowDetail(topo: CountriesTopology): LowDetail {

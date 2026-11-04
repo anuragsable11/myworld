@@ -11,7 +11,7 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: ()
         aria-hidden
         onClick={onClose}
         className={clsx(
-          'fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] transition-opacity duration-300',
+          'fixed inset-0 z-40 bg-indigo-950/25 backdrop-blur-[3px] transition-opacity duration-300',
           open ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       />
@@ -20,8 +20,8 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: ()
         aria-hidden={!open}
         inert={!open}
         className={clsx(
-          'fixed inset-y-0 left-0 z-50 w-[min(88vw,340px)] border-r border-white/[0.07] bg-ink-900 shadow-2xl shadow-black/60 transition-transform duration-300 ease-out',
-          open ? 'translate-x-0' : '-translate-x-full',
+          'toon-lg fixed inset-y-3 left-3 z-50 w-[min(84vw,340px)] overflow-hidden rounded-[28px] bg-white transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+          open ? 'translate-x-0' : '-translate-x-[110%]',
         )}
       >
         {children}
@@ -77,16 +77,16 @@ export function BottomSheet({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onExpandedChange(!expanded)}
-      className="flex shrink-0 cursor-grab touch-none justify-center bg-ink-900 pb-1 pt-2.5"
+      className="flex shrink-0 cursor-grab touch-none justify-center bg-paper pb-1.5 pt-3"
     >
-      <span className="h-1 w-10 rounded-full bg-white/20" />
+      <span className="h-2 w-12 rounded-full border-2 border-ink bg-sun" />
     </div>
   );
 
   return (
     <div
       ref={sheetRef}
-      className="fixed inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-2xl border-t border-white/10 shadow-[0_-12px_40px_rgba(0,0,0,0.55)] transition-[height,transform] duration-300 ease-out"
+      className="fixed inset-x-0 bottom-0 z-30 flex animate-rise flex-col overflow-hidden rounded-t-[30px] border-x-[3px] border-t-[3px] border-ink bg-paper shadow-[0_-4px_0_0_rgba(30,27,75,0.15)] transition-[height,transform] duration-500 ease-[cubic-bezier(0.34,1.4,0.64,1)]"
       style={{ height: expanded ? 'calc(100dvh - 72px)' : SHEET_PEEK_PX }}
     >
       {children(handle)}

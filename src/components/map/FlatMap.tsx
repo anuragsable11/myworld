@@ -7,7 +7,7 @@ import { select } from 'd3-selection';
 import 'd3-transition';
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
 import polylabel from 'polylabel';
-import type { Focus } from '../../lib/geo';
+import { colorSlotFor, type Focus } from '../../lib/geo';
 import type { MapHandle, MapViewProps } from './types';
 
 // A fixed projection in a 1000-unit viewBox: paths are computed once and the SVG scales to fit.
@@ -16,9 +16,10 @@ const SPHERE: GeoSphere = { type: 'Sphere' };
 const projection = geoEqualEarth().fitWidth(VIEW_W, SPHERE);
 const path = geoPath(projection);
 const VIEW_H = Math.ceil(path.bounds(SPHERE)[1][1]);
+const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 64;
 const LABEL_PX = 11;
-const MARKER_PX = 3.6;
+const MARKER_PX = 4.2;
 
 interface Label {
   id: string;
@@ -58,6 +59,9 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const transformRef = useRef<ZoomTransform>(zoomIdentity);
   const pxPerUnitRef = useRef(1);
+  const sizeRef = useRef({ w: 0, h: 0 });
+  const anchorRef = useRef<[number, number] | null>(null);
+  const initializedRef = useRef(false);
   const propsRef = useRef(props);
   propsRef.current = props;
 
@@ -68,7 +72,13 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
       if (label) labels.push(label);
     }
     return {
-      shapes: world.shapes.map((s) => ({ key: s.key, id: s.id, name: s.name, d: path(s.feature) ?? '' })),
+      shapes: world.shapes.map((s) => ({
+        key: s.key,
+        id: s.id,
+        name: s.name,
+        slot: s.id ? colorSlotFor(world, s.id) : 0,
+        d: path(s.feature) ?? '',
+      })),
       borders: path(world.borders) ?? '',
       coast: path(world.coastline) ?? '',
       graticule: path(geoGraticule10()) ?? '',
@@ -80,22 +90,31 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
   const markerPoints = useMemo(
     () =>
       markers
-        .map((m) => ({ ...m, p: projection([m.lon, m.lat]) }))
+        .map((m) => ({ ...m, slot: colorSlotFor(world, m.id), p: projection([m.lon, m.lat]) }))
         .filter((m): m is typeof m & { p: [number, number] } => !!m.p),
-    [markers],
+    [markers, world],
   );
 
-  /** Keeps labels, markers and outlines a constant on-screen size, and culls labels that don't fit. */
+  /** Where the selection pin stands: the label point of the main landmass, or the marker. */
+  const anchorPoint = useMemo(() => {
+    if (!selectedId) return null;
+    const label = layers.labels.find((l) => l.id === selectedId);
+    if (label) return [label.x, label.y] as [number, number];
+    return markerPoints.find((m) => m.id === selectedId)?.p ?? null;
+  }, [layers, markerPoints, selectedId]);
+  anchorRef.current = anchorPoint;
+
+  /** Keeps labels and markers a constant on-screen size, culls labels that don't fit, and moves the pin. */
   const applyZoomStyles = useCallback(() => {
     const z = transformRef.current.k * pxPerUnitRef.current;
     const labelsEl = labelsRef.current;
     if (labelsEl) {
       labelsEl.setAttribute('font-size', String(LABEL_PX / z));
-      labelsEl.setAttribute('stroke-width', String(2.6 / z));
+      labelsEl.setAttribute('stroke-width', String(3 / z));
       for (const el of labelsEl.children as HTMLCollectionOf<SVGTextElement>) {
         const w = Number(el.dataset.w) * z;
         const h = Number(el.dataset.h) * z;
-        const needed = (el.textContent?.length ?? 0) * LABEL_PX * 0.58 + 8;
+        const needed = (el.textContent?.length ?? 0) * LABEL_PX * 0.6 + 8;
         const show = el.classList.contains('is-selected') || (w >= needed && h >= 15);
         if ((el.style.display !== 'none') !== show) el.style.display = show ? '' : 'none';
       }
@@ -104,27 +123,54 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
     for (const el of (markersRef.current?.children ?? []) as HTMLCollectionOf<SVGCircleElement>) {
       el.setAttribute('r', r);
     }
+    const pin = propsRef.current.pinRef.current;
+    const anchor = anchorRef.current;
+    if (pin && !anchor) pin.hide();
+    else if (pin && anchor) {
+      const t = transformRef.current;
+      const s = pxPerUnitRef.current;
+      const { w, h } = sizeRef.current;
+      pin.move((w - VIEW_W * s) / 2 + s * (t.x + t.k * anchor[0]), (h - VIEW_H * s) / 2 + s * (t.y + t.k * anchor[1]));
+    }
   }, []);
 
-  /** Whole world on wide screens; on tall, narrow screens zoom in so the land fills more height. */
-  const initialTransform = useCallback(() => {
-    const svg = svgRef.current;
-    if (!svg) return zoomIdentity;
+  /** Zoom transform placing world point `p` (viewBox units) at screen point `c` (CSS px). */
+  const transformFor = useCallback((k: number, p: [number, number], c: [number, number]) => {
+    const svg = svgRef.current!;
     const { width, height } = svg.getBoundingClientRect();
     const s = pxPerUnitRef.current;
-    const k = Math.min(width < 640 ? 1.9 : 1.12, Math.max(1, (height / s / VIEW_H) * 0.6));
-    const centerY = k > 1 ? VIEW_H * 0.45 : VIEW_H / 2;
-    return zoomIdentity.translate(VIEW_W / 2, VIEW_H / 2).scale(k).translate(-VIEW_W / 2, -centerY);
+    const ux = (c[0] - (width - VIEW_W * s) / 2) / s;
+    const uy = (c[1] - (height - VIEW_H * s) / 2) / s;
+    return zoomIdentity.translate(ux - k * p[0], uy - k * p[1]).scale(k);
   }, []);
+
+  /** The part of the screen not covered by floating cards, in CSS px. */
+  const availableArea = useCallback(() => {
+    const { width, height } = svgRef.current!.getBoundingClientRect();
+    const { top, right, bottom, left } = propsRef.current.insets;
+    const w = Math.max(80, width - left - right);
+    const h = Math.max(80, height - top - bottom);
+    return { w, h, center: [left + w / 2, top + h / 2] as [number, number] };
+  }, []);
+
+  /** Fits the whole world between the cards; on tall, narrow screens zooms in to fill more height. */
+  const initialTransform = useCallback(() => {
+    if (!svgRef.current) return zoomIdentity;
+    const { w, h, center } = availableArea();
+    const s = pxPerUnitRef.current;
+    let k = 0.94 * Math.min(w / (VIEW_W * s), h / (VIEW_H * s));
+    if (h > w * 1.1) k = Math.max(k, Math.min(1.9, (h / (VIEW_H * s)) * 0.6));
+    return transformFor(k, [VIEW_W / 2, VIEW_H * (k > 1.2 ? 0.45 : 0.5)], center);
+  }, [availableArea, transformFor]);
 
   // Zoom behaviour
   useEffect(() => {
     const svg = svgRef.current!;
     const behavior = zoom<SVGSVGElement, unknown>()
-      .scaleExtent([1, MAX_ZOOM])
+      .scaleExtent([MIN_ZOOM, MAX_ZOOM])
       .translateExtent([
-        [-VIEW_W * 0.15, -VIEW_H * 0.3],
-        [VIEW_W * 1.15, VIEW_H * 1.3],
+        [-VIEW_W * 1.5, -VIEW_H * 1.5],
+        [VIEW_W * 2.5, VIEW_H * 2.5],
       ])
       .clickDistance(6)
       .on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
@@ -137,11 +183,16 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
 
     const measure = () => {
       const { width, height } = svg.getBoundingClientRect();
+      sizeRef.current = { w: width, h: height };
       pxPerUnitRef.current = Math.min(width / VIEW_W, height / VIEW_H) || 1;
       applyZoomStyles();
     };
     measure();
-    selection.call(behavior.transform, initialTransform());
+    // Only once: re-running this effect (React StrictMode) must not cancel a focus() already under way.
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      selection.call(behavior.transform, initialTransform());
+    }
     const observer = new ResizeObserver(measure);
     observer.observe(svg);
     return () => {
@@ -150,7 +201,7 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
     };
   }, [applyZoomStyles, initialTransform]);
 
-  useEffect(applyZoomStyles, [applyZoomStyles, layers, markerPoints, selectedId]);
+  useEffect(applyZoomStyles, [applyZoomStyles, layers, markerPoints, selectedId, anchorPoint]);
 
   const animateTo = useCallback((t: ZoomTransform) => {
     const svg = svgRef.current;
@@ -158,7 +209,7 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
     if (!svg || !behavior) return;
     select(svg)
       .transition()
-      .duration(propsRef.current.reducedMotion ? 0 : 950)
+      .duration(propsRef.current.reducedMotion ? 0 : 1000)
       .ease(easeCubicInOut)
       .call(behavior.transform, t);
   }, []);
@@ -166,13 +217,11 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
   useImperativeHandle(
     ref,
     () => ({
-      zoomIn: () => zoomRef.current && select(svgRef.current!).transition().duration(300).call(zoomRef.current.scaleBy, 1.6),
-      zoomOut: () => zoomRef.current && select(svgRef.current!).transition().duration(300).call(zoomRef.current.scaleBy, 1 / 1.6),
+      zoomIn: () => zoomRef.current && select(svgRef.current!).transition().duration(320).call(zoomRef.current.scaleBy, 1.6),
+      zoomOut: () => zoomRef.current && select(svgRef.current!).transition().duration(320).call(zoomRef.current.scaleBy, 1 / 1.6),
       reset: () => animateTo(initialTransform()),
       focus: (id: string) => {
-        const svg = svgRef.current;
-        if (!svg) return;
-        const { insets } = propsRef.current;
+        if (!svgRef.current) return;
         const focus = world.focus.get(id);
         let bounds: [[number, number], [number, number]];
         if (focus) bounds = path.bounds(focus.flat);
@@ -186,21 +235,17 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
             [x + 12, y + 12],
           ];
         }
+        const { w, h, center } = availableArea();
         const s = pxPerUnitRef.current;
-        const { width, height } = svg.getBoundingClientRect();
-        const availW = (width - insets.right) / s;
-        const availH = (height - insets.bottom) / s;
         const [[x0, y0], [x1, y1]] = bounds;
         const k = Math.min(
           MAX_ZOOM,
-          Math.max(1, 0.78 * Math.min(availW / Math.max(x1 - x0, 1.5), availH / Math.max(y1 - y0, 1.5))),
+          Math.max(0.5, 0.75 * Math.min(w / s / Math.max(x1 - x0, 1.5), h / s / Math.max(y1 - y0, 1.5))),
         );
-        const tx = VIEW_W / 2 - insets.right / s / 2 - k * ((x0 + x1) / 2);
-        const ty = VIEW_H / 2 - insets.bottom / s / 2 - k * ((y0 + y1) / 2);
-        animateTo(zoomIdentity.translate(tx, ty).scale(k));
+        animateTo(transformFor(k, [(x0 + x1) / 2, (y0 + y1) / 2], center));
       },
     }),
-    [animateTo, initialTransform, markerPoints, world],
+    [animateTo, availableArea, initialTransform, markerPoints, transformFor, world],
   );
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -232,9 +277,9 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
             data-name={s.id ? (names.get(s.id) ?? s.name) : `${s.name} (disputed)`}
             className={clsx(
               'map-land',
-              !s.id && 'is-inert',
+              s.id ? `c${s.slot}` : 'is-inert',
               s.id && s.id === selectedId && 'is-selected',
-              s.id && s.id !== selectedId && neighborIds.has(s.id) && 'is-neighbor',
+              s.id && selectedId && s.id !== selectedId && !neighborIds.has(s.id) && 'is-faded',
               s.id && activeIds && !activeIds.has(s.id) && s.id !== selectedId && 'is-dim',
             )}
           />
@@ -253,7 +298,7 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
     if (!d) return null;
     return (
       <g pointerEvents="none">
-        <path d={d} fill="none" stroke="rgba(217,178,111,0.28)" strokeWidth={6} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        <path d={d} fill="none" stroke="#ffffff" strokeWidth={7} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
         <path d={d} className="map-selected-outline" vectorEffect="non-scaling-stroke" />
       </g>
     );
@@ -262,7 +307,7 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
   return (
     <svg
       ref={svgRef}
-      className="map-svg"
+      className="map-svg animate-fade-in"
       viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"
@@ -272,13 +317,13 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
       onClick={handleClick}
     >
       <defs>
-        <radialGradient id="ocean-glow" cx="50%" cy="45%" r="65%">
-          <stop offset="0%" stopColor="#0f1726" />
-          <stop offset="100%" stopColor="#080c14" />
+        <radialGradient id="ocean-fill" cx="45%" cy="40%" r="70%">
+          <stop offset="0%" stopColor="#8fdcff" />
+          <stop offset="100%" stopColor="#5fbcf5" />
         </radialGradient>
       </defs>
       <g ref={zoomLayerRef}>
-        <path d={layers.sphere} fill="url(#ocean-glow)" stroke="rgba(217,178,111,0.16)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        <path d={layers.sphere} fill="url(#ocean-fill)" stroke="#1e1b4b" strokeWidth={3} vectorEffect="non-scaling-stroke" />
         <path d={layers.graticule} className="map-graticule" vectorEffect="non-scaling-stroke" />
         {countryLayer}
         <path d={layers.coast} className="map-coast" vectorEffect="non-scaling-stroke" />
@@ -296,7 +341,9 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
               vectorEffect="non-scaling-stroke"
               className={clsx(
                 'map-marker',
+                `c${m.slot}`,
                 m.id === selectedId && 'is-selected',
+                selectedId && m.id !== selectedId && !neighborIds.has(m.id) && 'is-faded',
                 activeIds && !activeIds.has(m.id) && m.id !== selectedId && 'is-dim',
               )}
             />

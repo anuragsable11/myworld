@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, type RefObject } from 'react';
 import clsx from 'clsx';
 import { Search, X } from 'lucide-react';
 import type { Country } from '../../types';
@@ -8,6 +8,15 @@ import { CountryList } from './CountryList';
 
 export type Scope = 'all' | 'sovereign' | 'territories';
 export const REGIONS = ['Africa', 'Americas', 'Asia', 'Europe', 'Oceania', 'Antarctic'] as const;
+
+const REGION_EMOJI: Record<(typeof REGIONS)[number], string> = {
+  Africa: '🦁',
+  Americas: '🦅',
+  Asia: '🐼',
+  Europe: '🏰',
+  Oceania: '🦘',
+  Antarctic: '🐧',
+};
 
 interface SidebarProps {
   index: CountryIndex | undefined;
@@ -22,6 +31,8 @@ interface SidebarProps {
   onScopeChange: (scope: Scope) => void;
   searchRef: RefObject<HTMLInputElement | null>;
   autoFocus?: boolean;
+  /** Brand row shown above the search box (desktop card). */
+  header?: ReactNode;
 }
 
 export function filterCountries(countries: Country[], scope: Scope, region: string | null) {
@@ -44,6 +55,7 @@ export function Sidebar({
   onScopeChange,
   searchRef,
   autoFocus,
+  header,
 }: SidebarProps) {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -82,16 +94,17 @@ export function Sidebar({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="space-y-3 border-b border-white/[0.06] px-4 pb-4 pt-4">
+      <div className="space-y-3 px-4 pb-3 pt-4">
+        {header}
         <div className="group relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-mist-500 transition-colors group-focus-within:text-brass-300" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-ink" strokeWidth={2.8} />
           <input
             ref={searchRef}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search countries, capitals, codes…"
+            placeholder="Search countries, capitals…"
             aria-label="Search countries"
             role="combobox"
             aria-expanded
@@ -100,7 +113,7 @@ export function Sidebar({
             aria-activedescendant={activeIndex >= 0 && results[activeIndex] ? `country-${results[activeIndex].cca3}` : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="h-10 w-full rounded-xl border border-white/[0.08] bg-ink-800/80 pl-9 pr-16 text-[14px] text-mist-50 placeholder:text-mist-500 transition-colors focus:border-brass-400/50 focus:bg-ink-800 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+            className="toon-sm h-12 w-full rounded-2xl bg-white pl-11 pr-14 text-[15px] font-bold text-ink transition-all duration-200 placeholder:font-semibold placeholder:text-slate-400 focus:-translate-x-px focus:-translate-y-px focus:bg-amber-50 focus:shadow-[4px_4px_0_0_var(--color-ink)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
           />
           {query ? (
             <button
@@ -110,18 +123,18 @@ export function Sidebar({
                 searchRef.current?.focus();
               }}
               aria-label="Clear search"
-              className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-mist-400 hover:bg-white/5 hover:text-mist-100"
+              className="absolute right-3 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full border-2 border-ink bg-pink-200 text-ink hover:bg-pink-300"
             >
-              <X className="size-3.5" />
+              <X className="size-3.5" strokeWidth={3} />
             </button>
           ) : (
-            <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded-md border border-white/10 px-1.5 py-0.5 font-sans text-[11px] text-mist-500 sm:block">
+            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-lg border-2 border-ink bg-sun px-1.5 font-sans text-[11px] font-black text-ink shadow-[0_2px_0_0_var(--color-ink)] sm:block">
               /
             </kbd>
           )}
         </div>
 
-        <div role="radiogroup" aria-label="Country type" className="grid grid-cols-3 rounded-lg bg-ink-800/70 p-0.5 text-[12px]">
+        <div role="radiogroup" aria-label="Country type" className="grid grid-cols-3 gap-1 rounded-2xl border-2 border-ink bg-white p-1 text-[12px]">
           {(
             [
               ['all', 'All', counts.all],
@@ -136,17 +149,17 @@ export function Sidebar({
               aria-checked={scope === value}
               onClick={() => onScopeChange(value)}
               className={clsx(
-                'flex items-baseline justify-center gap-1 whitespace-nowrap rounded-md px-1 py-1.5 font-medium transition-colors',
-                scope === value ? 'bg-ink-600/80 text-mist-50 shadow-sm' : 'text-mist-400 hover:text-mist-200',
+                'flex items-baseline justify-center gap-1 whitespace-nowrap rounded-xl border-2 px-1 py-1 font-extrabold transition-all duration-300',
+                scope === value ? 'border-ink bg-sun text-ink' : 'border-transparent text-slate-500 hover:text-ink',
               )}
             >
               {label}
-              {index && <span className="tabular text-[10.5px] text-mist-500">{count}</span>}
+              {index && <span className={clsx('tabular text-[10.5px] font-bold', scope === value ? 'text-ink/60' : 'text-slate-400')}>{count}</span>}
             </button>
           ))}
         </div>
 
-        <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4" role="group" aria-label="Filter by region">
+        <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-28px),transparent)]" role="group" aria-label="Filter by region">
           {[null, ...REGIONS].map((r) => (
             <button
               key={r ?? 'all'}
@@ -154,13 +167,16 @@ export function Sidebar({
               aria-pressed={region === r}
               onClick={() => onRegionChange(r)}
               className={clsx(
-                'shrink-0 rounded-full border px-2.5 py-1 text-[12px] transition-colors',
+                'flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1 text-[12.5px] font-extrabold transition-all duration-200',
                 region === r
-                  ? 'border-brass-400/40 bg-brass-400/12 text-brass-200'
-                  : 'border-white/[0.07] text-mist-400 hover:border-white/15 hover:text-mist-200',
+                  ? 'border-ink bg-sun text-ink shadow-[2px_2px_0_0_var(--color-ink)]'
+                  : 'border-ink/25 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-ink hover:text-ink',
               )}
             >
-              {r ?? 'All regions'}
+              <span aria-hidden className="text-[14px]">
+                {r ? REGION_EMOJI[r] : '🌍'}
+              </span>
+              {r ?? 'Everywhere'}
             </button>
           ))}
         </div>
@@ -168,9 +184,9 @@ export function Sidebar({
 
       <div className="relative min-h-0 flex-1">
         {error ? (
-          <div className="p-6 text-center text-sm text-mist-400">
+          <div className="p-6 text-center text-sm text-slate-500">
             Country data could not be loaded.
-            <button type="button" onClick={onRetry} className="mt-3 block w-full text-brass-300 hover:text-brass-200">
+            <button type="button" onClick={onRetry} className="mt-3 block w-full font-extrabold text-indigo-600 underline decoration-2 hover:text-indigo-700">
               Try again
             </button>
           </div>
@@ -190,7 +206,7 @@ export function Sidebar({
       </div>
 
       {index && (
-        <div className="border-t border-white/[0.06] px-4 py-2.5 text-[11.5px] text-mist-500">
+        <div className="border-t-2 border-dashed border-indigo-100 px-4 py-2.5 text-[12px] font-bold text-slate-500">
           {query || region || scope !== 'all'
             ? `${results.length} of ${index.sorted.length} shown`
             : `${index.sovereignCount} sovereign states · ${index.sorted.length - index.sovereignCount} territories`}
@@ -205,7 +221,7 @@ function ListSkeleton() {
     <div className="space-y-1 p-3" aria-label="Loading countries" role="status">
       {Array.from({ length: 12 }, (_, i) => (
         <div key={i} className="flex items-center gap-3 px-2 py-2">
-          <span className="skeleton h-4 w-6 rounded-[3px]" />
+          <span className="skeleton h-5 w-7 rounded-md" />
           <span className="flex-1 space-y-1.5">
             <span className="skeleton block h-3 rounded" style={{ width: `${45 + ((i * 17) % 40)}%` }} />
             <span className="skeleton block h-2.5 w-1/4 rounded" />

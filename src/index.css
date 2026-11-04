@@ -1,36 +1,35 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter';
-@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/nunito';
+@import '@fontsource-variable/fredoka';
 
 @theme {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Fraunces Variable', ui-serif, Georgia, serif;
+  --font-sans: 'Nunito Variable', ui-rounded, ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fredoka Variable', 'Nunito Variable', ui-rounded, ui-sans-serif, system-ui, sans-serif;
 
-  --color-ink-950: #06090f;
-  --color-ink-900: #0a0e16;
-  --color-ink-850: #0d121b;
-  --color-ink-800: #111823;
-  --color-ink-750: #151d2a;
-  --color-ink-700: #1b2433;
-  --color-ink-600: #263044;
-  --color-ink-500: #38445b;
+  /* Cartoon ink: every outline and hard shadow uses it. */
+  --color-ink: #1e1b4b;
+  --color-sun: #ffd23f;
+  --color-sun-deep: #f5b700;
+  --color-paper: #fffaf0;
 
-  --color-mist-50: #f5f7fa;
-  --color-mist-100: #e9edf3;
-  --color-mist-200: #cfd6e1;
-  --color-mist-300: #a7b1c1;
-  --color-mist-400: #7d899c;
-  --color-mist-500: #5c677a;
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 
-  --color-brass-200: #f4e2bd;
-  --color-brass-300: #e9cb8f;
-  --color-brass-400: #d9b26f;
-  --color-brass-500: #c09550;
-  --color-brass-600: #8f6d36;
-
-  --animate-fade-in: fade-in 220ms ease-out both;
-  --animate-rise: rise 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-fade-in: fade-in 260ms var(--ease-spring) both;
+  --animate-rise: rise 600ms var(--ease-bounce) both;
+  --animate-pop: pop 520ms var(--ease-bounce) both;
+  --animate-grow: grow 900ms var(--ease-bounce) both;
   --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-wiggle: wiggle 2.4s ease-in-out infinite;
+  --animate-wave: wave 2.2s ease-in-out infinite;
+  --animate-float: float 5s ease-in-out infinite;
+  --animate-spin-slow: spin 28s linear infinite;
+  --animate-twinkle: twinkle 2.6s ease-in-out infinite;
+  --animate-cloud: cloud-drift 90s linear infinite;
+  --animate-pin-drop: pin-drop 900ms var(--ease-spring) 850ms both;
+  --animate-pin-bob: pin-bob 2.4s ease-in-out 1.8s infinite;
+  --animate-pin-shadow: pin-shadow 900ms var(--ease-spring) 850ms both;
+  --animate-confetti: confetti 1100ms cubic-bezier(0.15, 0.7, 0.3, 1) 1250ms both;
 
   @keyframes fade-in {
     from {
@@ -40,7 +39,18 @@
   @keyframes rise {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(18px) scale(0.96);
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.6) rotate(-4deg);
+    }
+  }
+  @keyframes grow {
+    from {
+      transform: scaleX(0);
     }
   }
   @keyframes shimmer {
@@ -51,18 +61,168 @@
       background-position: 200% 0;
     }
   }
+  @keyframes wiggle {
+    0%,
+    100% {
+      transform: rotate(-3deg);
+    }
+    50% {
+      transform: rotate(3deg);
+    }
+  }
+  @keyframes wave {
+    0%,
+    60%,
+    100% {
+      transform: rotate(0deg);
+    }
+    10%,
+    30% {
+      transform: rotate(16deg);
+    }
+    20%,
+    40% {
+      transform: rotate(-8deg);
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  @keyframes twinkle {
+    0%,
+    100% {
+      transform: scale(0.55) rotate(0deg);
+      opacity: 0.45;
+    }
+    50% {
+      transform: scale(1) rotate(45deg);
+      opacity: 1;
+    }
+  }
+  @keyframes cloud-drift {
+    from {
+      transform: translateX(-30vw);
+    }
+    to {
+      transform: translateX(130vw);
+    }
+  }
+  /* The pin falls in once the camera has arrived, squashes on landing, then settles. */
+  @keyframes pin-drop {
+    0% {
+      transform: translateY(-140px) scale(0.9, 1.1);
+      opacity: 0;
+    }
+    45% {
+      transform: translateY(0) scale(1.18, 0.82);
+      opacity: 1;
+    }
+    65% {
+      transform: translateY(-16px) scale(0.95, 1.06);
+    }
+    82% {
+      transform: translateY(0) scale(1.05, 0.95);
+    }
+    100% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+  }
+  @keyframes pin-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+  @keyframes pin-shadow {
+    0% {
+      transform: scale(0.2);
+      opacity: 0;
+    }
+    45% {
+      transform: scale(1.25);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  @keyframes confetti {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(0.4);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1);
+      opacity: 0;
+    }
+  }
+}
+
+/* Sticker-style outlines with a hard offset shadow, in three sizes. */
+@utility toon-sm {
+  border: 2px solid var(--color-ink);
+  box-shadow: 2px 2px 0 0 var(--color-ink);
+}
+@utility toon {
+  border: 2.5px solid var(--color-ink);
+  box-shadow: 4px 4px 0 0 var(--color-ink);
+}
+@utility toon-lg {
+  border: 3px solid var(--color-ink);
+  box-shadow: 6px 6px 0 0 var(--color-ink);
+}
+/* Pressable: lifts on hover and squashes into its shadow when pressed. */
+@utility toon-press {
+  transition:
+    transform 180ms var(--ease-bounce),
+    box-shadow 180ms var(--ease-bounce),
+    background-color 180ms ease;
+  &:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 0 var(--color-ink);
+  }
+  &:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 0 var(--color-ink);
+  }
+}
+@utility toon-press-sm {
+  transition:
+    transform 160ms var(--ease-bounce),
+    box-shadow 160ms var(--ease-bounce),
+    background-color 160ms ease;
+  &:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 0 var(--color-ink);
+  }
+  &:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 0 var(--color-ink);
+  }
 }
 
 :root {
-  color-scheme: dark;
-  --land: #1a2332;
-  --land-hover: #2a3850;
-  --land-dim: #121924;
-  --land-neighbor: #3a3426;
-  --land-selected: #d9b26f;
-  --ocean: #080c14;
-  --border: #0a0f18;
-  --coast: rgba(138, 160, 190, 0.32);
+  color-scheme: light;
+  /* Political-map land colours, one per colour slot (see lib/geo.ts). */
+  --c0: #7ee2a8;
+  --c1: #80e4dc;
+  --c2: #ff9f9f;
+  --c3: #c3b1ff;
+  --c4: #ffbd7a;
+  --c5: #c8ec7a;
+  --c6: #ffa7d7;
+  --map-selected: #ffd23f;
 }
 
 html,
@@ -73,10 +233,9 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-ink-950);
-  color: var(--color-mist-200);
+  background: #d8f1ff;
+  color: var(--color-ink);
   font-family: var(--font-sans);
-  font-feature-settings: 'cv11', 'ss01', 'ss03';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
@@ -84,16 +243,18 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-ink-600) transparent;
+  scrollbar-color: #c7c3e8 transparent;
 }
 
 ::selection {
-  background: color-mix(in oklab, var(--color-brass-400) 35%, transparent);
+  background: var(--color-sun);
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-brass-400);
-  outline-offset: 2px;
+@layer base {
+  :focus-visible {
+    outline: 3px solid #6366f1;
+    outline-offset: 2px;
+  }
 }
 
 /* ------------------------------------------------------------------ map */
@@ -111,98 +272,134 @@ body {
 }
 
 .map-land {
-  fill: var(--land);
-  transition: fill 180ms ease;
   cursor: pointer;
+  transition:
+    opacity 300ms ease,
+    fill 300ms ease;
+}
+.map-land.c0 {
+  fill: var(--c0);
+}
+.map-land.c1 {
+  fill: var(--c1);
+}
+.map-land.c2 {
+  fill: var(--c2);
+}
+.map-land.c3 {
+  fill: var(--c3);
+}
+.map-land.c4 {
+  fill: var(--c4);
+}
+.map-land.c5 {
+  fill: var(--c5);
+}
+.map-land.c6 {
+  fill: var(--c6);
 }
 .map-land:hover {
-  fill: var(--land-hover);
+  filter: brightness(1.08) saturate(1.25);
+}
+.map-land.is-faded {
+  opacity: 0.55;
 }
 .map-land.is-dim {
-  fill: var(--land-dim);
-}
-.map-land.is-dim:hover {
-  fill: #1d2635;
-}
-.map-land.is-neighbor {
-  fill: var(--land-neighbor);
-}
-.map-land.is-neighbor:hover {
-  fill: #4a4231;
+  opacity: 0.25;
 }
 .map-land.is-selected {
-  fill: var(--land-selected);
+  fill: var(--map-selected);
+  opacity: 1;
 }
 .map-land.is-inert {
   cursor: default;
-  fill: #161d29;
+  fill: #e2e0f0;
 }
 
 .map-borders {
   fill: none;
-  stroke: var(--border);
-  stroke-width: 0.7px;
+  stroke: var(--color-ink);
+  stroke-opacity: 0.75;
+  stroke-width: 0.9px;
   stroke-linejoin: round;
   pointer-events: none;
 }
 .map-coast {
   fill: none;
-  stroke: var(--coast);
-  stroke-width: 0.6px;
+  stroke: var(--color-ink);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 .map-graticule {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.045);
-  stroke-width: 0.6px;
+  stroke: #ffffff;
+  stroke-opacity: 0.55;
+  stroke-width: 0.8px;
+  stroke-dasharray: 2 4;
   pointer-events: none;
 }
 .map-selected-outline {
   fill: none;
-  stroke: var(--color-brass-200);
-  stroke-width: 1.4px;
+  stroke: var(--color-ink);
+  stroke-width: 2.6px;
   stroke-linejoin: round;
   pointer-events: none;
-  filter: drop-shadow(0 0 6px rgba(217, 178, 111, 0.45));
 }
 
 .map-marker {
-  fill: var(--color-ink-950);
-  stroke: var(--color-mist-400);
-  stroke-width: 1.1px;
+  stroke: var(--color-ink);
+  stroke-width: 1.6px;
   cursor: pointer;
-  transition:
-    stroke 150ms ease,
-    fill 150ms ease;
+  transition: opacity 300ms ease;
+}
+.map-marker.c0 {
+  fill: var(--c0);
+}
+.map-marker.c1 {
+  fill: var(--c1);
+}
+.map-marker.c2 {
+  fill: var(--c2);
+}
+.map-marker.c3 {
+  fill: var(--c3);
+}
+.map-marker.c4 {
+  fill: var(--c4);
+}
+.map-marker.c5 {
+  fill: var(--c5);
+}
+.map-marker.c6 {
+  fill: var(--c6);
 }
 .map-marker:hover {
-  stroke: var(--color-mist-100);
-  fill: var(--land-hover);
+  fill: #ffffff;
 }
 .map-marker.is-selected {
-  fill: var(--land-selected);
-  stroke: var(--color-brass-200);
+  fill: var(--map-selected);
+}
+.map-marker.is-faded {
+  opacity: 0.55;
 }
 .map-marker.is-dim {
-  opacity: 0.35;
+  opacity: 0.25;
 }
 
 .map-label {
-  fill: rgba(214, 222, 235, 0.62);
-  font-family: var(--font-sans);
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  fill: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 600;
   text-anchor: middle;
   dominant-baseline: central;
   pointer-events: none;
   paint-order: stroke;
-  stroke: rgba(6, 9, 15, 0.75);
+  stroke: #ffffff;
   stroke-linejoin: round;
 }
 .map-label.is-selected {
-  fill: #1a1408;
-  stroke: rgba(240, 214, 160, 0.6);
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .globe-canvas {
@@ -222,12 +419,7 @@ body {
 /* ---------------------------------------------------------------- utils */
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--color-ink-700) 0%,
-    color-mix(in oklab, var(--color-ink-600) 80%, white 4%) 50%,
-    var(--color-ink-700) 100%
-  );
+  background: linear-gradient(90deg, #eeeaf9 0%, #faf8ff 50%, #eeeaf9 100%);
   background-size: 200% 100%;
   animation: var(--animate-shimmer);
 }
@@ -243,11 +435,26 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Chunky cartoon heading: ink outline behind the fill. */
+.toon-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+
+.dots-bg {
+  background-image: radial-gradient(rgb(30 27 75 / 0.07) 1.2px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

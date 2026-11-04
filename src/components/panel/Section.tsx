@@ -1,16 +1,22 @@
 import type { ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import clsx from 'clsx';
+import { TONES, type Tone } from '../ui/tones';
 
 export function Section({
   id,
   title,
-  icon: Icon,
+  emoji,
+  tone,
+  order = 0,
   source,
   children,
 }: {
   id: string;
   title: string;
-  icon: LucideIcon;
+  emoji: string;
+  tone: Tone;
+  /** Position in the profile; staggers the entrance animation. */
+  order?: number;
   source?: ReactNode;
   children: ReactNode;
 }) {
@@ -19,19 +25,28 @@ export function Section({
       id={`section-${id}`}
       data-section={id}
       aria-labelledby={`section-${id}-title`}
-      className="scroll-mt-14 rounded-2xl border border-white/[0.06] bg-ink-850/70 p-5"
+      className="toon animate-rise scroll-mt-16 rounded-3xl bg-white p-5"
+      style={{ animationDelay: `${80 + order * 70}ms` }}
     >
-      <header className="mb-4 flex items-center gap-2.5">
-        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-brass-400/10 text-brass-300">
-          <Icon className="size-[15px]" />
+      <header className="mb-4 flex items-center gap-3">
+        <span
+          aria-hidden
+          className={clsx(
+            'grid size-11 shrink-0 -rotate-6 place-items-center rounded-2xl border-2 border-ink text-[22px] shadow-[2px_2px_0_0_var(--color-ink)]',
+            TONES[tone].chip,
+          )}
+        >
+          {emoji}
         </span>
-        <h3 id={`section-${id}-title`} className="font-display text-[17px] font-medium tracking-tight text-mist-50">
+        <h3 id={`section-${id}-title`} className="toon-title text-[21px]">
           {title}
         </h3>
       </header>
       {children}
       {source && (
-        <p className="mt-5 border-t border-white/[0.05] pt-3 text-[11px] leading-snug text-mist-500">Source: {source}</p>
+        <p className="mt-5 border-t-2 border-dashed border-indigo-100 pt-3 text-[11.5px] font-semibold leading-snug text-slate-400">
+          Source: {source}
+        </p>
       )}
     </section>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Landmark, Pause, Play } from 'lucide-react';
+import { Pause, Play } from 'lucide-react';
 import { restoreNameCase } from '../../../lib/sources/factbook';
 import { ExpandableText, Fact, FactGrid } from '../../ui/primitives';
 import { capitalize, type CountryDetails } from '../details';
@@ -26,22 +26,22 @@ function AnthemPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] p-2 pr-3.5">
+    <div className="mt-3 flex items-center gap-3 rounded-2xl border-2 border-ink bg-amber-50 p-2 pr-3.5">
       <button
         type="button"
         onClick={toggle}
         disabled={failed}
         aria-label={playing ? 'Pause anthem' : 'Play anthem'}
-        className="grid size-8 shrink-0 place-items-center rounded-full bg-brass-400 text-ink-950 transition-transform hover:scale-105 disabled:bg-ink-600 disabled:text-mist-500"
+        className="toon-sm toon-press-sm grid size-10 shrink-0 place-items-center rounded-full bg-sun text-ink disabled:bg-slate-200 disabled:text-slate-400"
       >
         {playing ? <Pause className="size-3.5" fill="currentColor" /> : <Play className="ml-0.5 size-3.5" fill="currentColor" />}
       </button>
       <div className="min-w-0 flex-1">
-        <div className="text-[12px] text-mist-300">
-          {failed ? 'This recording cannot be played in this browser' : playing ? 'Playing recording' : 'Listen to a recording'}
+        <div className="text-[12.5px] font-bold text-ink">
+          {failed ? 'This recording cannot be played in this browser' : playing ? '🎶 Playing…' : '🎺 Listen to the anthem'}
         </div>
-        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/[0.07]">
-          <div className="h-full rounded-full bg-brass-400 transition-[width] duration-300" style={{ width: `${progress * 100}%` }} />
+        <div className="mt-1.5 h-2.5 overflow-hidden rounded-full border-2 border-ink bg-white">
+          <div className="h-full rounded-full bg-amber-400 transition-[width] duration-300" style={{ width: `${progress * 100}%` }} />
         </div>
       </div>
       <audio
@@ -80,7 +80,7 @@ function People({
     return (
       <>
         {people.map((p) => p.name).join(' & ')}
-        {office && <div className="mt-0.5 text-[12px] leading-snug text-mist-400">{office}</div>}
+        {office && <div className="mt-0.5 text-[12px] leading-snug text-slate-500">{office}</div>}
       </>
     );
   }
@@ -94,7 +94,7 @@ export function Government({ country, factbook, wikidata }: CountryDetails) {
   const anthemTitle = wd?.anthem?.title ?? fb?.anthem?.title;
 
   return (
-    <Section id="government" title="Government" icon={Landmark} source="Wikidata (current office holders), CIA World Factbook">
+    <Section tone="amber" order={2} id="government" title="Government" emoji="🏛️" source="Wikidata (current office holders), CIA World Factbook">
       <FactGrid>
         <Fact label="Government type" wide loading={factbook.loading}>
           {govType && capitalize(govType)}
@@ -114,9 +114,9 @@ export function Government({ country, factbook, wikidata }: CountryDetails) {
         <Fact label="National anthem" wide loading={wikidata.loading || factbook.loading}>
           {anthemTitle && (
             <>
-              <span className="font-display text-[15px] italic">{anthemTitle.replace(/^"|"$/g, '')}</span>
+              <span className="font-display text-[17px] font-semibold">{anthemTitle.replace(/^"|"$/g, '')}</span>
               {fb?.anthem?.composers && (
-                <div className="mt-0.5 text-[12px] text-mist-400">Lyrics/music: {restoreNameCase(fb.anthem.composers)}</div>
+                <div className="mt-0.5 text-[12px] text-slate-500">Lyrics/music: {restoreNameCase(fb.anthem.composers)}</div>
               )}
               {wd?.anthem?.audioUrl && <AnthemPlayer key={wd.anthem.audioUrl} src={wd.anthem.audioUrl} />}
             </>

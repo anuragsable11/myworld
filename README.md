@@ -64,11 +64,14 @@ src/components/panel/         Country profile and its sections
 - **Map**: an Equal Earth projection rendered as SVG. Paths are computed once; zoom and pan only change a transform.
   Labels appear as zooming makes room for them. Microstates and countries without a 1:50m polygon get point markers so
   every country stays clickable.
-- **Globe**: an orthographic projection on canvas. A simplified mesh is drawn while it moves, and the full 1:50m detail
-  is drawn once it stops.
+- **Globe** (the default view): a cartoon orthographic globe on canvas that bounces in on load. A simplified mesh is
+  drawn while it moves and full 1:50m detail once it stops; outlined clouds and an orbiting plane live on a separate
+  canvas so they animate without redrawing the land. Countries use political-map colouring, so neighbours never share a
+  colour. Selecting a country drops a flag pin on it; the dice button flies to a random country with a couple of spins.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
-- **Responsive**: three columns on desktop; a list drawer and floating panel on tablets; a draggable bottom sheet on
-  phones.
+- **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
+  list and profile on floating cards (desktop); a list drawer and floating panel on tablets; a draggable bottom sheet on
+  phones. Animations respect `prefers-reduced-motion`.
 - **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `Esc`
   closes the profile.
 

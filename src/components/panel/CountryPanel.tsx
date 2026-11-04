@@ -7,6 +7,7 @@ import { formatShortCount } from '../../lib/format';
 import { scrollWithin } from '../../lib/scroll';
 import { Flag } from '../ui/Flag';
 import { Skeleton } from '../ui/primitives';
+import { TONES, type Tone } from '../ui/tones';
 import type { CountryDetails } from './details';
 import { Basics, populationOf } from './sections/Basics';
 import { Cities } from './sections/Cities';
@@ -46,15 +47,27 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, sheetHead
   }, [id]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-ink-900">
+    <div className="flex h-full min-h-0 flex-col bg-paper">
       {sheetHeader}
-      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div ref={scrollRef} className="dots-bg relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {country && index ? (
-          <CountryProfile key={country.cca3} country={country} index={index} onClose={onClose} onSelect={onSelect} onLocate={onLocate} scrollRef={scrollRef} />
+          <CountryProfile
+            key={country.cca3}
+            country={country}
+            index={index}
+            onClose={onClose}
+            onSelect={onSelect}
+            onLocate={onLocate}
+            scrollRef={scrollRef}
+          />
         ) : index ? (
           <div className="p-8 text-center">
-            <p className="text-sm text-mist-300">No country with the code “{id}” was found.</p>
-            <button type="button" onClick={onClose} className="mt-3 text-sm text-brass-300 hover:text-brass-200">
+            <p className="text-sm font-bold text-ink">Hmm, no country with the code “{id}”. 🤔</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="toon-sm toon-press-sm mt-3 rounded-full bg-sun px-4 py-1 text-sm font-extrabold text-ink"
+            >
               Close
             </button>
           </div>
@@ -109,66 +122,68 @@ function CountryProfile({
   const statusLabel = {
     member: 'UN member state',
     observer: 'UN observer state',
-    partial: 'Partially recognised state',
+    partial: 'Partially recognised',
     territory: parent ? `Territory of ${parent.name}` : 'Dependent territory',
     disputed: 'Disputed territory',
   }[country.status];
 
   return (
-    <article aria-label={`${country.name} profile`} className="animate-fade-in">
-      <header className="relative overflow-hidden">
-        <img
-          src={country.flag.svg}
-          alt=""
-          aria-hidden
-          className="pointer-events-none absolute inset-0 h-full w-full scale-150 object-cover opacity-[0.17] blur-3xl saturate-150"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink-900/20 via-ink-900/75 to-ink-900" />
-        <div className="relative px-5 pb-5 pt-5">
-          <div className="flex items-start justify-between gap-3">
+    <article aria-label={`${country.name} profile`}>
+      <header className="relative px-5 pb-4 pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="group animate-pop">
             <Flag
               country={country}
               variant="full"
               eager
-              className="h-[60px] w-auto max-w-[110px] rounded-md object-contain shadow-xl shadow-black/50 ring-1 ring-white/15"
+              className="h-[72px] w-auto max-w-[124px] -rotate-3 rounded-xl border-[3px] border-ink bg-white object-contain shadow-[4px_4px_0_0_var(--color-ink)] outline outline-4 -outline-offset-[7px] outline-white transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105"
             />
-            <div className="flex gap-1">
-              <IconButton label="Show on map" onClick={onLocate}>
-                <Crosshair className="size-4" />
-              </IconButton>
-              <IconButton label="Close" onClick={onClose}>
-                <X className="size-4" />
-              </IconButton>
-            </div>
           </div>
-          <h2 className="mt-4 font-display text-[30px] font-medium leading-[1.08] tracking-tight text-mist-50">
-            {country.name}
-          </h2>
-          {country.officialName !== country.name && (
-            <p className="mt-1 text-[13.5px] leading-snug text-mist-400">{country.officialName}</p>
-          )}
-          <div className="mt-3.5 flex flex-wrap gap-1.5">
-            <Badge tone={isSovereign(country) ? 'accent' : 'muted'}>{statusLabel}</Badge>
-            <Badge>{country.subregion ?? country.region}</Badge>
-            <Badge mono>{country.cca3}</Badge>
+          <div className="flex gap-2">
+            <IconButton label="Show on map" onClick={onLocate}>
+              <Crosshair className="size-[18px]" strokeWidth={2.6} />
+            </IconButton>
+            <IconButton label="Close" onClick={onClose}>
+              <X className="size-[18px]" strokeWidth={2.8} />
+            </IconButton>
           </div>
+        </div>
+        <h2 className="toon-title mt-5 animate-rise text-[38px] leading-[1]">{country.name}</h2>
+        {country.officialName !== country.name && (
+          <p className="mt-1.5 text-[14.5px] font-bold leading-snug text-slate-500">{country.officialName}</p>
+        )}
+        <div className="mt-3.5 flex flex-wrap gap-2">
+          <Badge className={isSovereign(country) ? 'bg-sun' : 'bg-pink-200'}>
+            {isSovereign(country) ? '⭐ ' : '🏝️ '}
+            {statusLabel}
+          </Badge>
+          <Badge className="bg-white">🧭 {country.subregion ?? country.region}</Badge>
+          <Badge className="bg-white font-mono tracking-wider">{country.cca3}</Badge>
         </div>
       </header>
 
-      <div className="px-5">
-        <dl className="grid grid-cols-3 divide-x divide-white/[0.06] rounded-xl border border-white/[0.07] bg-ink-850/80">
-          <QuickStat label="Capital" value={country.capitals[0]?.name ?? '—'} />
-          <QuickStat
-            label="Population"
-            value={population ? formatShortCount(population.value) : details.factbook.loading ? undefined : '—'}
-          />
-          <QuickStat label="Area" value={country.area ? `${formatShortCount(country.area)} km²` : '—'} />
-        </dl>
-      </div>
+      <dl className="grid grid-cols-3 gap-2.5 px-4">
+        <QuickStat tone="sky" emoji="🏛️" label="Capital" value={country.capitals[0]?.name ?? '—'} order={0} />
+        <QuickStat
+          tone="violet"
+          emoji="👥"
+          label="People"
+          value={population ? formatShortCount(population.value) : details.factbook.loading ? undefined : '—'}
+          order={1}
+        />
+        <QuickStat
+          tone="emerald"
+          emoji="📐"
+          label="Area"
+          value={country.area ? formatShortCount(country.area) : '—'}
+          unit={country.area ? 'km²' : undefined}
+          order={2}
+        />
+      </dl>
 
       <SectionNav scrollRef={scrollRef} />
 
-      <div className="space-y-3 px-3 pb-6 sm:px-4">
+      <div className="space-y-4 px-3 pb-6 sm:px-4">
         <Overview {...details} />
         <Basics {...details} />
         <Government {...details} />
@@ -200,7 +215,7 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
         const top = [...visible.entries()].sort((a, b) => a[1] - b[1])[0];
         if (top) setActive(top[0]);
       },
-      { root, rootMargin: '-60px 0px -55% 0px' },
+      { root, rootMargin: '-64px 0px -55% 0px' },
     );
     root.querySelectorAll('[data-section]').forEach((el) => observer.observe(el));
     return () => observer.disconnect();
@@ -216,7 +231,7 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
     <nav
       ref={navRef}
       aria-label="Profile sections"
-      className="no-scrollbar sticky top-0 z-20 mt-4 flex gap-1 overflow-x-auto border-b border-white/[0.06] bg-ink-900/90 px-4 py-2 backdrop-blur-md"
+      className="no-scrollbar sticky top-0 z-20 mt-4 flex gap-1.5 overflow-x-auto border-b-2 border-dashed border-indigo-100 bg-paper/95 px-4 py-2.5 backdrop-blur"
     >
       {SECTIONS.map(([id, label]) => (
         <button
@@ -227,11 +242,13 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
             setActive(id);
             const root = scrollRef.current;
             const section = root?.querySelector<HTMLElement>(`#section-${id}`);
-            if (root && section) scrollWithin(root, section, { block: 'start', offset: 56, smooth: true });
+            if (root && section) scrollWithin(root, section, { block: 'start', offset: 64, smooth: true });
           }}
           className={clsx(
-            'shrink-0 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium transition-colors',
-            active === id ? 'bg-brass-400/12 text-brass-200' : 'text-mist-400 hover:text-mist-100',
+            'shrink-0 rounded-full border-2 px-3.5 py-1 font-display text-[14px] font-semibold transition-all duration-300',
+            active === id
+              ? 'border-ink bg-sun text-ink shadow-[2px_2px_0_0_var(--color-ink)]'
+              : 'border-transparent text-slate-500 hover:border-ink hover:bg-white hover:text-ink',
           )}
         >
           {label}
@@ -241,30 +258,41 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
   );
 }
 
-function QuickStat({ label, value }: { label: string; value: string | undefined }) {
+function QuickStat({
+  tone,
+  emoji,
+  label,
+  value,
+  unit,
+  order,
+}: {
+  tone: Tone;
+  emoji: string;
+  label: string;
+  value: string | undefined;
+  unit?: string;
+  order: number;
+}) {
+  const tilt = ['-rotate-2', 'rotate-1', '-rotate-1'][order];
   return (
-    <div className="min-w-0 px-3 py-3">
-      <dt className="text-[10.5px] font-medium uppercase tracking-[0.09em] text-mist-500">{label}</dt>
-      <dd className="tabular mt-1 truncate text-[15px] font-semibold text-mist-50" title={value}>
-        {value ?? <Skeleton className="h-4 w-14" />}
-      </dd>
+    <div className="animate-pop" style={{ animationDelay: `${140 + order * 90}ms` }}>
+      <div className={clsx('toon min-w-0 rounded-2xl px-3 py-2.5 transition-transform duration-300 hover:rotate-0 hover:scale-105', tilt, TONES[tone].soft)}>
+        <span aria-hidden className="block text-[22px] leading-none">
+          {emoji}
+        </span>
+        <dt className="mt-1.5 text-[10.5px] font-black uppercase tracking-[0.08em] text-ink/60">{label}</dt>
+        <dd className="tabular toon-title mt-0.5 truncate text-[18px]" title={value}>
+          {value ?? <Skeleton className="h-4 w-14" />}
+          {value && unit && <span className="ml-0.5 text-[12px] font-bold text-ink/60">{unit}</span>}
+        </dd>
+      </div>
     </div>
   );
 }
 
-function Badge({ children, tone = 'default', mono }: { children: ReactNode; tone?: 'default' | 'accent' | 'muted'; mono?: boolean }) {
+function Badge({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span
-      className={clsx(
-        'rounded-full border px-2.5 py-0.5 text-[11.5px]',
-        mono && 'font-mono tracking-wider',
-        tone === 'accent' && 'border-brass-400/30 bg-brass-400/10 text-brass-200',
-        tone === 'muted' && 'border-white/10 bg-white/[0.04] text-mist-300',
-        tone === 'default' && 'border-white/[0.08] bg-white/[0.03] text-mist-300',
-      )}
-    >
-      {children}
-    </span>
+    <span className={clsx('toon-sm rounded-full px-2.5 py-0.5 text-[12px] font-extrabold text-ink', className)}>{children}</span>
   );
 }
 
@@ -275,7 +303,7 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="grid size-8 place-items-center rounded-lg border border-white/[0.08] bg-ink-900/60 text-mist-300 backdrop-blur transition-colors hover:border-white/15 hover:text-mist-50"
+      className="toon-sm toon-press-sm grid size-10 place-items-center rounded-full bg-white text-ink hover:bg-sun"
     >
       {children}
     </button>
@@ -285,11 +313,11 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
 function PanelSkeleton() {
   return (
     <div className="space-y-4 p-5" role="status" aria-label="Loading country">
-      <Skeleton className="h-14 w-24" />
-      <Skeleton className="h-8 w-2/3" />
+      <Skeleton className="h-16 w-28 rounded-xl" />
+      <Skeleton className="h-9 w-2/3" />
       <Skeleton className="h-4 w-1/2" />
-      <Skeleton className="h-16 w-full rounded-xl" />
-      <Skeleton className="h-40 w-full rounded-2xl" />
+      <Skeleton className="h-24 w-full rounded-2xl" />
+      <Skeleton className="h-40 w-full rounded-3xl" />
     </div>
   );
 }

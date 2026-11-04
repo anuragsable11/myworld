@@ -1,4 +1,4 @@
-import { ArrowUpRight, BookOpen } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { ExpandableText, Skeleton } from '../../ui/primitives';
 import type { CountryDetails } from '../details';
 import { Section } from '../Section';
@@ -9,10 +9,10 @@ export function Overview({ country, wikipedia, factbook }: CountryDetails) {
   const loading = wikipedia.loading || (!summary && !fallback && factbook.loading);
 
   return (
-    <Section
+    <Section tone="sky" order={0}
       id="overview"
       title="Overview"
-      icon={BookOpen}
+      emoji="📖"
       source={summary ? 'Wikipedia' : fallback ? (country.description ? 'REST Countries' : 'CIA World Factbook') : undefined}
     >
       {summary ? (
@@ -22,7 +22,7 @@ export function Overview({ country, wikipedia, factbook }: CountryDetails) {
             href={summary.url}
             target="_blank"
             rel="noreferrer"
-            className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-medium text-brass-300 hover:text-brass-200"
+            className="toon-sm toon-press-sm mt-3 inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-[12.5px] font-extrabold text-ink"
           >
             Read the full article on Wikipedia
             <ArrowUpRight className="size-3.5" />
@@ -38,7 +38,7 @@ export function Overview({ country, wikipedia, factbook }: CountryDetails) {
       ) : fallback ? (
         <ExpandableText text={fallback} lines={6} />
       ) : (
-        <p className="text-[13px] italic text-mist-500">No summary is available for {country.name}.</p>
+        <p className="text-[13px] italic text-slate-400">No summary is available for {country.name}.</p>
       )}
     </Section>
   );

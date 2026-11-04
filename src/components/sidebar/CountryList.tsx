@@ -48,7 +48,7 @@ export const CountryList = memo(function CountryList({
   }, [selectedId, activeId, grouped]);
 
   if (!countries.length) {
-    return <p className="px-6 py-10 text-center text-[13px] text-mist-500">{emptyMessage}</p>;
+    return <p className="px-6 py-10 text-center text-[14px] font-bold text-slate-500">{emptyMessage}</p>;
   }
 
   return (
@@ -57,11 +57,10 @@ export const CountryList = memo(function CountryList({
         {groups.map((g) => (
           <li key={g.letter || 'results'} role="presentation">
             {g.letter && (
-              <div
-                role="presentation"
-                className="sticky top-0 z-10 bg-ink-900/95 px-3 pb-1 pt-3 font-display text-[13px] font-semibold text-brass-300/90 backdrop-blur"
-              >
-                {g.letter}
+              <div role="presentation" className="sticky top-0 z-10 bg-white px-2 pb-1.5 pt-3">
+                <span className="grid size-7 place-items-center rounded-full border-2 border-ink bg-sky-200 font-display text-[14px] font-semibold text-ink">
+                  {g.letter}
+                </span>
               </div>
             )}
             <ul role="presentation">
@@ -76,22 +75,30 @@ export const CountryList = memo(function CountryList({
                     aria-selected={selected}
                     onClick={() => onSelect(c.cca3)}
                     className={clsx(
-                      'group relative flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors',
-                      selected ? 'bg-brass-400/[0.11]' : c.cca3 === activeId ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]',
+                      'group relative flex cursor-pointer items-center gap-3 rounded-2xl border-2 px-3 py-1.5 transition-all duration-200',
+                      selected
+                        ? 'border-ink bg-sun shadow-[3px_3px_0_0_var(--color-ink)]'
+                        : c.cca3 === activeId
+                          ? 'border-ink/30 bg-amber-50'
+                          : 'border-transparent hover:translate-x-1 hover:bg-sky-50',
                     )}
                   >
-                    {selected && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-brass-400" />}
-                    <Flag country={c} className="h-[16px] w-[24px] shrink-0 rounded-[3px] ring-1 ring-white/10" />
+                                        <Flag country={c} className="h-[20px] w-[30px] shrink-0 rounded-md border-2 border-ink transition-transform duration-300 group-hover:-rotate-6" />
                     <span className="min-w-0 flex-1">
-                      <span className={clsx('block truncate text-[13.5px]', selected ? 'font-medium text-brass-200' : 'text-mist-100')}>
+                      <span className={clsx('block truncate text-[13.5px]', selected ? 'font-extrabold text-ink' : 'font-bold text-ink')}>
                         {c.name}
                       </span>
-                      <span className="block truncate text-[11.5px] text-mist-500">
+                      <span className={clsx('block truncate text-[12px] font-semibold', selected ? 'text-ink/70' : 'text-slate-400')}>
                         {c.capitals[0]?.name ?? c.subregion ?? c.region}
                       </span>
                     </span>
                     {!isSovereign(c) && (
-                      <span className="shrink-0 rounded border border-white/[0.07] px-1.5 py-px text-[10px] uppercase tracking-wide text-mist-500">
+                      <span
+                        className={clsx(
+                          'shrink-0 rounded-full border-2 border-ink px-1.5 py-px text-[9.5px] font-black uppercase tracking-wide text-ink',
+                          selected ? 'bg-white' : 'bg-pink-200',
+                        )}
+                      >
                         {c.status === 'disputed' ? 'Disputed' : 'Territory'}
                       </span>
                     )}

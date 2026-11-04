@@ -47,13 +47,13 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="m-auto w-[min(92vw,560px)] rounded-2xl border border-white/10 bg-ink-900 p-0 text-mist-200 shadow-2xl shadow-black/60 backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      className="toon-lg m-auto w-[min(92vw,560px)] animate-pop rounded-[28px] bg-paper p-0 text-slate-700 backdrop:bg-indigo-950/30 backdrop:backdrop-blur-sm"
     >
       <div className="max-h-[85dvh] overflow-y-auto p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-[22px] font-medium text-mist-50">About this atlas</h2>
-            <p className="mt-1.5 text-[13.5px] leading-relaxed text-mist-400">
+            <h2 className="toon-title text-[28px]">About this atlas 📚</h2>
+            <p className="mt-1.5 text-[14px] font-semibold leading-relaxed text-slate-600">
               Every country profile is assembled live from public sources. Nothing is written by hand for individual
               countries.
             </p>
@@ -62,45 +62,45 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="grid size-8 shrink-0 place-items-center rounded-lg text-mist-400 hover:bg-white/5 hover:text-mist-100"
+            className="toon-sm toon-press-sm grid size-10 shrink-0 place-items-center rounded-full bg-white text-ink hover:bg-pink-200"
           >
             <X className="size-4" />
           </button>
         </div>
 
         {index && (
-          <div className="mt-5 rounded-xl border border-white/[0.07] bg-ink-850 p-4 text-[13px]">
-            <div className="font-medium text-mist-100">
+          <div className="toon mt-5 rounded-2xl bg-sky-100 p-4 text-[13.5px]">
+            <div className="font-extrabold text-ink">
               Country records:{' '}
               {index.provider === 'restcountries' ? 'REST Countries v5 API' : 'open mledoze/countries dataset'}
             </div>
-            {index.notice && <p className="mt-1 leading-relaxed text-mist-400">{index.notice}</p>}
+            {index.notice && <p className="mt-1 font-semibold leading-relaxed text-ink/70">{index.notice}</p>}
             {index.provider === 'open' && (
-              <p className="mt-2 leading-relaxed text-mist-500">
-                To use the REST Countries API, set <code className="text-brass-300">VITE_RESTCOUNTRIES_API_KEY</code> in{' '}
-                <code className="text-brass-300">.env</code> and allow this site's hostname for the key.
+              <p className="mt-2 font-semibold leading-relaxed text-ink/60">
+                To use the REST Countries API, set <code className="font-semibold text-indigo-700">VITE_RESTCOUNTRIES_API_KEY</code> in{' '}
+                <code className="font-semibold text-indigo-700">.env</code> and allow this site's hostname for the key.
               </p>
             )}
           </div>
         )}
 
-        <ul className="mt-5 divide-y divide-white/[0.06]">
+        <ul className="mt-5 divide-y-2 divide-dashed divide-indigo-100">
           {SOURCES.map((s) => (
             <li key={s.name} className="py-3">
               <a
                 href={s.href}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[13.5px] font-medium text-mist-100 hover:text-brass-300"
+                className="inline-flex items-center gap-1 font-display text-[16px] font-semibold text-ink hover:text-indigo-600"
               >
                 {s.name}
                 <ArrowUpRight className="size-3.5" />
               </a>
-              <p className="mt-0.5 text-[12.5px] leading-relaxed text-mist-400">{s.what}</p>
+              <p className="mt-0.5 text-[13px] font-semibold leading-relaxed text-slate-500">{s.what}</p>
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-[12px] leading-relaxed text-mist-500">
+        <p className="mt-3 text-[12px] font-semibold leading-relaxed text-slate-400">
           Boundaries follow Natural Earth's de facto conventions and do not imply endorsement of any territorial claim.
         </p>
       </div>
