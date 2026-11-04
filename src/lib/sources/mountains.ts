@@ -1,4 +1,5 @@
-import { assetUrl, fetchJson } from '../http';
+import { fetchJson } from '../http';
+import mountainsUrl from '../../data/mountains.json?url';
 
 /** Notable peaks and mountain ranges per country, generated from Natural Earth by scripts/build-data.mjs. */
 
@@ -18,4 +19,4 @@ export interface CountryMountains {
 export type MountainIndex = Record<string, CountryMountains>;
 
 export const fetchMountains = (signal?: AbortSignal) =>
-  fetchJson<MountainIndex>(assetUrl('data/mountains.json'), { signal });
+  fetchJson<MountainIndex>(mountainsUrl, { signal });

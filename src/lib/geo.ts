@@ -3,7 +3,9 @@ import { geoArea, geoBounds, geoCentroid, geoDistance } from 'd3-geo';
 import { feature, mesh, neighbors } from 'topojson-client';
 import { presimplify, quantile, simplify, sphericalTriangleArea } from 'topojson-simplify';
 import type { GeometryCollection, Topology } from 'topojson-specification';
-import { assetUrl, fetchJson } from './http';
+import { fetchJson } from './http';
+// Imported as a URL, so the file name carries a content hash and an update is never served from an old cache.
+import worldUrl from '../data/world.topo.json?url';
 
 /** One drawable boundary geometry. Several shapes can share a country id (e.g. Cyprus). */
 export interface Shape {
@@ -52,7 +54,7 @@ const LOW_DETAIL_SHARE = 0.14;
 type CountriesTopology = Topology<{ countries: GeometryCollection<{ name: string }> }>;
 
 export async function loadWorld(signal?: AbortSignal): Promise<World> {
-  const topo = await fetchJson<CountriesTopology>(assetUrl('data/world.topo.json'), { signal, timeoutMs: 30_000 });
+  const topo = await fetchJson<CountriesTopology>(worldUrl, { signal, timeoutMs: 30_000 });
   const object = topo.objects.countries;
   const collection = feature(topo, object);
 

@@ -1,9 +1,9 @@
 /**
  * Generates the static geographic assets the app loads at runtime:
  *
- *   public/data/world.topo.json   Natural Earth 1:50m boundaries (via world-atlas), keyed by ISO 3166-1 alpha-3,
+ *   src/data/world.topo.json      Natural Earth 1:50m boundaries (via world-atlas), keyed by ISO 3166-1 alpha-3,
  *                                 with India drawn as the Government of India's official map shows it
- *   public/data/mountains.json    Notable peaks and mountain ranges per country (Natural Earth 1:10m)
+ *   src/data/mountains.json       Notable peaks and mountain ranges per country (Natural Earth 1:10m)
  *   src/data/factbook-index.json  ISO alpha-3 -> CIA World Factbook profile path (factbook/factbook.json)
  *
  * Usage: npm run data
@@ -204,7 +204,7 @@ async function buildBoundaries(countries) {
   }
 
   object.geometries = geometries;
-  const out = path.join(root, 'public/data/world.topo.json');
+  const out = path.join(root, 'src/data/world.topo.json');
   await fs.mkdir(path.dirname(out), { recursive: true });
   await fs.writeFile(out, JSON.stringify(topo));
 
@@ -368,7 +368,7 @@ async function buildMountains(features) {
       .map((r) => r.name);
   }
 
-  await fs.writeFile(path.join(root, 'public/data/mountains.json'), JSON.stringify(result));
+  await fs.writeFile(path.join(root, 'src/data/mountains.json'), JSON.stringify(result));
   console.log(`  mountains: ${Object.keys(result).length} countries with peaks or ranges`);
 }
 

@@ -38,7 +38,7 @@ populations from the World Bank. The header and the About dialog show which sour
 | Current head of state / government, national anthem and recording | Wikidata SPARQL | Per country, on selection |
 | Overview text | Wikipedia REST API | Per country, on selection |
 | GDP, GDP per capita, PPP, growth, population | World Bank API | Per country, on selection |
-| Boundaries (1:50m), notable peaks and mountain ranges | Natural Earth | Static files in `public/data` |
+| Boundaries (1:50m), notable peaks and mountain ranges | Natural Earth | Static files in `src/data` |
 | Live local time | IANA time zone database (`countries-and-timezones`) | Bundled |
 
 When a source has nothing for a country (for example, the Factbook lists major rivers for only about 80 countries), the
@@ -48,8 +48,8 @@ field shows "Not available" instead of guessing.
 
 ```
 scripts/build-data.mjs        Regenerates the static geographic data (npm run data)
-public/data/world.topo.json   Natural Earth 1:50m boundaries keyed by ISO alpha-3
-public/data/mountains.json    Peaks and ranges per country
+src/data/world.topo.json      Natural Earth 1:50m boundaries keyed by ISO alpha-3
+src/data/mountains.json       Peaks and ranges per country
 src/data/factbook-index.json  ISO alpha-3 → Factbook profile path
 src/lib/sources/              One module per data source, each normalising into typed models
 src/lib/geo.ts                Boundary loading, low-detail globe geometry, per-country zoom framing
