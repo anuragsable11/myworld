@@ -16,10 +16,12 @@ import { Geography } from './sections/Geography';
 import { Government } from './sections/Government';
 import { Overview } from './sections/Overview';
 import { People } from './sections/People';
+import { Photos } from './sections/Photos';
 import { Sources } from './sections/Sources';
 
 const SECTIONS = [
   ['overview', 'Overview'],
+  ['photos', 'Photos'],
   ['basics', 'Basics'],
   ['government', 'Government'],
   ['geography', 'Geography'],
@@ -185,6 +187,7 @@ function CountryProfile({
 
       <div className="space-y-4 px-3 pb-6 sm:px-4">
         <Overview {...details} />
+        <Photos {...details} />
         <Basics {...details} />
         <Government {...details} />
         <Geography {...details} />

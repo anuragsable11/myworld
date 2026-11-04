@@ -5,8 +5,11 @@
  *                                 with India drawn as the Government of India's official map shows it
  *   src/data/mountains.json       Notable peaks and mountain ranges per country (Natural Earth 1:10m)
  *   src/data/factbook-index.json  ISO alpha-3 -> CIA World Factbook profile path (factbook/factbook.json)
+ *   src/data/symbols.json         National animal, bird, flower, tree and dish per country, read from
+ *                                 Wikipedia's lists of national symbols, with each article's lead picture
  *
- * Usage: npm run data
+ * Usage: npm run data            (everything)
+ *        npm run data -- symbols (only the named steps: boundaries, mountains, factbook, symbols)
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -503,12 +506,271 @@ async function buildFactbookIndex(countries) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// National symbols
+// ---------------------------------------------------------------------------------------------
+const WIKI_API = 'https://en.wikipedia.org/w/api.php';
+const WIKI_HEADERS = { 'User-Agent': 'world-atlas-explorer/1.0 (build script; https://github.com/anuragsable11/myworld)' };
+
+/** English Wikipedia lists the national symbols are read from, and how each one is laid out. */
+const SYMBOL_LISTS = [
+  ['animal', 'List of national animals', 'table'],
+  ['bird', 'List of national birds', 'table'],
+  ['flower', 'List of national flowers', 'headings'],
+  ['tree', 'List of national trees', 'table'],
+  ['dish', 'National dish', 'bullets'],
+];
+
+/** One Wikipedia API request at a time, backing off when the API asks us to slow down. */
+let wikiQueue = Promise.resolve();
+function wiki(params) {
+  const request = async () => {
+    for (let attempt = 1; ; attempt++) {
+      const res = await fetch(WIKI_API, {
+        method: 'POST',
+        headers: { ...WIKI_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ format: 'json', formatversion: '2', ...params }),
+      });
+      if (res.ok) return res.json();
+      if (attempt >= 5 || (res.status !== 429 && res.status < 500)) throw new Error(`Wikipedia API ${res.status} ${res.statusText}`);
+      const wait = Number(res.headers.get('retry-after')) || 5 * 2 ** attempt;
+      console.log(`  (Wikipedia asked us to wait ${wait}s)`);
+      await new Promise((r) => setTimeout(r, wait * 1000));
+    }
+  };
+  const result = wikiQueue.then(request);
+  wikiQueue = result.catch(() => {}).then(() => new Promise((r) => setTimeout(r, 1000)));
+  return result;
+}
+
+const stripRefs = (s) => s.replace(/<ref[^>/]*\/>|<ref[^>]*>[\s\S]*?<\/ref>|<!--[\s\S]*?-->/g, '');
+
+/**
+ * Wiki links in a piece of wikitext, leaving out files and categories. A scientific name written
+ * after a common one, as in "the lotus (''[[Nelumbo nucifera]]'')", is shown by its common name.
+ */
+const wikiLinks = (text) =>
+  [...text.matchAll(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g)]
+    .map((m) => {
+      const common = text.slice(Math.max(0, m.index - 60), m.index).match(/\b(?:the|a|an)\s+([a-z][a-z' -]{2,40}?)\s*\(\s*'*\s*$/i)?.[1];
+      return { target: m[1].trim(), text: (common ?? m[2] ?? m[1]).replace(/'{2,}/g, '').trim() };
+    })
+    .filter((l) => l.text && !/^(file|image|category|wikt|wiktionary):/i.test(l.target));
+
+/**
+ * What an article's short description must (or must not) say for it to be taken as each kind of
+ * symbol, so that a link to, say, the president who chose a flower isn't mistaken for the flower.
+ */
+const SYMBOL_CHECKS = {
+  animal: { not: /dynasty|president|politician|monarch|king|queen|empire|city|country|language|people|ethnic|religio|deity|battle|novel|film|song|flag of/i },
+  bird: { not: /dynasty|president|politician|monarch|empire|city|country|language|people|ethnic|religio|novel|film|song|flag of/i },
+  flower: { is: /plant|flower|tree|species|genus|shrub|herb|cultivar|orchid|lily|rose|lotus|tulip|blossom|botan|famil(y|ies) of|vine|cactus|palm/i, not: /dynasty|president|politician|city|country|language|people|religio/i },
+  tree: { is: /plant|tree|species|genus|shrub|palm|conifer|famil(y|ies) of|oak|pine|cedar|blossom/i, not: /dynasty|president|politician|city|country|language|people|religio/i },
+  dish: { not: /city|country|region|people|ethnic|language|restaurant|chef|politician|president|province|island/i },
+};
+
+/** Country names as the lists write them ("Georgia (country)", "The Gambia") to ISO alpha-3. */
+function countryResolver(countries) {
+  // The dataset now names Turkey "Türkiye" only.
+  const lookup = new Map([['turkey', 'TUR']]);
+  for (const c of countries) {
+    for (const n of [c.name.common, c.name.official, ...(c.altSpellings ?? [])]) if (n && !lookup.has(norm(n))) lookup.set(norm(n), c.cca3);
+  }
+  return (name) => {
+    const plain = name
+      .replace(/\[\[|\]\]|\{\{[^}]*\}\}/g, '')
+      .replace(/\s*\((country|state|nation)\)$/i, '')
+      .replace(/^cuisine of /i, '')
+      .replace(/^(.*), (.*)$/, '$2 $1'); // "Korea, South"
+    return lookup.get(norm(plain));
+  };
+}
+
+/**
+ * Rows of a wikitable whose first cell names a country, usually with a flag template such as
+ * {{flag|India}} or {{IND}}. A rowspan carries the country on to the following rows.
+ */
+function parseSymbolTable(text, countryOfCell) {
+  const out = [];
+  let current;
+  let left = 0;
+  for (const chunk of text.split(/\n\|-[^\n]*/)) {
+    const row = chunk.trim();
+    if (!row.startsWith('|') || /^\|[}+]/.test(row)) continue;
+    const body = row.slice(1);
+    const first = body.split(/\|\||\n\|/)[0];
+    const cca3 = countryOfCell(first);
+    let rest;
+    if (cca3) {
+      current = cca3;
+      left = Number(first.match(/rowspan\s*=\s*"?(\d+)/)?.[1] ?? 1);
+      rest = body.slice(first.length);
+    } else if (left > 0) rest = body;
+    else continue;
+    left--;
+    const cells = stripRefs(rest);
+    const links = wikiLinks(cells);
+    if (!links.length) continue;
+    const role = cells.slice(cells.indexOf(links[0].text)).match(/^[^|]*?\(''([^']+)''\)/)?.[1];
+    out.push({ cca3: current, links: links.slice(0, 3), role });
+  }
+  return out;
+}
+
+/** "====India====" headings, each followed by prose about that country's symbol. */
+function parseSymbolHeadings(text, resolve) {
+  const out = [];
+  const parts = text.split(/^(={2,6})\s*(.+?)\s*\1\s*$/m);
+  for (let i = 1; i < parts.length; i += 3) {
+    const cca3 = resolve(parts[i + 1]);
+    if (!cca3) continue;
+    const links = wikiLinks(stripRefs(parts[i + 2])).filter(
+      (l) => !resolve(l.target) && !/language|people|flower|floral|emblem|^list of|symbol/i.test(l.target),
+    );
+    if (links.length) out.push({ cca3, links: links.slice(0, 6) });
+  }
+  return out;
+}
+
+/** "* [[Country]]: [[dish]], [[dish]]" bullet lines. */
+function parseSymbolBullets(text, resolve) {
+  const out = [];
+  for (const line of stripRefs(text).split('\n')) {
+    const m = line.match(/^\*+\s*(.+?):\s*(.*)$/);
+    if (!m) continue;
+    const place = wikiLinks(m[1])[0];
+    const cca3 = place ? (resolve(place.target) ?? resolve(place.text)) : resolve(m[1]);
+    const links = cca3 ? wikiLinks(m[2]).filter((l) => !resolve(l.target) && !/cuisine/i.test(l.target)) : [];
+    if (links.length) out.push({ cca3, links: links.slice(0, 4) });
+  }
+  return out;
+}
+
+/** Wikipedia articles' short descriptions and free lead images: requested title -> article. */
+async function articleInfo(titles) {
+  const out = new Map();
+  for (let i = 0; i < titles.length; i += 50) {
+    const batch = titles.slice(i, i + 50);
+    const data = await wiki({
+      action: 'query',
+      prop: 'pageimages|description',
+      piprop: 'thumbnail|name',
+      pithumbsize: '500',
+      redirects: '1',
+      titles: batch.join('|'),
+    });
+    const q = data.query ?? {};
+    const step = (list) => new Map((list ?? []).map((x) => [x.from, x.to]));
+    const normalized = step(q.normalized);
+    const redirects = step(q.redirects);
+    const pages = new Map((q.pages ?? []).map((p) => [p.title, p]));
+    for (const t of batch) {
+      const n = normalized.get(t) ?? t;
+      const page = pages.get(redirects.get(n) ?? n);
+      if (page && !page.missing) {
+        out.set(t, {
+          page: page.title,
+          description: page.description ?? '',
+          image: page.thumbnail?.source.replace(/\?.*$/, ''),
+          file: page.pageimage,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+async function buildSymbols(countries) {
+  const resolve = countryResolver(countries);
+  const lists = await mapLimit(SYMBOL_LISTS, 3, async ([kind, page, layout]) => {
+    const data = await wiki({ action: 'parse', page, prop: 'wikitext', redirects: '1' });
+    return { kind, page, layout, text: data.parse.wikitext };
+  });
+
+  // The tables mark countries with flag templates; expanding them gives each country's article link.
+  const templates = [
+    ...new Set(
+      lists
+        .filter((l) => l.layout === 'table')
+        .flatMap((l) => [...l.text.matchAll(/\n\|(?:[^|\n]*?\|(?!\|))?\s*(\{\{[^{}]+\}\})/g)].map((m) => m[1])),
+    ),
+  ];
+  const SPLIT = '\n@@@\n';
+  const expanded = (await wiki({ action: 'expandtemplates', prop: 'wikitext', text: templates.join(SPLIT) })).expandtemplates.wikitext.split(SPLIT);
+  const templateCountry = new Map(templates.map((t, i) => [t, wikiLinks(expanded[i] ?? '').map((l) => resolve(l.target) ?? resolve(l.text)).find(Boolean)]));
+  const countryOfCell = (cell) => {
+    const tpl = cell.match(/\{\{[^{}]+\}\}/)?.[0];
+    if (tpl) return templateCountry.get(tpl);
+    const link = wikiLinks(cell)[0];
+    return link && (resolve(link.target) ?? resolve(link.text));
+  };
+
+  const rowsByKind = lists.map(({ kind, page, layout, text }) => ({
+    kind,
+    page,
+    rows: layout === 'table' ? parseSymbolTable(text, countryOfCell) : layout === 'headings' ? parseSymbolHeadings(text, resolve) : parseSymbolBullets(text, resolve),
+  }));
+  const info = await articleInfo([...new Set(rowsByKind.flatMap((k) => k.rows.flatMap((r) => r.links.map((l) => l.target))))]);
+
+  const picks = {};
+  for (const { kind, page, rows } of rowsByKind) {
+    const check = SYMBOL_CHECKS[kind];
+    // Countries can list several animals ("national bird", "national fish"…): prefer the national
+    // animal itself, and leave birds to the list of national birds.
+    const rank = (r) => (kind !== 'animal' || /national animal/i.test(r.role ?? '') ? 0 : !r.role || /mammal/i.test(r.role) ? 1 : 2);
+    let count = 0;
+    for (const r of rows.filter((r) => kind !== 'animal' || !/bird/i.test(r.role ?? '')).sort((a, b) => rank(a) - rank(b))) {
+      if (picks[r.cca3]?.[kind]) continue;
+      // A link whose description fits best, else the first that isn't plainly something else.
+      const fits = (l, strict) => {
+        const a = info.get(l.target);
+        return a && !check.not.test(a.description) && (!strict || !check.is || check.is.test(a.description));
+      };
+      const link = r.links.find((l) => fits(l, true)) ?? r.links.find((l) => fits(l, false));
+      if (!link) continue;
+      const a = info.get(link.target);
+      (picks[r.cca3] ??= {})[kind] = {
+        name: link.text.charAt(0).toUpperCase() + link.text.slice(1),
+        page: a.page,
+        ...(a.image && { image: a.image, file: a.file }),
+      };
+      count++;
+    }
+    console.log(`  ${kind}: ${count} countries (${page})`);
+  }
+
+  const result = {};
+  for (const [cca3, kinds] of Object.entries(picks).sort(([a], [b]) => a.localeCompare(b))) {
+    // A symbol listed twice (the Gallic rooster as animal and bird) shows once.
+    if (kinds.animal && kinds.bird && kinds.animal.page === kinds.bird.page) delete kinds.bird;
+    if (kinds.flower && kinds.tree && kinds.flower.page === kinds.tree.page) delete kinds.tree;
+    result[cca3] = Object.fromEntries(SYMBOL_LISTS.filter(([kind]) => kinds[kind]).map(([kind]) => [kind, kinds[kind]]));
+  }
+  await fs.writeFile(path.join(root, 'src/data/symbols.json'), JSON.stringify(result));
+  const all = Object.values(result).flatMap((k) => Object.values(k));
+  console.log(`  symbols: ${all.length} for ${Object.keys(result).length} countries, ${all.filter((s) => s.image).length} with a picture`);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pass step names to run only some of them, e.g. `npm run data -- symbols`.
+const steps = process.argv.slice(2);
+const run = (step) => !steps.length || steps.includes(step);
+
 console.log('Fetching country dataset…');
 const countries = await getJson(COUNTRIES_URL);
-console.log('Building boundaries…');
-const features = await buildBoundaries(countries);
-console.log('Building mountains…');
-await buildMountains(features);
-console.log('Building factbook index…');
-await buildFactbookIndex(countries);
+if (run('boundaries') || run('mountains')) {
+  console.log('Building boundaries…');
+  const features = await buildBoundaries(countries);
+  if (run('mountains')) {
+    console.log('Building mountains…');
+    await buildMountains(features);
+  }
+}
+if (run('factbook')) {
+  console.log('Building factbook index…');
+  await buildFactbookIndex(countries);
+}
+if (run('symbols')) {
+  console.log('Building national symbols…');
+  await buildSymbols(countries);
+}
 console.log('Done.');

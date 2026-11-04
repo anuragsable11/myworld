@@ -11,6 +11,7 @@ export function Sources({ country, index, wikidata, wikipedia }: CountryDetails)
     { label: 'CIA World Factbook', href: factbookPageUrl(country.cca3) },
     { label: 'Wikidata', href: wikidata.data ? `https://www.wikidata.org/wiki/${wikidata.data.id}` : undefined },
     { label: 'Wikipedia', href: wikipedia.data?.url },
+    { label: 'Wikimedia Commons (photos)', href: 'https://commons.wikimedia.org' },
     { label: 'World Bank', href: worldBankCountryUrl(country.cca3) },
     { label: 'Natural Earth', href: 'https://www.naturalearthdata.com' },
   ].filter((l): l is { label: string; href: string } => !!l.href);

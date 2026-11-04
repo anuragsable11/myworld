@@ -3,6 +3,8 @@ import type { Country, CountryDataset, RankedValue } from '../types';
 import { loadCountries } from '../lib/sources/countries';
 import { fetchFactbook, hasFactbookProfile } from '../lib/sources/factbook';
 import { fetchMountains } from '../lib/sources/mountains';
+import { fetchPhotoCredit, fetchPhotos } from '../lib/sources/photos';
+import { fetchSymbols } from '../lib/sources/symbols';
 import { fetchWikidataFacts } from '../lib/sources/wikidata';
 import { fetchWikipediaSummary } from '../lib/sources/wikipedia';
 import { fetchIndicators } from '../lib/sources/worldBank';
@@ -95,6 +97,36 @@ export function useWikipedia(title: string | undefined) {
     queryFn: ({ signal }) => fetchWikipediaSummary(title!, signal),
     enabled: !!title,
     staleTime: 6 * 60 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+export function useSymbols() {
+  return useQuery({
+    queryKey: ['symbols'],
+    queryFn: ({ signal }) => fetchSymbols(signal),
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+}
+
+/** Photos from a country's Wikipedia article, by article title. */
+export function usePhotos(title: string | undefined) {
+  return useQuery({
+    queryKey: ['photos', title],
+    queryFn: ({ signal }) => fetchPhotos(title!, signal),
+    enabled: !!title,
+    staleTime: 6 * 60 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+export function usePhotoCredit(file: string | undefined) {
+  return useQuery({
+    queryKey: ['photo-credit', file],
+    queryFn: ({ signal }) => fetchPhotoCredit(file!, signal),
+    enabled: !!file,
+    staleTime: Infinity,
     retry: 1,
   });
 }

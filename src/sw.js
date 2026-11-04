@@ -5,7 +5,7 @@
  *   The build (vite.config.ts) fills in the precache manifest below: every file in the build with
  *   a content hash, so an update only downloads the files that changed.
  * - Country details from open sources are cached as they are viewed, so countries you have
- *   opened before still work without a connection.
+ *   opened before still work without a connection. So are the last 150 photo thumbnails.
  * - REST Countries API responses are never stored here: the app keeps those in localStorage for
  *   at most three days, as its terms allow. Their flag images follow the same three-day limit.
  */
@@ -41,10 +41,24 @@ const ROUTES = [
     maxEntries: 300,
   },
   {
-    test: (url) => url.hostname === 'en.wikipedia.org' && url.pathname.startsWith('/api/rest_v1/page/summary/'),
+    // Article summaries, the photos each article uses, and photo credits.
+    test: (url) =>
+      url.hostname === 'en.wikipedia.org' &&
+      (/^\/api\/rest_v1\/page\/(summary|media-list)\//.test(url.pathname) || url.pathname === '/w/api.php'),
     strategy: 'stale-while-revalidate',
     cache: 'atlas-wikipedia',
     maxEntries: 300,
+  },
+  {
+    // Photo thumbnails from Wikimedia Commons, requested in CORS mode so they're stored at their
+    // real size. Bigger versions opened in the photo viewer aren't kept.
+    test: (url) =>
+      (url.hostname === 'thumb.wikimedia.org' || url.hostname === 'upload.wikimedia.org') &&
+      /\/thumb\/.*\/([1-9]\d?|[1-4]\d\d|500)px-[^/]+$/.test(url.pathname),
+    strategy: 'cache-first',
+    cache: 'atlas-photos',
+    maxEntries: 150,
+    maxAgeMs: 30 * DAY_MS,
   },
   {
     // Heads of state and government change, so prefer the network and fall back to the cache.

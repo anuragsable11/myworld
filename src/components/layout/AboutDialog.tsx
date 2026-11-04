@@ -24,7 +24,16 @@ const SOURCES = [
     href: 'https://www.wikidata.org',
     what: 'Current heads of state and government, national anthems and their recordings.',
   },
-  { name: 'Wikipedia', href: 'https://en.wikipedia.org', what: 'Country overviews.' },
+  {
+    name: 'Wikipedia',
+    href: 'https://en.wikipedia.org',
+    what: 'Country overviews, the photos each country’s article uses, and the lists of national animals, birds, flowers, trees and dishes.',
+  },
+  {
+    name: 'Wikimedia Commons',
+    href: 'https://commons.wikimedia.org',
+    what: 'The photos themselves, all freely licensed. Open one to see who took it and under which licence.',
+  },
   { name: 'World Bank', href: 'https://data.worldbank.org', what: 'GDP, GDP per capita, growth and population.' },
   {
     name: 'Natural Earth',
