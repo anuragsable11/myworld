@@ -10,6 +10,7 @@ import { BottomNav } from './components/layout/BottomNav';
 import { Brand, InfoButton, SoundButton, TopBar } from './components/layout/Header';
 import { InstallPill } from './components/layout/Install';
 import { UpdateToast } from './components/layout/UpdateToast';
+import { GestureHint } from './components/layout/GestureHint';
 import { BottomSheet, Drawer, SHEET_PEEK_PX } from './components/layout/Overlays';
 import { MapStage, type ViewMode } from './components/map/MapStage';
 import { SHUFFLE_MS, type Insets } from './components/map/types';
@@ -173,6 +174,16 @@ export default function App() {
     if (layout === 'desktop') setDrawerOpen(false);
   }, [layout]);
 
+  // Going back or forward through the countries seen shows the map again, as an app would.
+  useEffect(() => {
+    const onPop = () => {
+      setDrawerOpen(false);
+      setSheetExpanded(false);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   // Keyboard shortcuts: "/" or Ctrl/⌘+K search, "g" toggles the globe, Esc closes things.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -188,14 +199,22 @@ export default function App() {
         changeView(view === 'map' ? 'globe' : 'map');
       } else if (e.key.toLowerCase() === 'n' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         toggleNight();
-      } else if (e.key === 'Escape' && !aboutOpen) {
+      } else if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]')) {
+        // One thing at a time, like back on Android. Handled here, so the close watchers that back
+        // also reaches don't close a second thing for the same key press.
         if (drawerOpen) setDrawerOpen(false);
+        else if (layout === 'mobile' && sheetExpanded && selectedId) setSheetExpanded(false);
         else if (selectedId && !isTyping(e.target)) handleClose();
+        else return;
+        e.preventDefault();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layout, view, changeView, toggleNight, drawerOpen, selectedId, handleClose, aboutOpen]);
+  }, [layout, view, changeView, toggleNight, drawerOpen, sheetExpanded, selectedId, handleClose]);
+
+  /** The map is out of sight behind an open sheet, menu or dialog, so it can stop animating. */
+  const covered = (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen;
 
   const activeIds = useMemo(
     () => (region && index ? new Set(index.sorted.filter((c) => c.region === region).map((c) => c.cca3)) : null),
@@ -245,6 +264,7 @@ export default function App() {
     <div className="relative h-dvh overflow-hidden">
       <main className="absolute inset-0">
         <MapStage
+          paused={covered}
           locateKey={locateNonce}
           resetKey={resetNonce}
           world={world.data}
@@ -339,6 +359,9 @@ export default function App() {
         </div>
       )}
 
+      {layout !== 'desktop' && (
+        <GestureHint ready={!!world.data && !selectedId && !spinning && !drawerOpen} view={view} top={topBarBottom + 12} />
+      )}
       <UpdateToast top={layout === 'desktop' ? 16 : topBarBottom + 10} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} index={index} />
     </div>

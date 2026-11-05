@@ -92,6 +92,17 @@ src/components/panel/         Country profile and its sections
   layout: a tab bar (globe, map, a big shuffle button, search, day/night; tapping the current view's tab recentres it)
   and a bottom sheet that peeks above it and is dragged or tapped open, moving only with transforms. Animations respect
   `prefers-reduced-motion`.
+- **Phone gestures** (`src/components/layout/Overlays.tsx`): the sheet follows the finger and glides on at the speed
+  it was let go, to the stop that suits where a flick would carry it (so a short quick flick opens it); pulled past
+  its top it gives way like iOS. Once open, pulling down from the top of the content collapses it, and further down the
+  same pull just scrolls. The search drawer swipes away to the left. Android's back button (via `CloseWatcher`) and
+  `Esc` close one thing at a time: the drawer, then the open sheet, then the profile. A one-time tip shows how to move
+  the globe.
+- **Rest when covered**: while the open sheet, the drawer or a dialog covers the map, the globe stops drawing and the
+  sky's clouds stop; the dancing figures only dance while on screen. Opening and closing the sheet and the drawer
+  changes no style that the browser would have to recompute for everything inside them (no `touch-action`, `overflow`
+  or `inert` switching: the drawer sleeps with `content-visibility` instead), and audio is set up while the page is
+  idle rather than at the first touch.
 - **Shuffle**: the dice flies to a random country. On the globe it's a three-second camera flight with one extra turn
   (sine easing keeps the top speed low) and a slight pull-back; the profile and the pin wait until it lands, so the
   globe has the main thread to itself.
@@ -104,7 +115,7 @@ src/components/panel/         Country profile and its sections
   the far side are skipped, and countries wholly in front are projected without horizon clipping; it is redrawn in full
   detail once still. A flicked globe keeps turning and slows down, and slow auto-rotation runs at half frame rate.
 - **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `N` toggles day and night, `Esc`
-  closes the profile.
+  closes the search drawer or the profile.
 
 ## Install and offline use
 

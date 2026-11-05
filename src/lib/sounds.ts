@@ -37,25 +37,51 @@ let audio: AudioContext | null = null;
 let output: GainNode | null = null;
 let noiseBuffer: AudioBuffer | null = null;
 
-function wake(): AudioContext | null {
+/** Sets up the audio output (suspended until a touch or key press lets it play). */
+function create(): AudioContext | null {
   if (!audio) {
     const Context = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Context) return null;
-    audio = new Context();
+    try {
+      audio = new Context();
+    } catch {
+      return null;
+    }
     output = audio.createGain();
     output.gain.value = 0.55;
     output.connect(audio.destination);
   }
-  if (audio.state !== 'running') void audio.resume();
   return audio;
+}
+
+function wake(): AudioContext | null {
+  const context = create();
+  if (context && context.state !== 'running') Promise.resolve(context.resume()).catch(() => {});
+  return context;
 }
 
 if (typeof window !== 'undefined') {
   const unlock = () => {
     if (enabled) wake();
   };
-  window.addEventListener('pointerdown', unlock, { capture: true, passive: true });
-  window.addEventListener('keydown', unlock, { capture: true });
+  // Touches only count as permission to play once the finger lifts.
+  for (const type of ['pointerdown', 'pointerup', 'keydown'] as const) window.addEventListener(type, unlock, { capture: true, passive: true });
+
+  // Setting up audio holds the main thread for tens of milliseconds on a phone. Do it once the page
+  // has settled rather than at the first touch, where it would stall whatever that touch starts (a
+  // drag of the globe, the sheet sliding up). Only on touch screens: desktops are quick, and some
+  // desktop browsers flag audio that's set up before a click.
+  const prepare = () => {
+    const idle = (window as unknown as { requestIdleCallback?: (fn: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+    const run = () => {
+      if (enabled && !document.hidden) create();
+    };
+    window.setTimeout(() => (idle ? idle(run, { timeout: 3000 }) : run()), 1500);
+  };
+  if (window.matchMedia?.('(pointer: coarse)').matches) {
+    if (document.readyState === 'complete') prepare();
+    else window.addEventListener('load', prepare, { once: true });
+  }
 }
 
 /**

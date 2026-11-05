@@ -386,7 +386,7 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
   return (
     <svg
       ref={svgRef}
-      className="map-svg animate-fade-in"
+      className="map-svg animate-view-in"
       viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"

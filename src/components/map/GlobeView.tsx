@@ -248,6 +248,8 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
   const sceneryRef = useRef<HTMLCanvasElement>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
+  /** Restarts the render loop after it has rested while the globe was covered. */
+  const wake = useRef(() => {});
 
   const state = useRef({
     // The globe bounces in from here on mount.
@@ -336,6 +338,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       dip: options.dip ?? 0,
       spin: !!options.spin,
     };
+    wake.current();
   };
 
   useImperativeHandle(ref, () => ({
@@ -385,6 +388,8 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       setDpr(canvas, ctx, s.dpr);
       setDpr(scenery, sctx, fullDpr());
       s.dirty = true;
+      // Resizing clears the canvases: draw them again even while resting.
+      wake.current();
     };
     resize();
     const observer = new ResizeObserver(resize);
@@ -768,6 +773,12 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     };
 
     const tick = (now: number) => {
+      // Covered by an open sheet or menu: rest (no drawing at all) until it's uncovered, once
+      // nothing is under way and the last change has been drawn.
+      if (propsRef.current.paused && !s.dirty && !s.animation && !s.inertia && !s.drag && !s.pinch) {
+        frame = 0;
+        return;
+      }
       const dt = Math.min(64, now - last);
       last = now;
       const { selectedId, reducedMotion } = propsRef.current;
@@ -873,6 +884,11 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
+    wake.current = () => {
+      if (frame) return;
+      last = performance.now();
+      frame = requestAnimationFrame(tick);
+    };
 
     // ---------------------------------------------------------------- input
     const local = (e: PointerEvent | WheelEvent) => {
@@ -978,6 +994,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
 
     return () => {
       cancelAnimationFrame(frame);
+      wake.current = () => {};
       observer.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
@@ -990,13 +1007,16 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
   }, []);
 
   // Redraw when anything visual changes (including a freshly mounted pin that needs placing).
-  const { selectedId, neighborIds, activeIds, world, markers, insets, showNight } = props;
+  const { selectedId, neighborIds, activeIds, world, markers, insets, showNight, paused } = props;
   useEffect(() => {
     state.current.dirty = true;
   }, [selectedId, neighborIds, activeIds, world, markers, insets, showNight]);
+  useEffect(() => {
+    if (!paused) wake.current();
+  }, [paused]);
 
   return (
-    <div className="relative h-full w-full animate-fade-in">
+    <div className="relative h-full w-full animate-view-in">
       <canvas
         ref={canvasRef}
         className="globe-canvas"

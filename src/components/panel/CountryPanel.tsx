@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import clsx from 'clsx';
 import { Crosshair, X } from 'lucide-react';
 import type { Country } from '../../types';
@@ -51,7 +51,16 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, sheetHead
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
       {sheetHeader}
-      <div ref={scrollRef} data-sheet-scroll className="dots-bg relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div
+        ref={scrollRef}
+        data-sheet-scroll
+        className={clsx(
+          'dots-bg relative min-h-0 flex-1 overflow-y-auto overscroll-contain',
+          // In the sheet: room to scroll the last lines clear of the tab bar's raised shuffle button,
+          // plus the 40px of sheet tucked behind the tab bar.
+          sheetHeader && 'pb-[76px]',
+        )}
+      >
         {country && index ? (
           <CountryProfile
             key={country.cca3}
@@ -81,7 +90,11 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, sheetHead
   );
 }
 
-function CountryProfile({
+/**
+ * The profile itself. Memoised: opening or closing the phone sheet re-renders the panel around it,
+ * and redrawing every section then would hold up the sheet's slide.
+ */
+const CountryProfile = memo(function CountryProfile({
   country,
   index,
   onClose,
@@ -198,11 +211,13 @@ function CountryProfile({
       </div>
     </article>
   );
-}
+});
 
 function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null> }) {
   const [active, setActive] = useState<string>(SECTIONS[0][0]);
   const navRef = useRef<HTMLDivElement>(null);
+  /** A tapped tab stays lit while the panel scrolls to its section, until the next scroll by hand. */
+  const holding = useRef(false);
 
   useEffect(() => {
     const root = scrollRef.current;
@@ -216,12 +231,23 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
           else visible.delete(id);
         }
         const top = [...visible.entries()].sort((a, b) => a[1] - b[1])[0];
-        if (top) setActive(top[0]);
+        if (top && !holding.current) setActive(top[0]);
       },
       { root, rootMargin: '-64px 0px -55% 0px' },
     );
     root.querySelectorAll('[data-section]').forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    const release = () => {
+      holding.current = false;
+    };
+    root.addEventListener('pointerdown', release, { passive: true });
+    root.addEventListener('wheel', release, { passive: true });
+    root.addEventListener('keydown', release);
+    return () => {
+      observer.disconnect();
+      root.removeEventListener('pointerdown', release);
+      root.removeEventListener('wheel', release);
+      root.removeEventListener('keydown', release);
+    };
   }, [scrollRef]);
 
   useEffect(() => {
@@ -234,7 +260,7 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
     <nav
       ref={navRef}
       aria-label="Profile sections"
-      className="no-scrollbar sticky top-0 z-20 mt-4 flex gap-1.5 overflow-x-auto border-b-2 border-dashed border-indigo-100 bg-paper/95 px-4 py-2.5 backdrop-blur"
+      className="no-scrollbar sticky top-0 z-20 mt-4 flex gap-1.5 overflow-x-auto border-b-2 border-dashed border-indigo-100 bg-paper px-4 py-2.5"
     >
       {SECTIONS.map(([id, label]) => (
         <button
@@ -243,12 +269,13 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
           data-target={id}
           onClick={() => {
             setActive(id);
+            holding.current = true;
             const root = scrollRef.current;
             const section = root?.querySelector<HTMLElement>(`#section-${id}`);
             if (root && section) scrollWithin(root, section, { block: 'start', offset: 64, smooth: true });
           }}
           className={clsx(
-            'shrink-0 rounded-full border-2 px-3.5 py-1 font-display text-[14px] font-semibold transition-all duration-300',
+            'shrink-0 rounded-full border-2 px-3.5 py-1.5 font-display text-[14px] font-semibold transition-all duration-300 active:scale-95',
             active === id
               ? 'border-ink bg-sun text-ink shadow-[2px_2px_0_0_var(--color-ink)]'
               : 'border-transparent text-slate-500 hover:border-ink hover:bg-white hover:text-ink',

@@ -87,6 +87,7 @@ export function Sidebar({
       const pick = results[Math.max(0, activeIndex)];
       if (pick) onSelect(pick.cca3);
     } else if (e.key === 'Escape' && query) {
+      e.preventDefault();
       e.stopPropagation();
       setQuery('');
     }

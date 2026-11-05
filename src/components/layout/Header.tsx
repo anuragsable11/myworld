@@ -39,7 +39,7 @@ export function InfoButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="About this atlas and its data sources"
-      className="toon-sm toon-press-sm grid size-9 place-items-center rounded-full bg-white text-ink hover:bg-sky-100"
+      className="toon-sm toon-press-sm grid size-10 place-items-center rounded-full bg-white text-ink hover:bg-sky-100"
     >
       <Info className="size-[18px]" strokeWidth={2.6} />
     </button>
@@ -59,7 +59,7 @@ export function SoundButton() {
       aria-pressed={on}
       aria-label="Sound effects"
       title={on ? 'Mute sound effects' : 'Turn sound effects on'}
-      className="toon-sm toon-press-sm grid size-9 place-items-center rounded-full bg-white text-ink hover:bg-sky-100"
+      className="toon-sm toon-press-sm grid size-10 place-items-center rounded-full bg-white text-ink hover:bg-sky-100"
     >
       {on ? <Volume2 className="size-[18px]" strokeWidth={2.6} /> : <VolumeX className="size-[18px]" strokeWidth={2.6} />}
     </button>

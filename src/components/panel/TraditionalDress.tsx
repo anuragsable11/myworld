@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import clsx from 'clsx';
 import type { Country } from '../../types';
 import { costumeFor } from '../../data/costumes';
 import { haptics } from '../../lib/haptics';
@@ -35,6 +36,18 @@ function Person({ label, ...figure }: Omit<FigureProps, 'happy'> & { label: stri
 /** "Traditional dress" card for the People section: a cartoon man and woman with garment names. */
 export function TraditionalDress({ country }: { country: Country }) {
   const c = costumeFor(country);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // The figures' animations are redrawn on the main thread every frame, even out of sight, so they
+  // only play while the card is on screen.
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    if (typeof IntersectionObserver !== 'function') return setInView(true);
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
   const caption =
     c.note ??
     (c.illustrative
@@ -42,7 +55,13 @@ export function TraditionalDress({ country }: { country: Country }) {
       : 'Simplified cartoon. Traditional dress varies by region and is mostly worn on festivals and special days.');
 
   return (
-    <div className="toon relative overflow-hidden rounded-3xl bg-[linear-gradient(180deg,#d8f1ff_0%,#fff7e6_100%)] px-3 pb-3 pt-4">
+    <div
+      ref={cardRef}
+      className={clsx(
+        'toon relative overflow-hidden rounded-3xl bg-[linear-gradient(180deg,#d8f1ff_0%,#fff7e6_100%)] px-3 pb-3 pt-4',
+        !inView && 'motion-paused',
+      )}
+    >
       <div aria-hidden className="absolute inset-x-0 bottom-0 h-10 bg-[#c8ec7a] [clip-path:ellipse(70%_100%_at_50%_100%)] opacity-70" />
       <div className="relative flex items-end justify-center gap-1" role="group" aria-label={`Cartoon of traditional dress in ${country.name}`}>
         <Person label="Make the man jump" outfit={c.man} skin={c.skin[0]} hairColor={c.hair[0]} female={false} wave="left" />

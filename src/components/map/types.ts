@@ -42,6 +42,8 @@ export interface MapViewProps {
   reducedMotion: boolean;
   /** Shade the night side of the Earth for the current time. */
   showNight: boolean;
+  /** Covered by a sheet, menu or dialog: animation can rest until it's uncovered. */
+  paused?: boolean;
   pinRef: RefObject<PinHandle | null>;
   onSelect: (id: string) => void;
   onHover: (info: HoverInfo | null) => void;

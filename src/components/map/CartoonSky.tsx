@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
+import clsx from 'clsx';
 import type { Insets } from './types';
 
 /** Background scenery: a sky gradient, a smiling sun, drifting clouds and twinkling sparkles. Purely decorative. */
@@ -78,11 +79,30 @@ function Sparkle({ size }: { size: number }) {
   );
 }
 
-export const CartoonSky = memo(function CartoonSky({ insets, compact }: { insets: Insets; compact: boolean }) {
+export const CartoonSky = memo(function CartoonSky({
+  insets,
+  compact,
+  paused,
+}: {
+  insets: Insets;
+  compact: boolean;
+  /** Covered by a sheet or menu: hold the clouds and sparkles still. */
+  paused: boolean;
+}) {
+  // Pausing restyles the whole sky, so it waits until the sheet or menu has finished sliding (and
+  // the sky waits as long to start again), rather than costing the slide its first frames.
+  const [still, setStill] = useState(paused);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setStill(paused), 500);
+    return () => window.clearTimeout(timer);
+  }, [paused]);
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,#bde8ff_0%,#dff3ff_48%,#fff4dc_100%)]"
+      className={clsx(
+        'pointer-events-none absolute inset-0 overflow-hidden bg-[linear-gradient(180deg,#bde8ff_0%,#dff3ff_48%,#fff4dc_100%)]',
+        still && 'sky-paused',
+      )}
     >
       <div className="dots-bg absolute inset-0" />
       {CLOUDS.map((c, i) => (

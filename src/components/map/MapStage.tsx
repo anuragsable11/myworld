@@ -42,6 +42,8 @@ interface MapStageProps {
   locateKey: number;
   /** Changing this resets the view (tapping the current view's tab again). */
   resetKey: number;
+  /** The map is covered (an open sheet, menu or dialog), so it can stop animating. */
+  paused: boolean;
 }
 
 export function MapStage({
@@ -64,6 +66,7 @@ export function MapStage({
   showLegend,
   locateKey,
   resetKey,
+  paused,
 }: MapStageProps) {
   const mapRef = useRef<MapHandle>(null);
   const tooltipRef = useRef<TooltipHandle>(null);
@@ -123,7 +126,7 @@ export function MapStage({
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <CartoonSky insets={insets} compact={compact} />
+      <CartoonSky insets={insets} compact={compact} paused={paused} />
 
       {world ? (
         <MapView
@@ -138,6 +141,7 @@ export function MapStage({
           insets={insets}
           reducedMotion={reducedMotion}
           showNight={showNight}
+          paused={paused}
           pinRef={pinRef}
           onSelect={onSelect}
           onHover={handleHover}
