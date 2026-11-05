@@ -88,8 +88,17 @@ src/components/panel/         Country profile and its sections
   opens a viewer with the photographer and licence.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
 - **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
-  list and profile on floating cards (desktop); a list drawer and floating panel on tablets; a draggable bottom sheet on
-  phones. Animations respect `prefers-reduced-motion`.
+  list and profile on floating cards (desktop); a list drawer and floating panel on tablets. Phones get an app-style
+  layout: a tab bar (globe, map, a big shuffle button, search, day/night; tapping the current view's tab recentres it)
+  and a bottom sheet that peeks above it and is dragged or tapped open, moving only with transforms. Animations respect
+  `prefers-reduced-motion`.
+- **Shuffle**: the dice flies to a random country. On the globe it's a three-second camera flight with one extra turn
+  (sine easing keeps the top speed low) and a slight pull-back; the profile and the pin wait until it lands, so the
+  globe has the main thread to itself. Phones vibrate a notch for every 30° the globe turns and bump when it lands
+  (`src/lib/haptics.ts`; iPhones only allow a light tap, and vibration can be switched off in the About dialog).
+- **Smooth globe**: while it moves fast the globe is drawn from a coarser outline at a lower pixel ratio, countries on
+  the far side are skipped, and countries wholly in front are projected without horizon clipping; it is redrawn in full
+  detail once still. A flicked globe keeps turning and slows down, and slow auto-rotation runs at half frame rate.
 - **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `N` toggles day and night, `Esc`
   closes the profile.
 

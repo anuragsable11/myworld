@@ -44,19 +44,26 @@ export function InfoButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/** Floating top bar for tablet and phone layouts. */
-export function TopBar({ onOpenSearch, onOpenAbout }: { onOpenSearch: () => void; onOpenAbout: () => void }) {
+/** Floating top bar for tablet and phone layouts (phones search from the tab bar instead). */
+export function TopBar({ onOpenSearch, onOpenAbout }: { onOpenSearch?: () => void; onOpenAbout: () => void }) {
   return (
-    <header className="toon absolute inset-x-3 top-3 z-30 flex h-14 items-center gap-3 rounded-2xl bg-white px-2.5">
-      <button
-        type="button"
-        onClick={onOpenSearch}
-        aria-label="Search countries"
-        className="toon-sm toon-press-sm grid size-10 place-items-center rounded-xl bg-sun text-ink"
-      >
-        <Search className="size-[18px]" strokeWidth={2.8} />
-      </button>
-      <Brand />
+    <header
+      className="toon absolute inset-x-3 z-30 flex h-14 animate-rise items-center gap-3 rounded-2xl bg-white px-2.5"
+      style={{ top: 'max(12px, env(safe-area-inset-top))' }}
+    >
+      {onOpenSearch && (
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          aria-label="Search countries"
+          className="toon-sm toon-press-sm grid size-10 place-items-center rounded-xl bg-sun text-ink"
+        >
+          <Search className="size-[18px]" strokeWidth={2.8} />
+        </button>
+      )}
+      <div className={onOpenSearch ? undefined : 'pl-1.5'}>
+        <Brand />
+      </div>
       <div className="ml-auto">
         <InfoButton onClick={onOpenAbout} />
       </div>

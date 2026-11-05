@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { isSovereign, useCountryIndex, useWorld } from './hooks/queries';
 import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMediaQuery';
+import { useSafeArea } from './hooks/useSafeArea';
 import { useSelection } from './hooks/useSelection';
+import { haptics } from './lib/haptics';
 import { AboutDialog } from './components/layout/AboutDialog';
+import { BottomNav } from './components/layout/BottomNav';
 import { Brand, InfoButton, TopBar } from './components/layout/Header';
 import { InstallPill } from './components/layout/Install';
 import { BottomSheet, Drawer, SHEET_PEEK_PX } from './components/layout/Overlays';
 import { MapStage, type ViewMode } from './components/map/MapStage';
-import type { Insets } from './components/map/types';
+import { SHUFFLE_MS, type Insets } from './components/map/types';
 import { CountryPanel } from './components/panel/CountryPanel';
 import { WelcomePanel } from './components/panel/WelcomePanel';
 import { Sidebar, type Scope } from './components/sidebar/Sidebar';
@@ -15,7 +18,8 @@ import { Sidebar, type Scope } from './components/sidebar/Sidebar';
 const VIEW_KEY = 'atlas:view';
 const NIGHT_KEY = 'atlas:night';
 const GAP = 12;
-const TOP_BAR_PX = 68;
+/** Height of the floating top bar, below its top margin (or the notch). */
+const TOP_BAR_PX = 56;
 const TABLET_PANEL_PX = 392;
 
 function readView(): ViewMode {
@@ -55,11 +59,27 @@ export default function App() {
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [locateNonce, setLocateNonce] = useState(0);
+  const [resetNonce, setResetNonce] = useState(0);
   const [spinFor, setSpinFor] = useState<string | null>(null);
+  /** A shuffle is in flight: the profile waits until it lands, so the globe has the screen to itself. */
+  const [spinning, setSpinning] = useState(false);
+  const spinTimer = useRef(0);
+  const [navHeight, setNavHeight] = useState(0);
+  const navObserver = useRef<ResizeObserver | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const safeArea = useSafeArea();
+  const shortScreen = useMediaQuery('(max-height: 720px)');
 
   const index = countries.data;
   const selected = selectedId ? index?.byId.get(selectedId) : undefined;
+  // The profile follows the selection at a lower priority, so it renders in the gaps between the
+  // map's animation frames instead of freezing them.
+  const shownId = useDeferredValue(spinning ? null : selectedId);
+  const lastShownId = useRef(shownId);
+  if (shownId) lastShownId.current = shownId;
+  const sheetId = shownId ?? lastShownId.current;
+  const topBarBottom = Math.max(GAP, safeArea.top) + TOP_BAR_PX;
+  const peek = shortScreen ? 250 : SHEET_PEEK_PX;
   const sidebarPx = wide ? 320 : 292;
   const panelPx = wide ? 420 : 380;
 
@@ -83,7 +103,7 @@ export default function App() {
     });
   }, []);
 
-  const handleSelect = useCallback(
+  const show = useCallback(
     (id: string) => {
       select(id);
       setDrawerOpen(false);
@@ -91,15 +111,52 @@ export default function App() {
     },
     [select],
   );
-  const handleClose = useCallback(() => select(null), [select]);
-  /** Flies to a random sovereign state, with the globe taking a couple of extra spins on the way. */
+  const stopSpin = useCallback(() => {
+    window.clearTimeout(spinTimer.current);
+    setSpinning(false);
+  }, []);
+  const handleSelect = useCallback(
+    (id: string) => {
+      stopSpin();
+      setSpinFor(null);
+      haptics.select();
+      show(id);
+    },
+    [show, stopSpin],
+  );
+  const handleClose = useCallback(() => {
+    stopSpin();
+    select(null);
+  }, [select, stopSpin]);
+  /** Flies to a random sovereign state, the globe taking an extra turn on the way. */
   const handleSurprise = useCallback(() => {
     const pool = index?.sorted.filter((c) => isSovereign(c) && c.cca3 !== selectedId) ?? [];
     if (!pool.length) return;
     const pick = pool[Math.floor(Math.random() * pool.length)].cca3;
     setSpinFor(pick);
-    handleSelect(pick);
-  }, [index, selectedId, handleSelect]);
+    show(pick);
+    window.clearTimeout(spinTimer.current);
+    if (reducedMotion) return setSpinning(false);
+    setSpinning(true);
+    spinTimer.current = window.setTimeout(() => setSpinning(false), SHUFFLE_MS[view]);
+  }, [index, selectedId, show, reducedMotion, view]);
+  useEffect(() => () => window.clearTimeout(spinTimer.current), []);
+
+  /** Tapping the view that's already showing recentres it, as tapping an app's current tab does. */
+  const handleNavView = useCallback(
+    (next: ViewMode) => {
+      if (next === view) setResetNonce((n) => n + 1);
+      else changeView(next);
+    },
+    [view, changeView],
+  );
+  // The tab bar's height includes the home indicator area, so measure it.
+  const navRef = useCallback((nav: HTMLElement | null) => {
+    navObserver.current?.disconnect();
+    if (!nav) return setNavHeight(0);
+    navObserver.current = new ResizeObserver(() => setNavHeight(nav.offsetHeight));
+    navObserver.current.observe(nav);
+  }, []);
   const handleLocate = useCallback(() => {
     setSheetExpanded(false);
     setLocateNonce((n) => n + 1);
@@ -130,12 +187,12 @@ export default function App() {
         toggleNight();
       } else if (e.key === 'Escape' && !aboutOpen) {
         if (drawerOpen) setDrawerOpen(false);
-        else if (selectedId && !isTyping(e.target)) select(null);
+        else if (selectedId && !isTyping(e.target)) handleClose();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layout, view, changeView, toggleNight, drawerOpen, selectedId, select, aboutOpen]);
+  }, [layout, view, changeView, toggleNight, drawerOpen, selectedId, handleClose, aboutOpen]);
 
   const activeIds = useMemo(
     () => (region && index ? new Set(index.sorted.filter((c) => c.region === region).map((c) => c.cca3)) : null),
@@ -146,9 +203,9 @@ export default function App() {
   const insets = useMemo<Insets>(() => {
     // Cards carry a 6px hard shadow, so leave room for it too.
     if (layout === 'desktop') return { top: 0, bottom: 0, left: sidebarPx + GAP + 6, right: panelPx + GAP + 10 };
-    if (layout === 'tablet') return { top: TOP_BAR_PX, bottom: 0, left: 0, right: selectedId ? TABLET_PANEL_PX + GAP : 0 };
-    return { top: TOP_BAR_PX, bottom: selectedId ? SHEET_PEEK_PX : 0, left: 0, right: 0 };
-  }, [layout, selectedId, sidebarPx, panelPx]);
+    if (layout === 'tablet') return { top: topBarBottom, bottom: 0, left: 0, right: shownId || spinning ? TABLET_PANEL_PX + GAP : 0 };
+    return { top: topBarBottom, bottom: navHeight + (shownId ? peek : 0), left: 0, right: 0 };
+  }, [layout, shownId, spinning, sidebarPx, panelPx, topBarBottom, navHeight, peek]);
 
   const sidebar = (
     <Sidebar
@@ -173,16 +230,9 @@ export default function App() {
     />
   );
 
-  const panel = (sheetHeader?: React.ReactNode) =>
-    selectedId ? (
-      <CountryPanel
-        id={selectedId}
-        index={index}
-        onClose={handleClose}
-        onSelect={handleSelect}
-        onLocate={handleLocate}
-        sheetHeader={sheetHeader}
-      />
+  const panel = (id: string | null, sheetHeader?: ReactNode) =>
+    id ? (
+      <CountryPanel id={id} index={index} onClose={handleClose} onSelect={handleSelect} onLocate={handleLocate} sheetHeader={sheetHeader} />
     ) : null;
 
   return (
@@ -190,6 +240,7 @@ export default function App() {
       <main className="absolute inset-0">
         <MapStage
           locateKey={locateNonce}
+          resetKey={resetNonce}
           world={world.data}
           worldError={world.isError}
           onRetry={() => world.refetch()}
@@ -222,41 +273,82 @@ export default function App() {
             className={`${card} absolute bottom-4 right-4 top-3 z-20 animate-rise bg-paper [animation-delay:90ms]`}
             style={{ width: panelPx }}
           >
-            {selectedId ? panel() : <WelcomePanel index={index} onSelect={handleSelect} onSurprise={handleSurprise} />}
+            {spinning ? (
+              <SpinningCard />
+            ) : shownId ? (
+              panel(shownId)
+            ) : (
+              <WelcomePanel index={index} onSelect={handleSelect} onSurprise={handleSurprise} />
+            )}
           </aside>
         </>
       ) : (
         <>
-          <TopBar onOpenSearch={() => setDrawerOpen(true)} onOpenAbout={() => setAboutOpen(true)} />
+          <TopBar onOpenSearch={layout === 'tablet' ? () => setDrawerOpen(true) : undefined} onOpenAbout={() => setAboutOpen(true)} />
           <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
             {sidebar}
           </Drawer>
         </>
       )}
 
-      {layout === 'tablet' && selectedId && (
+      {layout === 'tablet' && (shownId || spinning) && (
         <aside
           className={`${card} absolute bottom-4 right-4 z-20 animate-rise bg-paper`}
-          style={{ width: TABLET_PANEL_PX, top: TOP_BAR_PX + GAP }}
+          style={{ width: TABLET_PANEL_PX, top: topBarBottom + GAP }}
         >
-          {panel()}
+          {spinning ? <SpinningCard /> : panel(shownId)}
         </aside>
       )}
 
-      {layout === 'mobile' && selectedId && (
-        <BottomSheet expanded={sheetExpanded} onExpandedChange={setSheetExpanded} onDismiss={handleClose}>
-          {(handle) => panel(handle)}
-        </BottomSheet>
+      {layout === 'mobile' && (
+        <>
+          <BottomSheet
+            open={!!shownId}
+            expanded={sheetExpanded}
+            onExpandedChange={setSheetExpanded}
+            onDismiss={handleClose}
+            peek={peek}
+            bottom={navHeight}
+          >
+            {(handle) => panel(sheetId, handle)}
+          </BottomSheet>
+          <BottomNav
+            ref={navRef}
+            view={view}
+            onView={handleNavView}
+            onShuffle={handleSurprise}
+            shuffling={spinning}
+            canShuffle={!!index}
+            onSearch={() => setDrawerOpen(true)}
+            night={showNight}
+            onNight={toggleNight}
+          />
+        </>
       )}
 
       {/* Desktop offers installing from the welcome card instead. */}
-      {(layout === 'tablet' || (layout === 'mobile' && !selectedId)) && (
+      {(layout === 'tablet' || (layout === 'mobile' && !shownId && !spinning)) && (
         <div className="absolute z-10" style={{ left: insets.left + 12, bottom: insets.bottom + 16 }}>
           <InstallPill />
         </div>
       )}
 
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} index={index} />
+    </div>
+  );
+}
+
+/** Stands in for the profile while a shuffle is in flight. */
+function SpinningCard() {
+  return (
+    <div className="grid h-full place-items-center p-8 text-center" role="status">
+      <div>
+        <div aria-hidden className="inline-block animate-dice-roll text-[64px] leading-none">
+          🎲
+        </div>
+        <p className="toon-title mt-5 text-[24px]">Spinning the globe…</p>
+        <p className="mt-1.5 text-[14px] font-semibold text-slate-500">Where will it land? 🌍</p>
+      </div>
     </div>
   );
 }

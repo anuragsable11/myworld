@@ -9,7 +9,7 @@ import { FlatMap } from './FlatMap';
 import { GlobeView } from './GlobeView';
 import { MapPin } from './MapPin';
 import { MapTooltip, type TooltipHandle } from './MapTooltip';
-import type { HoverInfo, Insets, MapHandle, MapMarker, PinHandle } from './types';
+import { SHUFFLE_MS, type HoverInfo, type Insets, type MapHandle, type MapMarker, type PinHandle } from './types';
 
 export type ViewMode = 'map' | 'globe';
 
@@ -40,6 +40,8 @@ interface MapStageProps {
   showLegend: boolean;
   /** Changing this re-centres the map on the selection ("Show on map"). */
   locateKey: number;
+  /** Changing this resets the view (tapping the current view's tab again). */
+  resetKey: number;
 }
 
 export function MapStage({
@@ -61,6 +63,7 @@ export function MapStage({
   spinFor,
   showLegend,
   locateKey,
+  resetKey,
 }: MapStageProps) {
   const mapRef = useRef<MapHandle>(null);
   const tooltipRef = useRef<TooltipHandle>(null);
@@ -90,9 +93,19 @@ export function MapStage({
     return borders?.length ? new Set(borders) : NO_NEIGHBORS;
   }, [index, selectedId]);
 
+  // A shuffle spins once; later re-focusing (view switch, "Show on map") just flies there.
+  const spun = useRef<string | null>(null);
   useEffect(() => {
-    if (selectedId && world) mapRef.current?.focus(selectedId, { spin: spinFor === selectedId });
+    if (!selectedId || !world) return;
+    const spin = spinFor === selectedId && spun.current !== spinFor;
+    if (spin) spun.current = spinFor;
+    mapRef.current?.focus(selectedId, { spin });
   }, [selectedId, view, world, index, locateKey, spinFor]);
+
+  const firstReset = useRef(resetKey);
+  useEffect(() => {
+    if (resetKey !== firstReset.current) mapRef.current?.reset();
+  }, [resetKey]);
 
   // Closing a profile returns to the world view.
   const previousId = useRef(selectedId);
@@ -151,7 +164,15 @@ export function MapStage({
         </div>
       )}
 
-      {selected && <MapPin key={selected.cca3} ref={pinRef} country={selected} />}
+      {selected && (
+        <MapPin
+          key={selected.cca3}
+          ref={pinRef}
+          country={selected}
+          // After a shuffle the pin waits for the flight to land.
+          landingMs={spinFor === selected.cca3 && !reducedMotion ? SHUFFLE_MS[view] - 150 : undefined}
+        />
+      )}
       <MapTooltip ref={tooltipRef} byId={index?.byId} />
 
       {/* View switch, centred over the uncovered area */}
@@ -159,84 +180,89 @@ export function MapStage({
         className="pointer-events-none absolute z-10 flex flex-col items-center gap-2.5 transition-[left,right,top] duration-500"
         style={{ left: area.left, right: area.right, top: area.top }}
       >
-        <div className="toon pointer-events-auto flex gap-1 rounded-full bg-white p-1">
-          {(
-            [
-              ['globe', 'Globe', '🌍'],
-              ['map', 'Map', '🗺️'],
-            ] as const
-          ).map(([mode, label, emoji]) => (
-            <button
-              key={mode}
-              type="button"
-              aria-pressed={view === mode}
-              onClick={() => onViewChange(mode)}
-              className={clsx(
-                'flex items-center gap-1.5 rounded-full border-2 px-4 py-1 font-display text-[14px] font-semibold transition-all duration-300',
-                view === mode ? 'border-ink bg-sun text-ink' : 'border-transparent text-slate-500 hover:bg-indigo-50 hover:text-ink',
-              )}
-            >
-              <span aria-hidden className="text-[16px]">
-                {emoji}
-              </span>
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Phones switch views from the tab bar. */}
+        {!compact && (
+          <div className="toon pointer-events-auto flex gap-1 rounded-full bg-white p-1">
+            {(
+              [
+                ['globe', 'Globe', '🌍'],
+                ['map', 'Map', '🗺️'],
+              ] as const
+            ).map(([mode, label, emoji]) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={view === mode}
+                onClick={() => onViewChange(mode)}
+                className={clsx(
+                  'flex items-center gap-1.5 rounded-full border-2 px-4 py-1 font-display text-[14px] font-semibold transition-all duration-300',
+                  view === mode ? 'border-ink bg-sun text-ink' : 'border-transparent text-slate-500 hover:bg-indigo-50 hover:text-ink',
+                )}
+              >
+                <span aria-hidden className="text-[16px]">
+                  {emoji}
+                </span>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <ConnectionBadge />
       </div>
 
-      {/* Surprise + zoom controls */}
-      <div
-        className="absolute z-10 flex flex-col items-center gap-3 transition-[right,bottom] duration-500"
-        style={{ right: area.right, bottom: area.bottom }}
-      >
-        <button
-          type="button"
-          onClick={onToggleNight}
-          aria-pressed={showNight}
-          title={showNight ? 'Hide live day & night' : 'Show live day & night'}
-          aria-label="Live day and night"
-          className={clsx(
-            'toon toon-press grid size-12 place-items-center rounded-2xl text-[22px]',
-            showNight ? 'bg-indigo-300' : 'bg-white',
-          )}
+      {/* Surprise + zoom controls; phones have the tab bar, and pinch to zoom */}
+      {!compact && (
+        <div
+          className="absolute z-10 flex flex-col items-center gap-3 transition-[right,bottom] duration-500"
+          style={{ right: area.right, bottom: area.bottom }}
         >
-          <span aria-hidden>{showNight ? '🌙' : '☀️'}</span>
-        </button>
-        <button
-          type="button"
-          onClick={onSurprise}
-          disabled={!index}
-          title="Surprise me!"
-          aria-label="Surprise me: fly to a random country"
-          className="toon toon-press group grid size-12 place-items-center rounded-2xl bg-sun text-[24px] disabled:opacity-50"
-        >
-          <span aria-hidden className="transition-transform duration-500 group-hover:rotate-[360deg]">
-            🎲
-          </span>
-        </button>
-        <div className="toon flex flex-col overflow-hidden rounded-2xl bg-white">
-          {(
-            [
-              ['Zoom in', Plus, () => mapRef.current?.zoomIn()],
-              ['Zoom out', Minus, () => mapRef.current?.zoomOut()],
-              ['Reset view', RotateCcw, () => mapRef.current?.reset()],
-            ] as const
-          ).map(([label, Icon, action]) => (
-            <button
-              key={label}
-              type="button"
-              title={label}
-              aria-label={label}
-              onClick={action}
-              className="grid size-10 place-items-center text-ink transition-colors hover:bg-sun active:bg-amber-300 [&:not(:last-child)]:border-b-2 [&:not(:last-child)]:border-ink"
-            >
-              <Icon className="size-[18px]" strokeWidth={2.8} />
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={onToggleNight}
+            aria-pressed={showNight}
+            title={showNight ? 'Hide live day & night' : 'Show live day & night'}
+            aria-label="Live day and night"
+            className={clsx(
+              'toon toon-press grid size-12 place-items-center rounded-2xl text-[22px]',
+              showNight ? 'bg-indigo-300' : 'bg-white',
+            )}
+          >
+            <span aria-hidden>{showNight ? '🌙' : '☀️'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onSurprise}
+            disabled={!index}
+            title="Surprise me!"
+            aria-label="Surprise me: fly to a random country"
+            className="toon toon-press group grid size-12 place-items-center rounded-2xl bg-sun text-[24px] disabled:opacity-50"
+          >
+            <span aria-hidden className="transition-transform duration-500 group-hover:rotate-[360deg]">
+              🎲
+            </span>
+          </button>
+          <div className="toon flex flex-col overflow-hidden rounded-2xl bg-white">
+            {(
+              [
+                ['Zoom in', Plus, () => mapRef.current?.zoomIn()],
+                ['Zoom out', Minus, () => mapRef.current?.zoomOut()],
+                ['Reset view', RotateCcw, () => mapRef.current?.reset()],
+              ] as const
+            ).map(([label, Icon, action]) => (
+              <button
+                key={label}
+                type="button"
+                title={label}
+                aria-label={label}
+                onClick={action}
+                className="grid size-10 place-items-center text-ink transition-colors hover:bg-sun active:bg-amber-300 [&:not(:last-child)]:border-b-2 [&:not(:last-child)]:border-ink"
+              >
+                <Icon className="size-[18px]" strokeWidth={2.8} />
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {showLegend && (
         <div

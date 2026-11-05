@@ -51,7 +51,7 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, sheetHead
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper">
       {sheetHeader}
-      <div ref={scrollRef} className="dots-bg relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div ref={scrollRef} data-sheet-scroll className="dots-bg relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {country && index ? (
           <CountryProfile
             key={country.cca3}

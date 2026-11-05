@@ -80,14 +80,17 @@ export function WelcomePanel({
           <div className="grid grid-cols-2 gap-3">
             <Record tone="sky" emoji="🏆" title="Largest" country={facts.largest} detail={formatArea(facts.largest.area!)} onSelect={onSelect} />
             <Record tone="emerald" emoji="🐜" title="Smallest" country={facts.smallest} detail={formatArea(facts.smallest.area!)} onSelect={onSelect} />
-            <Record
-              tone="violet"
-              emoji="👥"
-              title="Most people"
-              country={facts.populous[0]}
-              detail={formatPopulation(facts.populous[0].population!)}
-              onSelect={onSelect}
-            />
+            {/* Population can be missing when its source (World Bank) is down. */}
+            {facts.populous[0] && (
+              <Record
+                tone="violet"
+                emoji="👥"
+                title="Most people"
+                country={facts.populous[0]}
+                detail={formatPopulation(facts.populous[0].population!)}
+                onSelect={onSelect}
+              />
+            )}
             <Record
               tone="orange"
               emoji="🤝"
@@ -98,25 +101,27 @@ export function WelcomePanel({
             />
           </div>
 
-          <h3 className="toon-title mb-3 mt-8 text-[19px]">Most populous 🏙️</h3>
-          <ol className="toon overflow-hidden rounded-3xl bg-white p-1.5">
-            {facts.populous.map((c, i) => (
-              <li key={c.cca3}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(c.cca3)}
-                  className="flex w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-colors hover:bg-sun/40"
-                >
-                  <span className="tabular grid size-7 place-items-center rounded-full border-2 border-ink bg-sun font-display text-[13px] font-semibold text-ink">
-                    {i + 1}
-                  </span>
-                  <Flag country={c} className="h-[18px] w-[27px] rounded-[5px] border-2 border-ink" />
-                  <span className="flex-1 truncate text-[15px] font-bold text-ink">{c.name}</span>
-                  <span className="tabular text-[12.5px] font-extrabold text-slate-500">{formatPopulation(c.population!)}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
+          {facts.populous.length > 0 && <h3 className="toon-title mb-3 mt-8 text-[19px]">Most populous 🏙️</h3>}
+          {facts.populous.length > 0 && (
+            <ol className="toon overflow-hidden rounded-3xl bg-white p-1.5">
+              {facts.populous.map((c, i) => (
+                <li key={c.cca3}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(c.cca3)}
+                    className="flex w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-colors hover:bg-sun/40"
+                  >
+                    <span className="tabular grid size-7 place-items-center rounded-full border-2 border-ink bg-sun font-display text-[13px] font-semibold text-ink">
+                      {i + 1}
+                    </span>
+                    <Flag country={c} className="h-[18px] w-[27px] rounded-[5px] border-2 border-ink" />
+                    <span className="flex-1 truncate text-[15px] font-bold text-ink">{c.name}</span>
+                    <span className="tabular text-[12.5px] font-extrabold text-slate-500">{formatPopulation(c.population!)}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
         </>
       ) : (
         <div className="mt-7 space-y-3">

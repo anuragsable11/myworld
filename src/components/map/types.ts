@@ -48,9 +48,12 @@ export interface MapViewProps {
 }
 
 export interface FocusOptions {
-  /** Take a couple of extra turns on the way (used by "Surprise me"). */
+  /** Take an extra turn on the way (used by "Surprise me"). */
   spin?: boolean;
 }
+
+/** How long the "Surprise me" flight takes on each view; the profile opens as it lands. */
+export const SHUFFLE_MS = { globe: 3000, map: 1700 } as const;
 
 export interface MapHandle {
   zoomIn: () => void;

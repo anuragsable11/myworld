@@ -8,9 +8,10 @@ import 'd3-transition';
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
 import polylabel from 'polylabel';
 import { colorSlotFor, type Focus } from '../../lib/geo';
+import { haptics } from '../../lib/haptics';
 import { antipode, nightBands, NIGHT_COLOR, subsolarPoint } from '../../lib/sun';
 import { useMinute } from '../../hooks/useMinute';
-import type { MapHandle, MapViewProps } from './types';
+import { SHUFFLE_MS, type FocusOptions, type MapHandle, type MapViewProps } from './types';
 
 // A fixed projection in a 1000-unit viewBox: paths are computed once and the SVG scales to fit.
 const VIEW_W = 1000;
@@ -268,15 +269,16 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
 
   useEffect(applyZoomStyles, [applyZoomStyles, layers, markerPoints, selectedId, anchorPoint, night]);
 
-  const animateTo = useCallback((t: ZoomTransform) => {
+  const animateTo = useCallback((t: ZoomTransform, duration = 1000, onEnd?: () => void) => {
     const svg = svgRef.current;
     const behavior = zoomRef.current;
     if (!svg || !behavior) return;
     select(svg)
       .transition()
-      .duration(propsRef.current.reducedMotion ? 0 : 1000)
+      .duration(propsRef.current.reducedMotion ? 0 : duration)
       .ease(easeCubicInOut)
-      .call(behavior.transform, t);
+      .call(behavior.transform, t)
+      .on('end', () => onEnd?.());
   }, []);
 
   useImperativeHandle(
@@ -285,7 +287,7 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
       zoomIn: () => zoomRef.current && select(svgRef.current!).transition().duration(320).call(zoomRef.current.scaleBy, 1.6),
       zoomOut: () => zoomRef.current && select(svgRef.current!).transition().duration(320).call(zoomRef.current.scaleBy, 1 / 1.6),
       reset: () => animateTo(initialTransform()),
-      focus: (id: string) => {
+      focus: (id: string, options?: FocusOptions) => {
         if (!svgRef.current) return;
         const focus = world.focus.get(id);
         let bounds: [[number, number], [number, number]];
@@ -307,7 +309,12 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
           MAX_ZOOM,
           Math.max(0.5, 0.75 * Math.min(w / s / Math.max(x1 - x0, 1.5), h / s / Math.max(y1 - y0, 1.5))),
         );
-        animateTo(transformFor(k, [(x0 + x1) / 2, (y0 + y1) / 2], center));
+        const target = transformFor(k, [(x0 + x1) / 2, (y0 + y1) / 2], center);
+        // A shuffle flies a little slower, rattling like a rolled dice until it lands.
+        if (options?.spin) {
+          haptics.roll();
+          animateTo(target, SHUFFLE_MS.map, haptics.land);
+        } else animateTo(target);
       },
     }),
     [animateTo, availableArea, initialTransform, markerPoints, transformFor, world],

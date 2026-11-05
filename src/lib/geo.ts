@@ -39,6 +39,8 @@ export interface World {
   borders: MultiLineString;
   coastline: MultiLineString;
   lowDetail: LowDetail;
+  /** Coarser still, for fast spins and flicks. */
+  motionDetail: LowDetail;
   ids: Set<string>;
   focus: Map<string, Focus>;
   /** Political-map palette slot per country; countries sharing a border never share a slot. */
@@ -48,8 +50,9 @@ export interface World {
 /** Number of distinct land colours used for political colouring. */
 export const COLOR_SLOTS = 7;
 
-// Keep this share of arc vertices in the low-detail geometry (by spherical-area importance).
+// Keep this share of arc vertices in the simplified geometries (by spherical-area importance).
 const LOW_DETAIL_SHARE = 0.14;
+const MOTION_DETAIL_SHARE = 0.05;
 
 type CountriesTopology = Topology<{ countries: GeometryCollection<{ name: string }> }>;
 
@@ -80,7 +83,7 @@ export async function loadWorld(signal?: AbortSignal): Promise<World> {
     shapes,
     borders: mesh(topo, object, (a, b) => a !== b),
     coastline: mesh(topo, object, (a, b) => a === b),
-    lowDetail: buildLowDetail(topo),
+    ...buildLowDetail(topo),
     ids: new Set(polygonsById.keys()),
     focus,
     colorSlots: assignColorSlots(object.geometries),
@@ -125,19 +128,22 @@ function assignColorSlots(geometries: CountriesTopology['objects']['countries'][
   return slots;
 }
 
-function buildLowDetail(topo: CountriesTopology): LowDetail {
+function buildLowDetail(topo: CountriesTopology): Pick<World, 'lowDetail' | 'motionDetail'> {
   const weighted = presimplify(structuredClone(topo), sphericalTriangleArea);
-  // quantile() ranks weights in descending order, so p is the share of vertices kept.
-  const simple = simplify(weighted, quantile(weighted, LOW_DETAIL_SHARE)) as CountriesTopology;
-  const object = simple.objects.countries;
-  return {
-    shapes: feature(simple, object).features.map((f) => ({
-      id: typeof f.id === 'string' ? f.id : null,
-      feature: f as Feature<Polygon | MultiPolygon>,
-    })),
-    borders: mesh(simple, object, (a, b) => a !== b),
-    coastline: mesh(simple, object, (a, b) => a === b),
+  const level = (share: number): LowDetail => {
+    // quantile() ranks weights in descending order, so share is the part of vertices kept.
+    const simple = simplify(weighted, quantile(weighted, share)) as CountriesTopology;
+    const object = simple.objects.countries;
+    return {
+      shapes: feature(simple, object).features.map((f) => ({
+        id: typeof f.id === 'string' ? f.id : null,
+        feature: f as Feature<Polygon | MultiPolygon>,
+      })),
+      borders: mesh(simple, object, (a, b) => a !== b),
+      coastline: mesh(simple, object, (a, b) => a === b),
+    };
   };
+  return { lowDetail: level(LOW_DETAIL_SHARE), motionDetail: level(MOTION_DETAIL_SHARE) };
 }
 
 const multi = (coordinates: Position[][][]): Feature<MultiPolygon> => ({

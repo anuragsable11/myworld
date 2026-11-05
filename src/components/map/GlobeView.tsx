@@ -1,18 +1,28 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { geoContains, geoDistance, geoGraticule10, geoOrthographic, geoPath, type GeoSphere } from 'd3-geo';
-import { easeBackOut, easeCubicInOut } from 'd3-ease';
+import { geoContains, geoDistance, geoGraticule, geoGraticule10, geoOrthographic, geoPath, type GeoContext, type GeoSphere } from 'd3-geo';
+import { easeBackOut, easeCubicInOut, easeSinInOut } from 'd3-ease';
 import { interpolate } from 'd3-interpolate';
+import type { Feature, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import { boundsContain, colorSlotFor, type LowDetail, type Shape, type World } from '../../lib/geo';
+import { haptics } from '../../lib/haptics';
 import { antipode, nightBands, NIGHT_COLOR, subsolarPoint } from '../../lib/sun';
-import type { FocusOptions, MapHandle, MapViewProps } from './types';
+import { SHUFFLE_MS, type FocusOptions, type MapHandle, type MapViewProps } from './types';
 
 const SPHERE: GeoSphere = { type: 'Sphere' };
 const GRATICULE = geoGraticule10();
+/** A sparser grid for fast spins, when every projected point counts. */
+const COARSE_GRATICULE = geoGraticule().step([20, 20]).precision(5)();
 const DEFAULT_ROTATION: [number, number, number] = [-15, -22, 0];
 const MIN_SCALE = 0.75;
 const MAX_SCALE = 14;
 const FOCUS_MAX_SCALE = 2.5;
 const INK = '#1e1b4b';
+/** While the globe moves fast it is drawn at no more than this pixel ratio, then sharpened at rest. */
+const MOVING_DPR = 1.25;
+/** A flicked globe keeps turning, slowing down with this time constant (ms). */
+const INERTIA_MS = 380;
+/** Degrees the globe turns between haptic notches during a shuffle. */
+const NOTCH_DEGREES = 30;
 
 /** Cartoon land colours (one per colour slot, matching the flat map). */
 const LAND = ['#7ee2a8', '#80e4dc', '#ff9f9f', '#c3b1ff', '#ffbd7a', '#c8ec7a', '#ffa7d7'];
@@ -21,6 +31,69 @@ const COLORS = {
   inert: '#e2e0f0',
   graticule: 'rgba(255, 255, 255, 0.5)',
 };
+
+/**
+ * A circle on the sphere that contains a shape, kept as its centre's unit vector and the sines that
+ * decide, with one dot product, whether the shape is wholly behind, wholly in front or across the edge.
+ */
+interface Cap {
+  x: number;
+  y: number;
+  z: number;
+  /** sin(radius): behind the globe when the dot product is below minus this. */
+  far: number;
+  /** sin(radius + margin): wholly in front when the dot product is above this. */
+  near: number;
+}
+
+const RADIANS = Math.PI / 180;
+
+const unit = (lon: number, lat: number): [number, number, number] => {
+  const cosLat = Math.cos(lat * RADIANS);
+  return [cosLat * Math.cos(lon * RADIANS), cosLat * Math.sin(lon * RADIANS), Math.sin(lat * RADIANS)];
+};
+
+function boundingCap(points: Position[]): Cap {
+  // Centre: the direction of the summed unit vectors; radius: the farthest point from it.
+  let [x, y, z] = [0, 0, 0];
+  for (const [lon, lat] of points) {
+    const [px, py, pz] = unit(lon, lat);
+    x += px;
+    y += py;
+    z += pz;
+  }
+  const length = Math.hypot(x, y, z) || 1;
+  [x, y, z] = [x / length, y / length, z / length];
+  let minDot = 1;
+  for (const [lon, lat] of points) {
+    const [px, py, pz] = unit(lon, lat);
+    minDot = Math.min(minDot, x * px + y * py + z * pz);
+  }
+  const radius = Math.acos(Math.max(-1, Math.min(1, minDot)));
+  return { x, y, z, far: Math.sin(Math.min(radius, Math.PI / 2)), near: radius + 0.02 >= Math.PI / 2 ? 2 : Math.sin(radius + 0.02) };
+}
+
+const featureCaps = new WeakMap<Feature, Cap>();
+function featureCap(feature: Feature<Polygon | MultiPolygon>): Cap {
+  let cap = featureCaps.get(feature);
+  if (!cap) {
+    const g = feature.geometry;
+    cap = boundingCap((g.type === 'Polygon' ? g.coordinates : g.coordinates.flat()).flat());
+    featureCaps.set(feature, cap);
+  }
+  return cap;
+}
+
+/** The lines of a mesh (borders, coastline), each with its cap. */
+const meshLines = new WeakMap<MultiLineString, { line: Position[]; cap: Cap }[]>();
+function linesOf(mesh: MultiLineString) {
+  let lines = meshLines.get(mesh);
+  if (!lines) {
+    lines = mesh.coordinates.map((line) => ({ line, cap: boundingCap(line) }));
+    meshLines.set(mesh, lines);
+  }
+  return lines;
+}
 
 /** Deterministic pseudo-random numbers so the scenery is the same on every visit. */
 const rand = (seed: number) => {
@@ -154,6 +227,10 @@ interface Animation {
   start: number;
   duration: number;
   ease: (t: number) => number;
+  /** How far the camera pulls back halfway through, as a share of the zoom. */
+  dip: number;
+  /** A shuffle: counts the haptic notches played so far. */
+  spin: { notches: number } | null;
 }
 
 /**
@@ -173,20 +250,36 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     scale: 0.35,
     width: 0,
     height: 0,
-    /** Current globe centre in CSS px; eased toward the centre of the unobscured area. */
+    /** Current globe centre and radius (at zoom 1) in CSS px; eased toward the unobscured area. */
     center: null as [number, number] | null,
+    radius: null as number | null,
+    /** Pixel ratio the land canvas is currently drawn at. */
+    dpr: 1,
     cloudDrift: 0,
     planeAngle: 0.6,
     introStarted: false,
     waves: null as { world: World; points: [number, number][] } | null,
     /** Day/night shading for the current minute. */
     night: null as { minute: number; bands: ReturnType<typeof nightBands>; sun: [number, number] } | null,
+    /** The night bands as projected for the last land frame, reused to shade the clouds. */
+    nightPaths: [] as { path: Path2D; alpha: number }[],
     hoverId: null as string | null,
     pointer: null as { x: number; y: number } | null,
     pointers: new Map<number, { x: number; y: number }>(),
-    drag: null as null | { x: number; y: number; rotate: [number, number, number]; moved: boolean },
+    drag: null as null | {
+      x: number;
+      y: number;
+      rotate: [number, number, number];
+      moved: boolean;
+      /** Recent positions, to measure how fast the globe was flicked. */
+      samples: { t: number; rotate: [number, number, number] }[];
+    },
     pinch: null as null | { distance: number; scale: number },
     animation: null as Animation | null,
+    /** Spin left over from a flick, in degrees per ms. */
+    inertia: null as null | { vx: number; vy: number },
+    /** Last time the clouds and plane were drawn; they update at half rate while the land is still. */
+    lastScenery: 0,
     lastInteraction: 0,
     /** Last time the view moved; full detail is drawn once it has been still for a moment. */
     lastMotion: 0,
@@ -194,6 +287,9 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     dirty: true,
   });
   const projection = useRef(geoOrthographic().clipAngle(90).precision(0.6)).current;
+  // The same view without clipping at the horizon, for shapes wholly on the near side: clipping
+  // (which also tests which side each polygon wraps) is most of the cost of projecting a shape.
+  const nearSide = useRef(geoOrthographic().preclip((stream) => stream)).current;
   const cloudProjection = useRef(geoOrthographic().clipAngle(90)).current;
 
   const available = () => {
@@ -208,19 +304,28 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     return Math.min(w, h) * 0.38;
   };
 
-  const animateTo = (rotate: [number, number, number], scale: number, duration = 1100, ease = easeCubicInOut, extraTurns = 0) => {
+  const animateTo = (
+    rotate: [number, number, number],
+    scale: number,
+    duration = 1100,
+    ease: (t: number) => number = easeCubicInOut,
+    options: { dip?: number; spin?: boolean } = {},
+  ) => {
     const s = state.current;
     const target: [number, number, number] = [...rotate];
-    // Rotate the short way round (plus any extra turns for a playful spin).
+    // Rotate the short way round; a shuffle adds one more turn in the same direction.
     while (target[0] - s.rotate[0] > 180) target[0] -= 360;
     while (target[0] - s.rotate[0] < -180) target[0] += 360;
-    target[0] += extraTurns * 360;
+    if (options.spin) target[0] += target[0] >= s.rotate[0] ? 360 : -360;
+    s.inertia = null;
     s.animation = {
       from: { rotate: [...s.rotate], scale: s.scale },
       to: { rotate: target, scale },
       start: performance.now(),
       duration: propsRef.current.reducedMotion ? 0 : duration,
       ease,
+      dip: options.dip ?? 0,
+      spin: options.spin ? { notches: 0 } : null,
     };
   };
 
@@ -240,7 +345,9 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       const wanted = (Math.min(w, h) * 0.26) / Math.sin(Math.min(radius, Math.PI / 2));
       // Stay zoomed out enough that the globe's curvature remains visible.
       const scale = Math.min(FOCUS_MAX_SCALE, Math.max(1, wanted / baseRadius()));
-      if (options?.spin) animateTo([-center[0], -center[1], 0], scale, 2600, easeCubicInOut, 2);
+      // A shuffle is a camera flight: one smooth extra turn (sine easing keeps the top speed low),
+      // pulling back a little on the way.
+      if (options?.spin) animateTo([-center[0], -center[1], 0], scale, SHUFFLE_MS.globe, easeSinInOut, { dip: 0.22, spin: true });
       else animateTo([-center[0], -center[1], 0], scale, 1300);
     },
   }));
@@ -250,27 +357,22 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     const scenery = sceneryRef.current!;
     const ctx = canvas.getContext('2d')!;
     const sctx = scenery.getContext('2d')!;
-    // Clouds are painted opaque into a buffer, then composited with one opacity, so fading them
-    // never reveals the outlines of overlapping puffs.
-    const cloudBuffer = document.createElement('canvas');
-    const bctx = cloudBuffer.getContext('2d')!;
     const s = state.current;
     let frame = 0;
     let last = performance.now();
 
+    const fullDpr = () => Math.min(window.devicePixelRatio || 1, 2);
+    const setDpr = (c: HTMLCanvasElement, cx: CanvasRenderingContext2D, dpr: number) => {
+      c.width = Math.round(s.width * dpr);
+      c.height = Math.round(s.height * dpr);
+      cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       s.width = canvas.clientWidth;
       s.height = canvas.clientHeight;
-      for (const [c, cx] of [
-        [canvas, ctx],
-        [scenery, sctx],
-        [cloudBuffer, bctx],
-      ] as const) {
-        c.width = Math.round(s.width * dpr);
-        c.height = Math.round(s.height * dpr);
-        cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
+      s.dpr = fullDpr();
+      setDpr(canvas, ctx, s.dpr);
+      setDpr(scenery, sctx, fullDpr());
       s.dirty = true;
     };
     resize();
@@ -286,7 +388,8 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
 
     const configure = () => {
       s.center ??= available().center;
-      projection.translate(s.center).scale(baseRadius() * s.scale).rotate(s.rotate);
+      s.radius ??= baseRadius();
+      projection.translate(s.center).scale(s.radius * s.scale).rotate(s.rotate);
     };
 
     const hitTest = (x: number, y: number): { id: string | null; name: string } | null => {
@@ -323,14 +426,43 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       else pin.hide();
     };
 
-    const draw = (full: boolean) => {
+    /**
+     * Full detail at rest; simplified shapes while moving; coarser shapes, a sparser grid and looser
+     * curve sampling while moving fast, when projecting points is most of the work.
+     */
+    const draw = (detail: 'full' | 'low' | 'motion') => {
       const { world, markers, selectedId, neighborIds, activeIds, showNight } = propsRef.current;
-      const geometry = full ? world : world.lowDetail;
+      const full = detail === 'full';
+      const geometry = full ? world : detail === 'low' ? world.lowDetail : world.motionDetail;
+      projection.precision(detail === 'motion' ? 2.5 : 0.6);
       configure();
+      nearSide.translate(projection.translate()).scale(projection.scale()).rotate(projection.rotate()).precision(projection.precision());
       const path = geoPath(projection, ctx);
+      const nearPath = geoPath(nearSide, ctx);
       const [cx, cy] = projection.translate();
       const r = projection.scale();
       const center: [number, number] = [-s.rotate[0], -s.rotate[1]];
+      // Shapes on the far side are skipped; shapes wholly on the near side skip clipping.
+      const [vx, vy, vz] = unit(center[0], center[1]);
+      const side = (cap: Cap) => {
+        const dot = cap.x * vx + cap.y * vy + cap.z * vz;
+        return dot < -cap.far ? 'far' : dot > cap.near ? 'near' : 'edge';
+      };
+      const shapePath = (feature: Feature<Polygon | MultiPolygon>) => {
+        const where = side(featureCap(feature));
+        if (where !== 'far') (where === 'near' ? nearPath : path)(feature);
+      };
+      const meshPath = (mesh: MultiLineString) => {
+        const near: Position[][] = [];
+        const edge: Position[][] = [];
+        for (const { line, cap } of linesOf(mesh)) {
+          const where = side(cap);
+          if (where === 'near') near.push(line);
+          else if (where === 'edge') edge.push(line);
+        }
+        if (near.length) nearPath({ type: 'MultiLineString', coordinates: near });
+        if (edge.length) path({ type: 'MultiLineString', coordinates: edge });
+      };
       ctx.clearRect(0, 0, s.width, s.height);
 
       // Flat cartoon shadow on the "ground" below the globe.
@@ -349,19 +481,24 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       ctx.fillStyle = ocean;
       ctx.fill();
 
-      ctx.setLineDash([2, 5]);
+      // Dashed while still; dashes are slow to draw, so a fainter solid line stands in while moving.
+      if (full) ctx.setLineDash([2, 5]);
       ctx.beginPath();
-      path(GRATICULE);
+      path(detail === 'motion' ? COARSE_GRATICULE : GRATICULE);
       ctx.strokeStyle = COLORS.graticule;
+      ctx.globalAlpha = full ? 1 : 0.45;
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
 
-      // Little "~" wave marks on the open ocean
+      // Little "~" wave marks on the open ocean, stroked in a few batches by how much they face us.
       if (s.waves?.world !== world) s.waves = { world, points: wavePoints(world) };
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
+      const WAVE_BANDS = 4;
+      const bands: [number, number, number][][] = Array.from({ length: WAVE_BANDS }, () => []);
       for (const point of s.waves.points) {
         const d = geoDistance(point, center);
         if (d > Math.PI / 2 - 0.1) continue;
@@ -369,13 +506,19 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         if (!p) continue;
         const facing = Math.cos(d);
         const size = Math.max(3, r * 0.022) * (0.45 + 0.55 * facing);
-        ctx.globalAlpha = 0.65 * facing;
-        ctx.beginPath();
-        ctx.moveTo(p[0] - size, p[1]);
-        ctx.quadraticCurveTo(p[0] - size / 2, p[1] - size * 0.7, p[0], p[1]);
-        ctx.quadraticCurveTo(p[0] + size / 2, p[1] + size * 0.7, p[0] + size, p[1]);
-        ctx.stroke();
+        bands[Math.min(WAVE_BANDS - 1, Math.floor(facing * WAVE_BANDS))].push([p[0], p[1], size]);
       }
+      bands.forEach((waves, band) => {
+        if (!waves.length) return;
+        ctx.globalAlpha = (0.65 * (band + 0.5)) / WAVE_BANDS;
+        ctx.beginPath();
+        for (const [x, y, size] of waves) {
+          ctx.moveTo(x - size, y);
+          ctx.quadraticCurveTo(x - size / 2, y - size * 0.7, x, y);
+          ctx.quadraticCurveTo(x + size / 2, y + size * 0.7, x + size, y);
+        }
+        ctx.stroke();
+      });
       ctx.globalAlpha = 1;
 
       // Land in political colours, batched by colour + opacity. With a selection, countries other
@@ -397,7 +540,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       for (const [key, shapes] of groups) {
         const [color, alpha] = key.split('|');
         ctx.beginPath();
-        for (const shape of shapes) path(shape.feature);
+        for (const shape of shapes) shapePath(shape.feature);
         ctx.globalAlpha = Number(alpha);
         ctx.fillStyle = color;
         ctx.fill();
@@ -407,12 +550,12 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       // Ink outlines: thin borders, thicker coastlines.
       ctx.lineJoin = 'round';
       ctx.beginPath();
-      path(geometry.borders);
+      meshPath(geometry.borders);
       ctx.strokeStyle = 'rgba(30, 27, 75, 0.7)';
       ctx.lineWidth = 0.9;
       ctx.stroke();
       ctx.beginPath();
-      path(geometry.coastline);
+      meshPath(geometry.coastline);
       ctx.strokeStyle = INK;
       ctx.lineWidth = 1.5;
       ctx.stroke();
@@ -421,17 +564,21 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       if (showNight) {
         const minute = Math.floor(Date.now() / 60_000);
         if (s.night?.minute !== minute) s.night = { minute, bands: nightBands(), sun: subsolarPoint() };
-        for (const band of s.night.bands) {
-          ctx.beginPath();
-          path(band.feature);
+        s.nightPaths = s.night.bands.map((band) => {
+          const shape = new Path2D();
+          // Path2D draws like a canvas context, minus beginPath, which geoPath never calls.
+          geoPath(projection, shape as unknown as GeoContext)(band.feature);
+          return { path: shape, alpha: band.alpha };
+        });
+        for (const band of s.nightPaths) {
           ctx.fillStyle = `rgba(${NIGHT_COLOR}, ${band.alpha})`;
-          ctx.fill();
+          ctx.fill(band.path);
         }
       }
 
       if (s.hoverId && s.hoverId !== selectedId) {
         ctx.beginPath();
-        for (const shape of geometry.shapes) if (shape.id === s.hoverId) path(shape.feature);
+        for (const shape of geometry.shapes) if (shape.id === s.hoverId) shapePath(shape.feature);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.fill();
         ctx.strokeStyle = INK;
@@ -441,7 +588,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
 
       if (selectedId) {
         ctx.beginPath();
-        for (const shape of geometry.shapes) if (shape.id === selectedId) path(shape.feature);
+        for (const shape of geometry.shapes) if (shape.id === selectedId) shapePath(shape.feature);
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 6;
         ctx.stroke();
@@ -522,20 +669,19 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       cloudProjection.translate([cx, cy]).scale(R).rotate(rot);
       const center: [number, number] = [-rot[0], -rot[1]];
       // Thin the clouds when zoomed in or when a country is selected, so the land stays readable.
+      // They're painted opaque and the whole layer fades, so overlapping puffs never show their
+      // outlines through each other (and the compositor does the fading for free).
       const opacity = Math.max(0.15, Math.min(1, 1.35 - 0.35 * s.scale)) * (selectedId ? 0.45 : 1);
-      // Fully opaque clouds go straight onto the scenery canvas; faded ones need the buffer.
-      const opaque = opacity >= 0.999;
-      const cctx = opaque ? sctx : bctx;
-      if (!opaque) bctx.clearRect(0, 0, s.width, s.height);
+      if (Math.abs(opacity - Number(scenery.style.opacity || 1)) > 0.02) scenery.style.opacity = opacity.toFixed(2);
       const puffPass = (puffs: { x: number; y: number; size: number }[], color: string, grow: number, shift: number, k: number) => {
-        cctx.fillStyle = color;
-        cctx.beginPath();
+        sctx.fillStyle = color;
+        sctx.beginPath();
         for (const p of puffs) {
           const r = p.size * k + grow;
-          cctx.moveTo(p.x + r, p.y - p.size * shift);
-          cctx.arc(p.x, p.y - p.size * shift, r, 0, Math.PI * 2);
+          sctx.moveTo(p.x + r, p.y - p.size * shift);
+          sctx.arc(p.x, p.y - p.size * shift, r, 0, Math.PI * 2);
         }
-        cctx.fill();
+        sctx.fill();
       };
 
       for (const system of CLOUDS) {
@@ -558,21 +704,13 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         puffPass(puffs, '#d6ecff', 0, 0, 1);
         puffPass(puffs, '#ffffff', 0, 0.16, 0.86);
       }
-      if (!opaque) {
-        sctx.globalAlpha = opacity;
-        sctx.drawImage(cloudBuffer, 0, 0, s.width, s.height);
-        sctx.globalAlpha = 1;
-      }
       // Darken the clouds that sit on the night side ('source-atop' only paints over cloud pixels).
       if (propsRef.current.showNight && s.night) {
-        const nightPath = geoPath(projection, sctx);
         sctx.save();
         sctx.globalCompositeOperation = 'source-atop';
-        for (const band of s.night.bands) {
-          sctx.beginPath();
-          nightPath(band.feature);
+        for (const band of s.nightPaths) {
           sctx.fillStyle = `rgba(${NIGHT_COLOR}, ${band.alpha * 1.5})`;
-          sctx.fill();
+          sctx.fill(band.path);
         }
         sctx.restore();
       }
@@ -628,21 +766,43 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         const t = a.duration ? Math.min(1, (now - a.start) / a.duration) : 1;
         const e = a.ease(t);
         s.rotate = interpolate(a.from.rotate, a.to.rotate)(e) as [number, number, number];
-        s.scale = Math.max(0.2, a.from.scale + (a.to.scale - a.from.scale) * e);
-        if (t >= 1) s.animation = null;
+        // Zoom along the way, pulling the camera back a little mid-flight if asked to.
+        s.scale = Math.max(0.2, (a.from.scale + (a.to.scale - a.from.scale) * e) * (1 - a.dip * Math.sin(Math.PI * t)));
+        if (a.spin) {
+          // A haptic notch every few degrees, so the buzzing speeds up and slows down with the globe.
+          const notches = Math.floor(Math.abs(s.rotate[0] - a.from.rotate[0]) / NOTCH_DEGREES);
+          if (notches > a.spin.notches) {
+            a.spin.notches = notches;
+            haptics.notch();
+          }
+        }
+        if (t >= 1) {
+          s.animation = null;
+          if (a.spin) haptics.land();
+        }
         s.dirty = true;
         s.lastMotion = now;
-      } else if (!selectedId && !s.drag && !reducedMotion && now - s.lastInteraction > 2500) {
+      } else if (s.inertia && !s.drag) {
+        // A flicked globe keeps turning and slows down smoothly.
+        const { vx, vy } = s.inertia;
+        s.rotate = [s.rotate[0] + vx * dt, Math.max(-88, Math.min(88, s.rotate[1] + vy * dt)), 0];
+        const decay = Math.exp(-dt / INERTIA_MS);
+        s.inertia = Math.hypot(vx, vy) * decay < 0.004 ? null : { vx: vx * decay, vy: vy * decay };
+        s.dirty = true;
+        s.lastMotion = s.lastInteraction = now;
+      } else if (!selectedId && !s.drag && !s.pinch && !reducedMotion && now - s.lastInteraction > 2500) {
         s.rotate = [s.rotate[0] + dt * 0.007, s.rotate[1], 0];
         s.dirty = true;
         s.lastMotion = now;
       }
 
-      // Ease the globe toward the centre of the unobscured area when cards open and close.
+      // Ease the globe toward the centre and size of the unobscured area when cards open and close.
       const [tx, ty] = available().center;
-      if (s.center && Math.hypot(tx - s.center[0], ty - s.center[1]) > 0.5) {
+      const tr = baseRadius();
+      if (s.center && s.radius && (Math.hypot(tx - s.center[0], ty - s.center[1]) > 0.5 || Math.abs(tr - s.radius) > 0.5)) {
         const k = reducedMotion ? 1 : Math.min(1, dt * 0.01);
         s.center = [s.center[0] + (tx - s.center[0]) * k, s.center[1] + (ty - s.center[1]) * k];
+        s.radius += (tr - s.radius) * k;
         s.dirty = true;
         s.lastMotion = now;
       }
@@ -662,16 +822,34 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       // The terminator moves a quarter of a degree a minute; refresh it once per minute.
       if (propsRef.current.showNight && s.night && s.night.minute !== Math.floor(Date.now() / 60_000)) s.dirty = true;
 
-      // Simplified geometry while moving; one full-detail frame once the view is still.
+      // Fast moves (flights, flicks, drags, pinches) are drawn with simplified shapes at a lower pixel
+      // ratio; once the view has been still for a moment it is drawn again in full detail.
       const resting = now - s.lastMotion > 160;
+      const fast = !resting && !!(s.animation || s.inertia || s.drag || s.pinch);
+      const dpr = fast ? Math.min(MOVING_DPR, fullDpr()) : fullDpr();
+      if (dpr !== s.dpr) {
+        s.dpr = dpr;
+        setDpr(canvas, ctx, dpr);
+        s.dirty = true;
+      }
+
+      // While nothing moves fast (slow auto-rotation, drifting clouds), half the frame rate is
+      // plenty and saves battery.
+      if (!fast && now - s.lastScenery < 30) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      const sceneryDt = Math.min(64, now - s.lastScenery);
+      s.lastScenery = now;
+
       if (s.dirty || (resting && !s.detailed)) {
         s.dirty = false;
         s.detailed = resting;
-        draw(resting);
+        draw(resting ? 'full' : fast ? 'motion' : 'low');
       }
 
-      if (!reducedMotion) s.cloudDrift += dt * 0.0024;
-      drawScenery(dt);
+      if (!reducedMotion) s.cloudDrift += sceneryDt * 0.0024;
+      drawScenery(sceneryDt);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -687,13 +865,14 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       const p = local(e);
       s.pointers.set(e.pointerId, p);
       s.animation = null;
+      s.inertia = null;
       s.lastInteraction = performance.now();
       if (s.pointers.size === 2) {
         const [a, b] = [...s.pointers.values()];
         s.pinch = { distance: Math.hypot(a.x - b.x, a.y - b.y), scale: s.scale };
         s.drag = null;
       } else {
-        s.drag = { ...p, rotate: [...s.rotate], moved: false };
+        s.drag = { ...p, rotate: [...s.rotate], moved: false, samples: [{ t: performance.now(), rotate: [...s.rotate] }] };
         canvas.classList.add('is-dragging');
       }
     };
@@ -716,6 +895,9 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         const k = 0.28 / s.scale;
         s.rotate = [s.drag.rotate[0] + dx * k, Math.max(-88, Math.min(88, s.drag.rotate[1] - dy * k)), 0];
         s.lastInteraction = s.lastMotion = performance.now();
+        // Keep the last ~100 ms of movement to measure the flick on release.
+        s.drag.samples.push({ t: s.lastMotion, rotate: [...s.rotate] });
+        while (s.drag.samples.length > 2 && s.lastMotion - s.drag.samples[0].t > 100) s.drag.samples.shift();
         s.dirty = true;
         propsRef.current.onHover(null);
         return;
@@ -730,6 +912,18 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       s.drag = null;
       canvas.classList.remove('is-dragging');
       s.lastInteraction = performance.now();
+      // A flick: carry on turning at the speed the finger was moving when it let go.
+      if (drag?.moved && e.type === 'pointerup' && !s.pinch) {
+        const first = drag.samples[0];
+        const lastSample = drag.samples[drag.samples.length - 1];
+        const span = lastSample.t - first.t;
+        if (span > 0 && s.lastInteraction - lastSample.t < 50) {
+          const cap = (v: number) => Math.max(-1.5, Math.min(1.5, v));
+          const vx = cap((lastSample.rotate[0] - first.rotate[0]) / span);
+          const vy = cap((lastSample.rotate[1] - first.rotate[1]) / span);
+          if (Math.hypot(vx, vy) > 0.03) s.inertia = { vx, vy };
+        }
+      }
       if (drag && !drag.moved && e.type === 'pointerup') {
         const p = local(e);
         const hit = hitTest(p.x, p.y);
@@ -740,6 +934,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       s.animation = null;
+      s.inertia = null;
       s.lastInteraction = performance.now();
       s.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s.scale * Math.exp(-e.deltaY * 0.0015)));
       s.dirty = true;
@@ -788,7 +983,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         role="img"
         aria-label="Interactive 3D globe. Drag to rotate, scroll to zoom, select a country to see its details."
       />
-      <canvas ref={sceneryRef} aria-hidden className="pointer-events-none absolute inset-0 h-full w-full" />
+      <canvas ref={sceneryRef} aria-hidden className="pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500" />
     </div>
   );
 });

@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { ArrowUpRight, X } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
+import { haptics, hapticsEnabled, hapticsSupported, setHapticsEnabled, subscribeHaptics } from '../../lib/haptics';
 import { InstallCard } from './Install';
 
 const SOURCES = [
@@ -95,6 +96,7 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
         )}
 
         <InstallCard />
+        <VibrationSetting />
 
         <ul className="mt-5 divide-y-2 divide-dashed divide-indigo-100">
           {SOURCES.map((s) => (
@@ -119,5 +121,31 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
         </p>
       </div>
     </dialog>
+  );
+}
+
+/** On/off switch for touch vibrations, on phones and tablets that can vibrate. */
+function VibrationSetting() {
+  const on = useSyncExternalStore(subscribeHaptics, hapticsEnabled, () => true);
+  if (!hapticsSupported || !window.matchMedia('(pointer: coarse)').matches) return null;
+  return (
+    <label className="toon mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-2xl bg-white p-4">
+      <span>
+        <span className="block font-display text-[16px] font-semibold text-ink">📳 Vibration</span>
+        <span className="mt-0.5 block text-[13px] font-semibold leading-snug text-slate-500">
+          A little buzz when the globe spins and lands, and when you tap.
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        checked={on}
+        onChange={(e) => {
+          setHapticsEnabled(e.target.checked);
+          if (e.target.checked) haptics.select();
+        }}
+        className="relative h-7 w-12 shrink-0 cursor-pointer appearance-none rounded-full border-2 border-ink bg-slate-200 transition-colors duration-300 before:absolute before:left-0.5 before:top-0.5 before:size-5 before:rounded-full before:border-2 before:border-ink before:bg-white before:transition-transform before:duration-300 before:ease-[cubic-bezier(0.34,1.56,0.64,1)] checked:bg-emerald-400 checked:before:translate-x-5"
+      />
+    </label>
   );
 }
