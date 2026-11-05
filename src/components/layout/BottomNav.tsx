@@ -2,6 +2,7 @@ import { forwardRef, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
+import { quizIsNew } from '../game/stats';
 import type { ViewMode } from '../map/MapStage';
 
 interface BottomNavProps {
@@ -12,13 +13,14 @@ interface BottomNavProps {
   shuffling: boolean;
   canShuffle: boolean;
   onSearch: () => void;
-  night: boolean;
-  onNight: () => void;
+  /** Opens the flag quiz. */
+  onPlay: () => void;
+  canPlay: boolean;
 }
 
-/** Phone tab bar: the two views, a big shuffle button in the middle, search and day/night. */
+/** Phone tab bar: the two views, a big shuffle button in the middle, the flag quiz and search. */
 export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function BottomNav(
-  { view, onView, onShuffle, shuffling, canShuffle, onSearch, night, onNight },
+  { view, onView, onShuffle, shuffling, canShuffle, onSearch, onPlay, canPlay },
   ref,
 ) {
   const slot = view === 'globe' ? 0 : 1;
@@ -60,8 +62,8 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
           </button>
           <span className="absolute bottom-[7px] text-[11px] font-extrabold text-ink">{shuffling ? 'Spinning…' : 'Shuffle'}</span>
         </div>
+        <Tab label="Play" emoji="🎮" onClick={onPlay} disabled={!canPlay} badge={quizIsNew() ? 'New' : undefined} />
         <Tab label="Search" emoji="🔍" onClick={onSearch} />
-        <Tab label="Night" emoji={night ? '🌙' : '☀️'} pressed={night} onClick={onNight} />
       </div>
     </nav>
   );
@@ -71,13 +73,16 @@ function Tab({
   label,
   emoji,
   active,
-  pressed,
+  disabled,
+  badge,
   onClick,
 }: {
   label: string;
   emoji: ReactNode;
   active?: boolean;
-  pressed?: boolean;
+  disabled?: boolean;
+  /** A little sticker on the tab, such as "New". */
+  badge?: string;
   onClick: () => void;
 }) {
   return (
@@ -88,10 +93,15 @@ function Tab({
         sounds.pop();
         onClick();
       }}
+      disabled={disabled}
       aria-current={active ? 'page' : undefined}
-      aria-pressed={pressed}
-      className="relative flex flex-col items-center justify-start gap-1 pt-[11px] transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90"
+      className="relative flex flex-col items-center justify-start gap-1 pt-[11px] transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90 disabled:opacity-50"
     >
+      {badge && (
+        <span className="absolute right-[calc(50%-26px)] top-1 rotate-12 rounded-full border-2 border-ink bg-rose-400 px-1 text-[8.5px] font-black uppercase leading-[12px] text-white">
+          {badge}
+        </span>
+      )}
       <span aria-hidden className={clsx('text-[21px] leading-none transition-transform duration-300', active && 'scale-110')}>
         {emoji}
       </span>

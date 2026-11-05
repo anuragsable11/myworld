@@ -106,6 +106,25 @@ src/components/panel/         Country profile and its sections
 - **Shuffle**: the dice flies to a random country. On the globe it's a three-second camera flight with one extra turn
   (sine easing keeps the top speed low) and a slight pull-back; the profile and the pin wait until it lands, so the
   globe has the main thread to itself.
+- **Flag quiz** (`src/components/game/`): ten flags with four choices each, getting harder as it goes: questions 1–3
+  easy (famous flags, wrong answers from far away that look nothing alike), 4–6 medium (neighbours from the same part
+  of the world), 7–9 hard (obscure flags among look-alikes: Nordic crosses, pan-African colours, crescents…) and the
+  10th "impossible" (a true twin such as Chad and Romania, or Monaco and Indonesia, among its look-alikes). Only
+  sovereign states take part, so no two flags are the same. Pick, check, and a green or red verdict with the capital,
+  region and population.
+  - Points by level, plus a combo bonus for 3 and 5 right in a row (with a cheer), a speed bonus for answering within
+    six seconds (a bar drains under the flag) and a 50/50 hint once per round for half the points. The final screen
+    has stars, counted-up points, a rank earned over all rounds (Rookie → Explorer → Expert → Master → Legend), a
+    streak of days played, the best score, a shareable result grid and each flag to open in the atlas.
+  - Hosted by Globy, an original cartoon planet drawn in the same flat style as the people in the profiles. It
+    breathes, blinks, glances about and talks; squashes into every new face, cries a little at a wrong answer, catches
+    fire on a streak and puts on sunglasses on a long one; two people in the dress of a country you got right cheer at
+    the end. Everything that moves for long is an HTML layer the graphics chip animates on its own, and blinks and
+    glances are one-off animations, so a waiting question costs the main thread almost nothing.
+  - Its own sounds (synthesised bells, a "womp womp", a rumbling impossible level, fanfares by score, all through a
+    compressor and a small reverb) and fuller vibration patterns for right, wrong, combos, levels and the final score.
+  - Phones open it from the tab bar (day/night moved to the top bar), tablets and desktops from the map controls or the
+    welcome card, keyboards with `Q`, then `1`–`4`, `H` for the hint and `Enter`.
 - **Feel**: the globe clicks like a prize wheel as it turns, whether under a finger, coasting after a flick or in a
   shuffle: a tick of vibration and sound every 20° (at most every 45 ms), and a bump and a chime when a shuffle
   lands. Buttons pop, the shuffle whooshes and tapped characters go boing. The sounds are synthesised with the Web
@@ -114,8 +133,8 @@ src/components/panel/         Country profile and its sections
 - **Smooth globe**: while it moves fast the globe is drawn from a coarser outline at a lower pixel ratio, countries on
   the far side are skipped, and countries wholly in front are projected without horizon clipping; it is redrawn in full
   detail once still. A flicked globe keeps turning and slows down, and slow auto-rotation runs at half frame rate.
-- **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `N` toggles day and night, `Esc`
-  closes the search drawer or the profile.
+- **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `N` toggles day and night, `Q`
+  starts the flag quiz, `Esc` closes the search drawer or the profile.
 
 ## Install and offline use
 

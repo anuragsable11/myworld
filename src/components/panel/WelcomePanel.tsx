@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import type { Country } from '../../types';
 import { isSovereign, type CountryIndex } from '../../hooks/queries';
 import { formatArea, formatInteger, formatPopulation } from '../../lib/format';
+import { Mascot } from '../game/Mascot';
 import { InstallButton } from '../layout/Install';
 import { Flag } from '../ui/Flag';
 import { Skeleton } from '../ui/primitives';
@@ -13,10 +14,12 @@ export function WelcomePanel({
   index,
   onSelect,
   onSurprise,
+  onPlay,
 }: {
   index: CountryIndex | undefined;
   onSelect: (id: string) => void;
   onSurprise: () => void;
+  onPlay: () => void;
 }) {
   const facts = useMemo(() => {
     if (!index) return null;
@@ -66,6 +69,22 @@ export function WelcomePanel({
         </button>
         <InstallButton />
       </div>
+
+      <button
+        type="button"
+        onClick={onPlay}
+        disabled={!facts}
+        className="toon toon-press mt-6 flex w-full animate-rise items-center gap-3 rounded-3xl bg-[linear-gradient(135deg,#d9f99d_0%,#fde68a_100%)] p-3 pr-4 text-left disabled:opacity-50 [animation-delay:160ms]"
+      >
+        <Mascot mood="idle" className="w-16 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="toon-title block text-[19px]">Flag quiz 🎮</span>
+          <span className="mt-0.5 block text-[13px] font-semibold leading-snug text-slate-600">
+            10 flags, from easy to impossible. How far can you get?
+          </span>
+        </span>
+        <span className="toon-sm shrink-0 rounded-full bg-sun px-3 py-1 font-display text-[15px] font-semibold text-ink">Play</span>
+      </button>
 
       {facts ? (
         <>
@@ -137,6 +156,7 @@ export function WelcomePanel({
             ['/', 'Search countries'],
             ['G', 'Switch globe and map'],
             ['N', 'Live day & night'],
+            ['Q', 'Flag quiz'],
             ['Esc', 'Close the profile'],
           ].map(([key, label]) => (
             <li key={key} className="flex items-center justify-between">

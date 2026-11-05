@@ -60,7 +60,15 @@ function iosTap() {
 function buzz(pattern: number | number[]) {
   if (!enabled) return;
   if (canVibrate) navigator.vibrate(pattern);
-  else if (isIOS) iosTap();
+  else if (isIOS) {
+    // An iPhone can only tap: one tap for each burst of the pattern.
+    const bursts = typeof pattern === 'number' ? [pattern] : pattern;
+    let at = 0;
+    bursts.forEach((ms, i) => {
+      if (i % 2 === 0) window.setTimeout(iosTap, at);
+      at += ms;
+    });
+  }
 }
 
 export const haptics = {
@@ -76,4 +84,20 @@ export const haptics = {
   land: () => buzz([28, 70, 14]),
   /** A cartoon character jumping. */
   hop: () => buzz([10, 50, 10]),
+  /** A right answer in the quiz: two quick taps and a happy buzz. */
+  correct: () => buzz([35, 45, 35, 45, 110]),
+  /** A wrong answer: a long, heavy double buzz. */
+  wrong: () => buzz([120, 70, 120, 70, 260]),
+  /** Three or more right in a row: a drum roll. */
+  combo: () => buzz([25, 30, 25, 30, 25, 30, 25, 30, 160]),
+  /** A new level in the quiz. */
+  levelUp: () => buzz([40, 60, 40, 60, 160]),
+  /** The impossible question arriving: a heavy rumble. */
+  danger: () => buzz([90, 50, 90, 50, 90, 50, 380]),
+  /** The final score: the better the round, the bigger the celebration. */
+  win: (score: number) => buzz(score >= 9 ? [50, 50, 50, 50, 50, 50, 320] : score >= 6 ? [40, 60, 40, 60, 200] : [70, 90, 180]),
+  /** A star on the results. */
+  star: () => buzz(30),
+  /** The 50/50 hint. */
+  hint: () => buzz([20, 40, 20]),
 };

@@ -38,6 +38,33 @@
   --animate-dice-roll: dice-roll 720ms cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
   --animate-view-in: view-in 460ms var(--ease-spring) both;
   --animate-nudge: nudge 1.6s ease-in-out infinite;
+  --animate-shake: shake 520ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  --animate-tremble: tremble 280ms linear infinite;
+  --animate-dance: dance 900ms ease-in-out infinite;
+  --animate-tada: tada 460ms var(--ease-bounce) both;
+  --animate-sheet-up: sheet-up 460ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-feedback-in: feedback-in 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-banner-in: banner-in 560ms var(--ease-bounce) both;
+  --animate-flash: flash 900ms ease-out both;
+  --animate-drip: drip 1.6s ease-in infinite;
+  --animate-confetti-fall: confetti-fall 3s cubic-bezier(0.2, 0.6, 0.4, 1) both;
+  --animate-breathe: breathe 3.2s ease-in-out infinite;
+  --animate-squish: squish 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-talk: talk 0.17s steps(1, end) 5 both;
+  --animate-tear: tear 1.5s ease-in 0.25s 2 both;
+  --animate-flicker: flicker 0.6s ease-in-out infinite;
+  --animate-slide-in: slide-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-slide-out: slide-out 220ms cubic-bezier(0.55, 0, 1, 0.45) both;
+  --animate-feedback-out: feedback-out 220ms cubic-bezier(0.55, 0, 1, 0.45) both;
+  --animate-flip-in: flip-in 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms both;
+  --animate-float-up: float-up 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-burst: burst 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-drain: drain 6s linear both;
+  --animate-star-pop: star-pop 620ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-toast: toast 1.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-word: word 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-poof: poof 380ms ease-in both;
+  --animate-shine: shine 800ms ease-out 120ms both;
 
   @keyframes fade-in {
     from {
@@ -229,6 +256,271 @@
       transform: translateX(6px) rotate(-12deg);
     }
   }
+  /* Flag quiz: a wrong answer, Globy trembling and dancing, a right answer, sheets and banners */
+  @keyframes shake {
+    10%,
+    90% {
+      transform: translateX(-2px);
+    }
+    20%,
+    80% {
+      transform: translateX(4px);
+    }
+    30%,
+    50%,
+    70% {
+      transform: translateX(-7px);
+    }
+    40%,
+    60% {
+      transform: translateX(7px);
+    }
+  }
+  @keyframes tremble {
+    0%,
+    100% {
+      transform: translate(0, 0) rotate(0deg);
+    }
+    25% {
+      transform: translate(-1.5px, 0.5px) rotate(-1deg);
+    }
+    50% {
+      transform: translate(1.5px, -0.5px) rotate(1deg);
+    }
+    75% {
+      transform: translate(-1px, -0.5px) rotate(-0.5deg);
+    }
+  }
+  @keyframes dance {
+    0%,
+    100% {
+      transform: rotate(-6deg) translateY(0);
+    }
+    25% {
+      transform: rotate(0deg) translateY(-10px);
+    }
+    50% {
+      transform: rotate(6deg) translateY(0);
+    }
+    75% {
+      transform: rotate(0deg) translateY(-10px);
+    }
+  }
+  @keyframes tada {
+    40% {
+      transform: scale(1.04);
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes feedback-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes banner-in {
+    from {
+      opacity: 0;
+      transform: scale(0.6) rotate(-8deg);
+    }
+  }
+  @keyframes flash {
+    from {
+      opacity: 0.85;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes drip {
+    0% {
+      transform: translateY(-4px);
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(10px);
+      opacity: 0;
+    }
+  }
+  @keyframes confetti-fall {
+    from {
+      transform: translate3d(0, -20px, 0) rotate(0deg);
+    }
+    to {
+      transform: translate3d(var(--drift, 0px), 110vh, 0) rotate(var(--spin, 360deg));
+    }
+  }
+  /* Globy breathing, squashing into a new face, glancing about, talking, crying, on fire */
+  @keyframes breathe {
+    0%,
+    100% {
+      transform: scale(1, 1);
+    }
+    50% {
+      transform: scale(1.018, 1.04);
+    }
+  }
+  @keyframes squish {
+    0% {
+      transform: scale(1.14, 0.86);
+    }
+    40% {
+      transform: scale(0.94, 1.07);
+    }
+    70% {
+      transform: scale(1.03, 0.97);
+    }
+  }
+  @keyframes talk {
+    0% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes tear {
+    0% {
+      transform: translateY(-2px) scale(0.3);
+      opacity: 0;
+    }
+    20% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(18px) scale(0.9);
+      opacity: 0;
+    }
+  }
+  @keyframes flicker {
+    0%,
+    100% {
+      transform: scale(1, 1) skewX(0deg);
+    }
+    25% {
+      transform: scale(0.94, 1.1) skewX(4deg);
+    }
+    50% {
+      transform: scale(1.05, 0.94) skewX(-3deg);
+    }
+    75% {
+      transform: scale(0.97, 1.06) skewX(2deg);
+    }
+  }
+  /* Flag quiz: questions sliding through, the flag flipping in, points floating up, sparks */
+  @keyframes slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(56px);
+    }
+  }
+  @keyframes slide-out {
+    to {
+      opacity: 0;
+      transform: translateX(-56px);
+    }
+  }
+  @keyframes feedback-out {
+    to {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes flip-in {
+    from {
+      opacity: 0;
+      transform: perspective(700px) rotateY(-80deg) scale(0.9);
+    }
+  }
+  @keyframes float-up {
+    0% {
+      opacity: 0;
+      transform: translateY(6px) scale(0.6);
+    }
+    20% {
+      opacity: 1;
+      transform: translateY(0) scale(1.15);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-34px) scale(1);
+    }
+  }
+  @keyframes burst {
+    from {
+      opacity: 1;
+      transform: translate(0, 0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate(var(--dx), var(--dy)) scale(0.2);
+    }
+  }
+  @keyframes drain {
+    from {
+      transform: scaleX(1);
+    }
+    to {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes star-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0) rotate(-40deg);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.3) rotate(10deg);
+    }
+  }
+  @keyframes toast {
+    0% {
+      opacity: 0;
+      transform: translateY(-14px) scale(0.7);
+    }
+    14% {
+      opacity: 1;
+      transform: translateY(0) scale(1.06);
+    }
+    22%,
+    82% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.96);
+    }
+  }
+  @keyframes word {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.8);
+    }
+  }
+  @keyframes shine {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(400%);
+    }
+  }
+  @keyframes poof {
+    to {
+      opacity: 0.22;
+      transform: scale(0.94);
+      filter: blur(1px);
+    }
+  }
   /* The shuffle button's dice tumbling while the globe spins */
   @keyframes dice-roll {
     0% {
@@ -361,6 +653,26 @@ html {
 .sheet-height {
   height: calc(100vh - var(--sheet-gap) - max(76px, env(safe-area-inset-top) + 64px));
   height: calc(100dvh - var(--sheet-gap) - max(76px, env(safe-area-inset-top) + 64px));
+}
+
+/* The flag quiz fills the screen. (Closed, a dialog isn't displayed at all.) */
+.quiz-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+  color: inherit;
+}
+.quiz-dialog::backdrop {
+  background: transparent;
 }
 
 /* While something covers the map, the sky's clouds, sun and sparkles stop moving; figures out of

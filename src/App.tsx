@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { isSovereign, useCountryIndex, useWorld } from './hooks/queries';
 import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMediaQuery';
 import { useSafeArea } from './hooks/useSafeArea';
@@ -17,6 +17,10 @@ import { SHUFFLE_MS, type Insets } from './components/map/types';
 import { CountryPanel } from './components/panel/CountryPanel';
 import { WelcomePanel } from './components/panel/WelcomePanel';
 import { Sidebar, type Scope } from './components/sidebar/Sidebar';
+
+// The quiz loads on demand (and is fetched ahead once the page is idle, so it opens at once).
+const loadQuiz = () => import('./components/game/FlagQuiz');
+const FlagQuiz = lazy(loadQuiz);
 
 const VIEW_KEY = 'atlas:view';
 const NIGHT_KEY = 'atlas:night';
@@ -61,6 +65,9 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [quizOpen, setQuizOpen] = useState(false);
+  /** The quiz stays mounted after its first opening, so it reopens instantly. */
+  const [quizMounted, setQuizMounted] = useState(false);
   const [locateNonce, setLocateNonce] = useState(0);
   const [resetNonce, setResetNonce] = useState(0);
   const [spinFor, setSpinFor] = useState<string | null>(null);
@@ -161,6 +168,28 @@ export default function App() {
     navObserver.current = new ResizeObserver(() => setNavHeight(nav.offsetHeight));
     navObserver.current.observe(nav);
   }, []);
+  const openQuiz = useCallback(() => {
+    if (!index) return;
+    stopSpin();
+    setDrawerOpen(false);
+    setQuizMounted(true);
+    setQuizOpen(true);
+  }, [index, stopSpin]);
+  const closeQuiz = useCallback(() => setQuizOpen(false), []);
+  /** From the quiz's results: see a country in the atlas. */
+  const showFromQuiz = useCallback(
+    (id: string) => {
+      setQuizOpen(false);
+      handleSelect(id);
+    },
+    [handleSelect],
+  );
+  useEffect(() => {
+    const idle = (window as unknown as { requestIdleCallback?: (fn: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+    const timer = window.setTimeout(() => (idle ? idle(() => void loadQuiz(), { timeout: 5000 }) : void loadQuiz()), 4000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const handleLocate = useCallback(() => {
     setSheetExpanded(false);
     setLocateNonce((n) => n + 1);
@@ -187,6 +216,8 @@ export default function App() {
   // Keyboard shortcuts: "/" or Ctrl/⌘+K search, "g" toggles the globe, Esc closes things.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // A dialog (the quiz, About) has the keyboard to itself.
+      if (document.querySelector('dialog[open]')) return;
       if ((e.key === '/' && !isTyping(e.target)) || (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey))) {
         e.preventDefault();
         if (layout === 'desktop') searchRef.current?.focus();
@@ -199,7 +230,9 @@ export default function App() {
         changeView(view === 'map' ? 'globe' : 'map');
       } else if (e.key.toLowerCase() === 'n' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         toggleNight();
-      } else if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]')) {
+      } else if (e.key.toLowerCase() === 'q' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        openQuiz();
+      } else if (e.key === 'Escape' && !e.defaultPrevented) {
         // One thing at a time, like back on Android. Handled here, so the close watchers that back
         // also reaches don't close a second thing for the same key press.
         if (drawerOpen) setDrawerOpen(false);
@@ -211,10 +244,10 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layout, view, changeView, toggleNight, drawerOpen, sheetExpanded, selectedId, handleClose]);
+  }, [layout, view, changeView, toggleNight, drawerOpen, sheetExpanded, selectedId, handleClose, openQuiz]);
 
   /** The map is out of sight behind an open sheet, menu or dialog, so it can stop animating. */
-  const covered = (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen;
+  const covered = (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen || quizOpen;
 
   const activeIds = useMemo(
     () => (region && index ? new Set(index.sorted.filter((c) => c.region === region).map((c) => c.cca3)) : null),
@@ -282,6 +315,7 @@ export default function App() {
           onViewChange={changeView}
           onSelect={handleSelect}
           onSurprise={handleSurprise}
+          onPlay={openQuiz}
           spinFor={spinFor}
           showLegend={layout === 'desktop'}
         />
@@ -304,13 +338,19 @@ export default function App() {
             ) : shownId ? (
               panel(shownId)
             ) : (
-              <WelcomePanel index={index} onSelect={handleSelect} onSurprise={handleSurprise} />
+              <WelcomePanel index={index} onSelect={handleSelect} onSurprise={handleSurprise} onPlay={openQuiz} />
             )}
           </aside>
         </>
       ) : (
         <>
-          <TopBar onOpenSearch={layout === 'tablet' ? () => setDrawerOpen(true) : undefined} onOpenAbout={() => setAboutOpen(true)} />
+          <TopBar
+            onOpenSearch={layout === 'tablet' ? () => setDrawerOpen(true) : undefined}
+            onOpenAbout={() => setAboutOpen(true)}
+            // Phones moved day/night from the tab bar up here, to make room for the quiz.
+            night={showNight}
+            onNight={layout === 'mobile' ? toggleNight : undefined}
+          />
           <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
             {sidebar}
           </Drawer>
@@ -346,8 +386,8 @@ export default function App() {
             shuffling={spinning}
             canShuffle={!!index}
             onSearch={() => setDrawerOpen(true)}
-            night={showNight}
-            onNight={toggleNight}
+            onPlay={openQuiz}
+            canPlay={!!index}
           />
         </>
       )}
@@ -360,10 +400,15 @@ export default function App() {
       )}
 
       {layout !== 'desktop' && (
-        <GestureHint ready={!!world.data && !selectedId && !spinning && !drawerOpen} view={view} top={topBarBottom + 12} />
+        <GestureHint ready={!!world.data && !selectedId && !spinning && !drawerOpen && !quizOpen} view={view} top={topBarBottom + 12} />
       )}
       <UpdateToast top={layout === 'desktop' ? 16 : topBarBottom + 10} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} index={index} />
+      {quizMounted && index && (
+        <Suspense fallback={null}>
+          <FlagQuiz open={quizOpen} countries={index.sorted} onClose={closeQuiz} onShowCountry={showFromQuiz} />
+        </Suspense>
+      )}
     </div>
   );
 }

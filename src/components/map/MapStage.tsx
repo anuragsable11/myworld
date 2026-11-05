@@ -35,6 +35,8 @@ interface MapStageProps {
   onViewChange: (view: ViewMode) => void;
   onSelect: (id: string) => void;
   onSurprise: () => void;
+  /** Opens the flag quiz. */
+  onPlay: () => void;
   /** The country picked by "Surprise me"; the globe takes a few extra turns on the way there. */
   spinFor: string | null;
   showLegend: boolean;
@@ -62,6 +64,7 @@ export function MapStage({
   onViewChange,
   onSelect,
   onSurprise,
+  onPlay,
   spinFor,
   showLegend,
   locateKey,
@@ -220,6 +223,16 @@ export function MapStage({
           className="absolute z-10 flex flex-col items-center gap-3 transition-[right,bottom] duration-500"
           style={{ right: area.right, bottom: area.bottom }}
         >
+          <button
+            type="button"
+            onClick={onPlay}
+            disabled={!index}
+            title="Flag quiz"
+            aria-label="Play the flag quiz"
+            className="toon toon-press grid size-12 place-items-center rounded-2xl bg-emerald-300 text-[22px] disabled:opacity-50"
+          >
+            <span aria-hidden>🎮</span>
+          </button>
           <button
             type="button"
             onClick={onToggleNight}

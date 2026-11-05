@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react';
+import clsx from 'clsx';
 import { Info, Search, Volume2, VolumeX } from 'lucide-react';
+import { haptics } from '../../lib/haptics';
 import { setSoundEnabled, soundEnabled, sounds, subscribeSound } from '../../lib/sounds';
 
 function LogoMark({ className }: { className?: string }) {
@@ -23,7 +25,8 @@ export function Brand() {
   return (
     <a href="#" className="group flex items-center gap-2.5" aria-label="World Atlas home">
       <LogoMark className="size-10 transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-[360deg]" />
-      <span className="relative leading-none">
+      {/* Very narrow phones show just the logo, to leave room for the buttons. */}
+      <span className="relative leading-none max-[379px]:hidden">
         <span className="toon-title block text-[22px]">World Atlas</span>
         <span className="absolute -right-9 -top-3 rotate-12 rounded-full border-2 border-ink bg-sun px-1.5 py-px text-[9.5px] font-black uppercase tracking-wide text-ink shadow-[1.5px_1.5px_0_0_var(--color-ink)]">
           Explorer!
@@ -66,8 +69,41 @@ export function SoundButton() {
   );
 }
 
-/** Floating top bar for tablet and phone layouts (phones search from the tab bar instead). */
-export function TopBar({ onOpenSearch, onOpenAbout }: { onOpenSearch?: () => void; onOpenAbout: () => void }) {
+/** Shows or hides the live night side of the Earth. */
+export function NightButton({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        haptics.tap();
+        sounds.pop();
+        onClick();
+      }}
+      aria-pressed={on}
+      aria-label="Live day and night"
+      title={on ? 'Hide live day & night' : 'Show live day & night'}
+      className={clsx('toon-sm toon-press-sm grid size-10 place-items-center rounded-full text-[18px] leading-none', on ? 'bg-indigo-300' : 'bg-white hover:bg-sky-100')}
+    >
+      <span aria-hidden>{on ? '🌙' : '☀️'}</span>
+    </button>
+  );
+}
+
+/**
+ * Floating top bar for tablet and phone layouts (phones search from the tab bar instead, and get the
+ * day/night switch here).
+ */
+export function TopBar({
+  onOpenSearch,
+  onOpenAbout,
+  night,
+  onNight,
+}: {
+  onOpenSearch?: () => void;
+  onOpenAbout: () => void;
+  night?: boolean;
+  onNight?: () => void;
+}) {
   return (
     <header
       className="toon absolute inset-x-3 z-30 flex h-14 animate-rise items-center gap-3 rounded-2xl bg-white px-2.5"
@@ -87,6 +123,7 @@ export function TopBar({ onOpenSearch, onOpenAbout }: { onOpenSearch?: () => voi
         <Brand />
       </div>
       <div className="ml-auto flex gap-2">
+        {onNight && <NightButton on={!!night} onClick={onNight} />}
         <SoundButton />
         <InfoButton onClick={onOpenAbout} />
       </div>
