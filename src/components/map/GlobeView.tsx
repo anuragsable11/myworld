@@ -34,7 +34,7 @@ const LAND = ['#7ee2a8', '#80e4dc', '#ff9f9f', '#c3b1ff', '#ffbd7a', '#c8ec7a', 
 const COLORS = {
   selected: '#ffd23f',
   inert: '#e2e0f0',
-  graticule: 'rgba(255, 255, 255, 0.5)',
+  graticule: 'rgba(255, 255, 255, 0.38)',
 };
 
 /**
@@ -136,7 +136,7 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
   ctx.rotate(angle);
   ctx.scale(size, size);
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 1.7;
   ctx.strokeStyle = INK;
   ctx.fillStyle = '#ff6b81';
   for (const side of [-1, 1]) {
@@ -163,7 +163,7 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#7cc8ff';
-  ctx.lineWidth = 1.4;
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.arc(9, 0, 2.1, 0, Math.PI * 2);
   ctx.fill();
@@ -239,7 +239,7 @@ interface Animation {
 }
 
 /**
- * Cartoon orthographic globe on two canvases: the land layer redraws only when the view changes
+ * Cartoon orthographic globe with a premium finish (lighting, atmosphere, soft shadows) on two canvases: the land layer redraws only when the view changes
  * (simplified while moving, full detail at rest); the scenery layer above it (clouds and an orbiting
  * plane) animates every frame. All per-frame state lives in refs; React only mounts it.
  */
@@ -481,17 +481,34 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       };
       ctx.clearRect(0, 0, s.width, s.height);
 
-      // Flat cartoon shadow on the "ground" below the globe.
-      ctx.fillStyle = 'rgba(30, 27, 75, 0.14)';
+      // A soft shadow on the "ground" below the globe, and a glow of atmosphere around it.
+      ctx.save();
+      ctx.translate(cx, cy + r * 1.14);
+      ctx.scale(1, 0.12);
+      const ground = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.8);
+      ground.addColorStop(0, 'rgba(30, 27, 75, 0.3)');
+      ground.addColorStop(0.55, 'rgba(30, 27, 75, 0.12)');
+      ground.addColorStop(1, 'rgba(30, 27, 75, 0)');
+      ctx.fillStyle = ground;
       ctx.beginPath();
-      ctx.ellipse(cx, cy + r * 1.12, r * 0.72, r * 0.085, 0, 0, Math.PI * 2);
+      ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      const halo = ctx.createRadialGradient(cx, cy, r * 0.96, cx, cy, r * 1.22);
+      halo.addColorStop(0, 'rgba(110, 200, 255, 0.55)');
+      halo.addColorStop(0.3, 'rgba(110, 200, 255, 0.2)');
+      halo.addColorStop(1, 'rgba(110, 200, 255, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 1.22, 0, Math.PI * 2);
       ctx.fill();
 
       // Ocean
-      const ocean = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.05, cx, cy, r);
-      ocean.addColorStop(0, '#9be3ff');
-      ocean.addColorStop(0.55, '#5fbcf5');
-      ocean.addColorStop(1, '#45a6ec');
+      const ocean = ctx.createRadialGradient(cx - r * 0.38, cy - r * 0.42, r * 0.04, cx, cy, r * 1.04);
+      ocean.addColorStop(0, '#b4efff');
+      ocean.addColorStop(0.3, '#6fd0fa');
+      ocean.addColorStop(0.7, '#3aa3ec');
+      ocean.addColorStop(1, '#2378cf');
       ctx.beginPath();
       path(SPHERE);
       ctx.fillStyle = ocean;
@@ -526,7 +543,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       }
       bands.forEach((waves, band) => {
         if (!waves.length) return;
-        ctx.globalAlpha = (0.65 * (band + 0.5)) / WAVE_BANDS;
+        ctx.globalAlpha = (0.45 * (band + 0.5)) / WAVE_BANDS;
         ctx.beginPath();
         for (const [x, y, size] of waves) {
           ctx.moveTo(x - size, y);
@@ -567,13 +584,13 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       ctx.lineJoin = 'round';
       ctx.beginPath();
       meshPath(geometry.borders);
-      ctx.strokeStyle = 'rgba(30, 27, 75, 0.7)';
-      ctx.lineWidth = 0.9;
+      ctx.strokeStyle = 'rgba(30, 27, 75, 0.55)';
+      ctx.lineWidth = 0.8;
       ctx.stroke();
       ctx.beginPath();
       meshPath(geometry.coastline);
-      ctx.strokeStyle = INK;
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(30, 27, 75, 0.85)';
+      ctx.lineWidth = 1.25;
       ctx.stroke();
 
       // Live night side (under the hover and selection, so those stay bright): nested twilight caps around the point where it is midnight.
@@ -605,13 +622,19 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       if (selectedId) {
         ctx.beginPath();
         for (const shape of geometry.shapes) if (shape.id === selectedId) shapePath(shape.feature);
+        ctx.save();
+        if (detail !== 'motion') {
+          ctx.shadowColor = 'rgba(255, 190, 0, 0.9)';
+          ctx.shadowBlur = 20;
+        }
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 6;
         ctx.stroke();
+        ctx.restore();
         ctx.fillStyle = COLORS.selected;
         ctx.fill();
         ctx.strokeStyle = INK;
-        ctx.lineWidth = 2.6;
+        ctx.lineWidth = 2.2;
         ctx.stroke();
       }
 
@@ -632,32 +655,51 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         ctx.globalAlpha = 1;
       }
 
-      // Cel shading: a darker crescent on the lower right, and a glossy highlight on the upper left.
+      // Lighting, for a glossy 3D ball: light from the upper left that fades into shade on the far
+      // side, a glow along the rim, and a soft highlight (only while the whole ball is in view).
+      const whole = Math.max(0, Math.min(1, 1.7 - 0.7 * s.scale));
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.clip();
-      if (!showNight) {
+      const light = ctx.createRadialGradient(cx - r * 0.42, cy - r * 0.48, r * 0.05, cx - r * 0.1, cy - r * 0.12, r * 1.25);
+      light.addColorStop(0, 'rgba(255, 255, 255, 0.26)');
+      light.addColorStop(0.4, 'rgba(255, 255, 255, 0)');
+      light.addColorStop(0.72, 'rgba(24, 20, 70, 0)');
+      light.addColorStop(1, `rgba(24, 20, 70, ${showNight ? 0.16 : 0.32})`);
+      ctx.fillStyle = light;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      const rim = ctx.createRadialGradient(cx, cy, r * 0.84, cx, cy, r);
+      rim.addColorStop(0, 'rgba(190, 235, 255, 0)');
+      rim.addColorStop(0.8, 'rgba(190, 235, 255, 0.14)');
+      rim.addColorStop(1, 'rgba(225, 248, 255, 0.5)');
+      ctx.fillStyle = rim;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      if (whole > 0) {
+        ctx.translate(cx - r * 0.44, cy - r * 0.5);
+        ctx.rotate(-0.7);
+        ctx.scale(1, 0.5);
+        const gloss = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.3);
+        gloss.addColorStop(0, `rgba(255, 255, 255, ${0.8 * whole})`);
+        gloss.addColorStop(0.45, `rgba(255, 255, 255, ${0.28 * whole})`);
+        gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = gloss;
         ctx.beginPath();
-        ctx.rect(cx - r - 2, cy - r - 2, r * 2 + 4, r * 2 + 4);
-        ctx.arc(cx - r * 0.14, cy - r * 0.16, r * 1.02, 0, Math.PI * 2, true);
-        ctx.fillStyle = 'rgba(30, 27, 75, 0.14)';
-        ctx.fill('evenodd');
+        ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
+        ctx.fill();
       }
-      // The gloss only makes sense while the whole ball is in view.
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.75 * Math.max(0, Math.min(1, 1.7 - 0.7 * s.scale))})`;
-      ctx.beginPath();
-      ctx.ellipse(cx - r * 0.47, cy - r * 0.5, r * 0.16, r * 0.07, -0.75, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx - r * 0.24, cy - r * 0.7, r * 0.032, 0, Math.PI * 2);
-      ctx.fill();
       ctx.restore();
 
+      // A crisp ink edge with a thin highlight just inside it.
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.strokeStyle = INK;
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = 2.6;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(0, r - 2.6), 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
       // Where it is noon (sun) and midnight (moon) right now, when on the visible side.
@@ -715,9 +757,12 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
           })
           .filter((p): p is NonNullable<typeof p> => p !== null);
         if (!puffs.length) continue;
-        // Ink outline, pale-blue underside, then the white top of the cloud.
-        puffPass(puffs, INK, 2.5, 0, 1);
-        puffPass(puffs, '#d6ecff', 0, 0, 1);
+        // A soft shadow cast below, a pale-blue underside, then the white top of the cloud.
+        sctx.save();
+        sctx.translate(R * 0.012, R * 0.022);
+        puffPass(puffs, 'rgba(30, 27, 75, 0.16)', 1.5, 0, 1);
+        sctx.restore();
+        puffPass(puffs, '#cfe6fb', 0, 0, 1);
         puffPass(puffs, '#ffffff', 0, 0.16, 0.86);
       }
       // Darken the clouds that sit on the night side ('source-atop' only paints over cloud pixels).
@@ -743,16 +788,22 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         front: Math.sin(t) > 0,
       });
       const outsideGlobe = (x: number, y: number) => Math.hypot(x - cx, y - cy) > R;
-      for (let k = 1; k <= 12; k++) {
-        const p = orbit(s.planeAngle - k * 0.06);
-        if (!p.front && !outsideGlobe(p.x, p.y)) continue;
-        sctx.globalAlpha = 0.9 - k * 0.065;
-        sctx.fillStyle = '#ffffff';
-        sctx.strokeStyle = INK;
-        sctx.lineWidth = 1.2;
+      // A fading contrail behind the plane: a faint shadow, then white.
+      sctx.lineCap = 'round';
+      for (let k = 1; k <= 16; k++) {
+        const p0 = orbit(s.planeAngle - (k - 1) * 0.045 - 0.03);
+        const p1 = orbit(s.planeAngle - k * 0.045 - 0.03);
+        if ((!p0.front && !outsideGlobe(p0.x, p0.y)) || (!p1.front && !outsideGlobe(p1.x, p1.y))) continue;
+        const width = Math.max(1, 3.4 - k * 0.15);
+        sctx.globalAlpha = 0.9 * (1 - k / 17);
         sctx.beginPath();
-        sctx.arc(p.x, p.y, 2.6, 0, Math.PI * 2);
-        sctx.fill();
+        sctx.moveTo(p0.x, p0.y);
+        sctx.lineTo(p1.x, p1.y);
+        sctx.strokeStyle = 'rgba(30, 27, 75, 0.22)';
+        sctx.lineWidth = width + 1.6;
+        sctx.stroke();
+        sctx.strokeStyle = '#ffffff';
+        sctx.lineWidth = width;
         sctx.stroke();
       }
       sctx.globalAlpha = 1;

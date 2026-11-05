@@ -36,11 +36,13 @@ interface CountryPanelProps {
   onClose: () => void;
   onSelect: (id: string) => void;
   onLocate: () => void;
+  /** Opens Compare with this country on one side. */
+  onCompare: (id: string) => void;
   /** Rendered in the mobile bottom sheet, where the header doubles as the drag handle. */
   sheetHeader?: ReactNode;
 }
 
-export function CountryPanel({ id, index, onClose, onSelect, onLocate, sheetHeader }: CountryPanelProps) {
+export function CountryPanel({ id, index, onClose, onSelect, onLocate, onCompare, sheetHeader }: CountryPanelProps) {
   const country = index?.byId.get(id);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +71,7 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, sheetHead
             onClose={onClose}
             onSelect={onSelect}
             onLocate={onLocate}
+            onCompare={onCompare}
             scrollRef={scrollRef}
           />
         ) : index ? (
@@ -100,6 +103,7 @@ const CountryProfile = memo(function CountryProfile({
   onClose,
   onSelect,
   onLocate,
+  onCompare,
   scrollRef,
 }: {
   country: Country;
@@ -107,6 +111,7 @@ const CountryProfile = memo(function CountryProfile({
   onClose: () => void;
   onSelect: (id: string) => void;
   onLocate: () => void;
+  onCompare: (id: string) => void;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
   const factbook = useFactbook(country.cca3);
@@ -174,6 +179,14 @@ const CountryProfile = memo(function CountryProfile({
           </Badge>
           <Badge className="bg-white">🧭 {country.subregion ?? country.region}</Badge>
           <Badge className="bg-white font-mono tracking-wider">{country.cca3}</Badge>
+          <button
+            type="button"
+            onClick={() => onCompare(country.cca3)}
+            title={`Compare ${country.name} with another country`}
+            className="toon-sm toon-press-sm rounded-full bg-sky-200 px-2.5 py-0.5 text-[12px] font-extrabold text-ink hover:bg-sky-300"
+          >
+            <span aria-hidden>⚖️ </span>Compare
+          </button>
         </div>
       </header>
 

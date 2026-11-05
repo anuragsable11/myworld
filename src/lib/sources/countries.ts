@@ -326,6 +326,17 @@ async function loadFromOpenDataset(signal?: AbortSignal): Promise<Country[]> {
   return records.map((o) => fromOpenDataset(o, population.get(canonicalCode(o.cca3))));
 }
 
+/** Countries and territories that drive on the left (everywhere else with roads drives on the right). */
+const LEFT_HAND_TRAFFIC = new Set(
+  (
+    'AIA ATG AUS BHS BGD BRB BMU BTN BWA VGB BRN CYM CXR CCK COK CYP DMA TLS FLK FJI GRD GGY GUY HKG IND IDN IRL IMN JAM ' +
+    'JPN JEY KEN KIR LSO MAC MWI MYS MDV MLT MUS MSR MOZ NAM NRU NPL NZL NIU NFK PAK PNG PCN SHN KNA LCA VCT WSM SYC SGP ' +
+    'SLB ZAF LKA SUR SWZ TZA THA TKL TON TTO TCA TUV UGA GBR VIR ZMB ZWE'
+  ).split(' '),
+);
+/** Places without public roads to speak of. */
+const NO_ROADS = new Set(['ATA', 'ATF', 'BVT', 'HMD', 'IOT', 'SGS', 'UMI']);
+
 function fromOpenDataset(o: OpenCountry, pop?: { value: number; year: string }): Country {
   const cca3 = canonicalCode(o.cca3);
   const nativeNames = Object.entries(o.name.nativeName ?? {}).map(([lang, n]) => ({ lang, ...n }));
@@ -361,6 +372,7 @@ function fromOpenDataset(o: OpenCountry, pop?: { value: number; year: string }):
     demonym: o.demonyms?.eng?.m || o.demonyms?.eng?.f,
     status,
     flag: { emoji: o.flag, ...flagUrls(o.cca2) },
+    drivingSide: NO_ROADS.has(cca3) ? undefined : LEFT_HAND_TRAFFIC.has(cca3) ? 'left' : 'right',
     searchText: buildSearchText([
       o.name.common,
       o.name.official,

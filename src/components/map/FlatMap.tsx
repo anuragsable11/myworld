@@ -396,17 +396,27 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
       onClick={handleClick}
     >
       <defs>
-        <radialGradient id="ocean-fill" cx="45%" cy="40%" r="70%">
-          <stop offset="0%" stopColor="#8fdcff" />
-          <stop offset="100%" stopColor="#5fbcf5" />
+        <radialGradient id="ocean-fill" cx="42%" cy="38%" r="72%">
+          <stop offset="0%" stopColor="#b4efff" />
+          <stop offset="35%" stopColor="#6fd0fa" />
+          <stop offset="75%" stopColor="#3aa3ec" />
+          <stop offset="100%" stopColor="#2378cf" />
+        </radialGradient>
+        {/* Light from the upper left, shade towards the edges: the same finish as the globe. */}
+        <radialGradient id="map-shade" cx="40%" cy="35%" r="75%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity={0.16} />
+          <stop offset="45%" stopColor="#ffffff" stopOpacity={0} />
+          <stop offset="80%" stopColor="#18144a" stopOpacity={0} />
+          <stop offset="100%" stopColor="#18144a" stopOpacity={0.22} />
         </radialGradient>
       </defs>
       <g ref={zoomLayerRef}>
-        <path d={layers.sphere} fill="url(#ocean-fill)" stroke="#1e1b4b" strokeWidth={3} vectorEffect="non-scaling-stroke" />
+        <path d={layers.sphere} fill="url(#ocean-fill)" stroke="#1e1b4b" strokeWidth={2.6} vectorEffect="non-scaling-stroke" />
         <path d={layers.graticule} className="map-graticule" vectorEffect="non-scaling-stroke" />
         {countryLayer}
         <path d={layers.coast} className="map-coast" vectorEffect="non-scaling-stroke" />
         <path d={layers.borders} className="map-borders" vectorEffect="non-scaling-stroke" />
+        <path d={layers.sphere} fill="url(#map-shade)" pointerEvents="none" />
         {night && (
           <g pointerEvents="none">
             {night.bands.map((b, i) => (

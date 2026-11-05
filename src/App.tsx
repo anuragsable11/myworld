@@ -21,6 +21,9 @@ import { Sidebar, type Scope } from './components/sidebar/Sidebar';
 // The quiz loads on demand (and is fetched ahead once the page is idle, so it opens at once).
 const loadQuiz = () => import('./components/game/FlagQuiz');
 const FlagQuiz = lazy(loadQuiz);
+// Compare loads the same way, once it's first opened.
+const loadCompare = () => import('./components/compare/CompareDialog');
+const CompareDialog = lazy(loadCompare);
 
 const VIEW_KEY = 'atlas:view';
 const NIGHT_KEY = 'atlas:night';
@@ -68,6 +71,9 @@ export default function App() {
   const [quizOpen, setQuizOpen] = useState(false);
   /** The quiz stays mounted after its first opening, so it reopens instantly. */
   const [quizMounted, setQuizMounted] = useState(false);
+  /** Compare: open, and the country it was opened from. It also stays mounted once opened. */
+  const [compare, setCompare] = useState<{ open: boolean; first: string | null }>({ open: false, first: null });
+  const [compareMounted, setCompareMounted] = useState(false);
   const [locateNonce, setLocateNonce] = useState(0);
   const [resetNonce, setResetNonce] = useState(0);
   const [spinFor, setSpinFor] = useState<string | null>(null);
@@ -184,9 +190,26 @@ export default function App() {
     },
     [handleSelect],
   );
+  const openCompare = useCallback((id: string) => {
+    setCompareMounted(true);
+    setCompare({ open: true, first: id });
+  }, []);
+  const closeCompare = useCallback(() => setCompare((c) => ({ ...c, open: false })), []);
+  /** From Compare: see one of the two countries in the atlas. */
+  const showFromCompare = useCallback(
+    (id: string) => {
+      setCompare((c) => ({ ...c, open: false }));
+      handleSelect(id);
+    },
+    [handleSelect],
+  );
   useEffect(() => {
     const idle = (window as unknown as { requestIdleCallback?: (fn: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
-    const timer = window.setTimeout(() => (idle ? idle(() => void loadQuiz(), { timeout: 5000 }) : void loadQuiz()), 4000);
+    const fetchAhead = () => {
+      void loadQuiz();
+      void loadCompare();
+    };
+    const timer = window.setTimeout(() => (idle ? idle(fetchAhead, { timeout: 5000 }) : fetchAhead()), 4000);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -247,7 +270,7 @@ export default function App() {
   }, [layout, view, changeView, toggleNight, drawerOpen, sheetExpanded, selectedId, handleClose, openQuiz]);
 
   /** The map is out of sight behind an open sheet, menu or dialog, so it can stop animating. */
-  const covered = (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen || quizOpen;
+  const covered = (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen || quizOpen || compare.open;
 
   const activeIds = useMemo(
     () => (region && index ? new Set(index.sorted.filter((c) => c.region === region).map((c) => c.cca3)) : null),
@@ -290,7 +313,15 @@ export default function App() {
 
   const panel = (id: string | null, sheetHeader?: ReactNode) =>
     id ? (
-      <CountryPanel id={id} index={index} onClose={handleClose} onSelect={handleSelect} onLocate={handleLocate} sheetHeader={sheetHeader} />
+      <CountryPanel
+        id={id}
+        index={index}
+        onClose={handleClose}
+        onSelect={handleSelect}
+        onLocate={handleLocate}
+        onCompare={openCompare}
+        sheetHeader={sheetHeader}
+      />
     ) : null;
 
   return (
@@ -407,6 +438,11 @@ export default function App() {
       {quizMounted && index && (
         <Suspense fallback={null}>
           <FlagQuiz open={quizOpen} countries={index.sorted} onClose={closeQuiz} onShowCountry={showFromQuiz} />
+        </Suspense>
+      )}
+      {compareMounted && index && (
+        <Suspense fallback={null}>
+          <CompareDialog open={compare.open} first={compare.first} index={index} onClose={closeCompare} onShowCountry={showFromCompare} />
         </Suspense>
       )}
     </div>

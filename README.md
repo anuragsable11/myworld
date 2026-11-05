@@ -69,10 +69,12 @@ src/components/panel/         Country profile and its sections
 - **Map**: an Equal Earth projection rendered as SVG. Paths are computed once; zoom and pan only change a transform.
   Labels appear as zooming makes room for them. Microstates and countries without a 1:50m polygon get point markers so
   every country stays clickable.
-- **Globe** (the default view): a cartoon orthographic globe on canvas that bounces in on load. A simplified mesh is
-  drawn while it moves and full 1:50m detail once it stops; outlined clouds and an orbiting plane live on a separate
-  canvas so they animate without redrawing the land. Countries use political-map colouring, so neighbours never share a
-  colour. Selecting a country drops a flag pin on it; the dice button flies to a random country with a couple of spins.
+- **Globe** (the default view): a cartoon orthographic globe on canvas that bounces in on load, with a premium finish:
+  light from the upper left fading into shade, a glowing rim and atmosphere, a soft highlight and a soft shadow below.
+  A simplified mesh is drawn while it moves and full 1:50m detail once it stops; soft clouds and an orbiting plane with
+  its contrail live on a separate canvas so they animate without redrawing the land. Countries use political-map
+  colouring, so neighbours never share a colour. Selecting a country drops a flag pin on it and gives it a warm glow; the
+  dice button flies to a random country with a couple of spins.
 - **Live day and night**: the night side is shaded from the real subsolar point (a low-precision solar ephemeris in
   `src/lib/sun.ts`), with civil, nautical and astronomical twilight bands, a sun where it is noon and a moon where it is
   midnight. It refreshes every minute and works on both the globe and the map; toggle it with the moon button or `N`.
@@ -86,6 +88,10 @@ src/components/panel/         Country profile and its sections
   Wikipedia article they illustrate (`src/lib/sources/photos.ts`). Only freely licensed Commons files are used, and
   pictures of wars, atrocities and disasters are filtered out by their section, caption and file name. Tapping a photo
   opens a viewer with the photographer and licence.
+- **Compare** (`src/components/compare/`): the Compare button on a profile opens two countries side by side. Pick the
+  second from its neighbours, well-known countries or a search; then a headline difference, bars for population, area
+  and density (each bar labelled with its flag), and capital, languages, money, driving side, neighbours, coast, status
+  and the time difference. Swap the sides, or open either country.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
 - **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
   list and profile on floating cards (desktop); a list drawer and floating panel on tablets. Phones get an app-style
