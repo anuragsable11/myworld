@@ -3,7 +3,8 @@
  *
  * - The app itself (HTML, scripts, styles, fonts, map data, icons) is precached at install time.
  *   The build (vite.config.ts) fills in the precache manifest below: every file in the build with
- *   a content hash, so an update only downloads the files that changed.
+ *   a content hash, so an update only downloads the files that changed. The previous version's
+ *   files are kept until the next update, so a page still running it can load what it needs.
  * - Country details from open sources are cached as they are viewed, so countries you have
  *   opened before still work without a connection. So are the last 150 photo thumbnails.
  * - REST Countries API responses are never stored here: the app keeps those in localStorage for
@@ -12,6 +13,8 @@
 
 const PRECACHE = 'atlas-precache';
 const SHELL_URL = new URL('./', self.registration.scope).href;
+/** Where the precache keys of the version that activated last are written down. */
+const KEYS_URL = new URL('./__precache-keys', self.registration.scope).href;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** URL of each precached file → its cache key, which carries the file's revision. */
@@ -29,7 +32,7 @@ const ROUTES = [
     // cache straight away and refresh it in the background.
     test: (url) =>
       (url.hostname === 'cdn.jsdelivr.net' && /^\/gh\/(factbook|mledoze)\//.test(url.pathname)) ||
-      (url.hostname === 'raw.githubusercontent.com' && url.pathname.startsWith('/factbook/')),
+      (url.hostname === 'raw.githubusercontent.com' && /^\/(factbook|mledoze)\//.test(url.pathname)),
     strategy: 'stale-while-revalidate',
     cache: 'atlas-open-data',
     maxEntries: 300,
@@ -103,9 +106,15 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
+      // Keep this version's files and the previous version's, for pages still running it.
       const current = new Set(precached.values());
       const cache = await caches.open(PRECACHE);
-      for (const request of await cache.keys()) if (!current.has(request.url)) await cache.delete(request);
+      const listed = await cache.match(KEYS_URL);
+      const previous = new Set(listed ? await listed.json().catch(() => []) : []);
+      for (const request of await cache.keys()) {
+        if (request.url !== KEYS_URL && !current.has(request.url) && !previous.has(request.url)) await cache.delete(request);
+      }
+      await cache.put(KEYS_URL, new Response(JSON.stringify([...current]), { headers: { 'Content-Type': 'application/json' } }));
       for (const name of await caches.keys()) if (name.startsWith('atlas-') && !CACHES.has(name)) await caches.delete(name);
       await self.registration.navigationPreload?.enable();
       await self.clients.claim();
@@ -125,14 +134,21 @@ self.addEventListener('fetch', (event) => {
   if (url.origin === self.location.origin) {
     const key = precached.get(url.href);
     if (key) event.respondWith(fromPrecache(key, request));
+    // A file of the previous version, for a page that's still running it.
+    else if (url.pathname.includes('/assets/')) event.respondWith(fromPreviousVersion(request));
     return;
   }
   const route = ROUTES.find((r) => r.test(url));
   if (route) event.respondWith(handle(route, event));
 });
 
-// Data the page fetched before this worker took over (see registerServiceWorker in src/lib/pwa.ts).
 self.addEventListener('message', (event) => {
+  // Is the page that asks running this version? (See registerServiceWorker in src/lib/pwa.ts.)
+  if (event.data?.type === 'is-current') {
+    event.ports[0]?.postMessage(precached.has(event.data.url));
+    return;
+  }
+  // Data the page fetched before this worker took over.
   if (event.data?.type !== 'cache-urls' || !Array.isArray(event.data.urls)) return;
   event.waitUntil(
     Promise.all(
@@ -165,6 +181,11 @@ async function navigate(event) {
 
 async function fromPrecache(key, request) {
   return (await caches.match(key, { cacheName: PRECACHE })) ?? fetch(request);
+}
+
+async function fromPreviousVersion(request) {
+  const cache = await caches.open(PRECACHE);
+  return (await cache.match(request.url, { ignoreSearch: true })) ?? fetch(request);
 }
 
 async function handle(route, event) {

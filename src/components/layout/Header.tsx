@@ -1,4 +1,6 @@
-import { Info, Search } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
+import { Info, Search, Volume2, VolumeX } from 'lucide-react';
+import { setSoundEnabled, soundEnabled, sounds, subscribeSound } from '../../lib/sounds';
 
 function LogoMark({ className }: { className?: string }) {
   return (
@@ -44,6 +46,26 @@ export function InfoButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** Turns the sound effects on and off. */
+export function SoundButton() {
+  const on = useSyncExternalStore(subscribeSound, soundEnabled, () => true);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setSoundEnabled(!on);
+        if (!on) sounds.pop();
+      }}
+      aria-pressed={on}
+      aria-label="Sound effects"
+      title={on ? 'Mute sound effects' : 'Turn sound effects on'}
+      className="toon-sm toon-press-sm grid size-9 place-items-center rounded-full bg-white text-ink hover:bg-sky-100"
+    >
+      {on ? <Volume2 className="size-[18px]" strokeWidth={2.6} /> : <VolumeX className="size-[18px]" strokeWidth={2.6} />}
+    </button>
+  );
+}
+
 /** Floating top bar for tablet and phone layouts (phones search from the tab bar instead). */
 export function TopBar({ onOpenSearch, onOpenAbout }: { onOpenSearch?: () => void; onOpenAbout: () => void }) {
   return (
@@ -64,7 +86,8 @@ export function TopBar({ onOpenSearch, onOpenAbout }: { onOpenSearch?: () => voi
       <div className={onOpenSearch ? undefined : 'pl-1.5'}>
         <Brand />
       </div>
-      <div className="ml-auto">
+      <div className="ml-auto flex gap-2">
+        <SoundButton />
         <InfoButton onClick={onOpenAbout} />
       </div>
     </header>

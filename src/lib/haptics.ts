@@ -68,8 +68,8 @@ export const haptics = {
   tap: () => buzz(8),
   /** Choosing a country. */
   select: () => buzz(14),
-  /** One notch of the globe spinning past during a shuffle. */
-  notch: () => buzz(6),
+  /** One notch of the globe turning, under a finger or in a shuffle. */
+  notch: () => buzz(9),
   /** A shuffle on the flat map: a rattle that slows down, like a rolled dice. */
   roll: () => buzz([6, 110, 6, 130, 6, 170, 6, 230, 6]),
   /** The globe settling on its country: a firm bump and a small echo. */

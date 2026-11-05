@@ -287,7 +287,7 @@ function parseCities(s: string | undefined): { cities: FactbookProfile['cities']
       return { name, value: Math.round(toNumber(m[1]) * mult), capital };
     })
     .filter((c): c is { name: string; value: number; capital: boolean } => !!c && c.value > 0);
-  return { cities: cities.sort((a, b) => b.value - a.value), year: years.at(-1) };
+  return { cities: cities.sort((a, b) => b.value - a.value), year: years[years.length - 1] };
 }
 
 function parseList(s: string | undefined): string[] {

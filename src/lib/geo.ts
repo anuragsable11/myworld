@@ -129,7 +129,9 @@ function assignColorSlots(geometries: CountriesTopology['objects']['countries'][
 }
 
 function buildLowDetail(topo: CountriesTopology): Pick<World, 'lowDetail' | 'motionDetail'> {
-  const weighted = presimplify(structuredClone(topo), sphericalTriangleArea);
+  // presimplify() writes into the arcs, so work on a copy (structuredClone isn't in older browsers).
+  const copy = typeof structuredClone === 'function' ? structuredClone(topo) : (JSON.parse(JSON.stringify(topo)) as CountriesTopology);
+  const weighted = presimplify(copy, sphericalTriangleArea);
   const level = (share: number): LowDetail => {
     // quantile() ranks weights in descending order, so share is the part of vertices kept.
     const simple = simplify(weighted, quantile(weighted, share)) as CountriesTopology;

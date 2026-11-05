@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Country } from '../../types';
 import { costumeFor } from '../../data/costumes';
 import { haptics } from '../../lib/haptics';
+import { sounds } from '../../lib/sounds';
 import { Figure, type FigureProps } from './dress/Figure';
 
 /** A figure that jumps for joy when tapped. */
@@ -14,6 +15,7 @@ function Person({ label, ...figure }: Omit<FigureProps, 'happy'> & { label: stri
       aria-label={label}
       onClick={() => {
         haptics.hop();
+        sounds.boing();
         setJumps((n) => n + 1);
         setHappy(true);
       }}

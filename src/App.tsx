@@ -4,10 +4,12 @@ import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMe
 import { useSafeArea } from './hooks/useSafeArea';
 import { useSelection } from './hooks/useSelection';
 import { haptics } from './lib/haptics';
+import { sounds } from './lib/sounds';
 import { AboutDialog } from './components/layout/AboutDialog';
 import { BottomNav } from './components/layout/BottomNav';
-import { Brand, InfoButton, TopBar } from './components/layout/Header';
+import { Brand, InfoButton, SoundButton, TopBar } from './components/layout/Header';
 import { InstallPill } from './components/layout/Install';
+import { UpdateToast } from './components/layout/UpdateToast';
 import { BottomSheet, Drawer, SHEET_PEEK_PX } from './components/layout/Overlays';
 import { MapStage, type ViewMode } from './components/map/MapStage';
 import { SHUFFLE_MS, type Insets } from './components/map/types';
@@ -120,6 +122,7 @@ export default function App() {
       stopSpin();
       setSpinFor(null);
       haptics.select();
+      sounds.select();
       show(id);
     },
     [show, stopSpin],
@@ -224,7 +227,10 @@ export default function App() {
       header={
         <div className="flex items-center justify-between pb-1">
           <Brand />
-          <InfoButton onClick={() => setAboutOpen(true)} />
+          <div className="flex gap-2">
+            <SoundButton />
+            <InfoButton onClick={() => setAboutOpen(true)} />
+          </div>
         </div>
       }
     />
@@ -333,6 +339,7 @@ export default function App() {
         </div>
       )}
 
+      <UpdateToast top={layout === 'desktop' ? 16 : topBarBottom + 10} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} index={index} />
     </div>
   );

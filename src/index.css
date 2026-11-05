@@ -326,6 +326,16 @@ summary,
   -webkit-user-select: none;
   user-select: none;
 }
+/* Browsers without dynamic viewport units (dvh) use the plain viewport height instead. */
+.h-dvh {
+  height: 100vh;
+  height: 100dvh;
+}
+.sheet-height {
+  height: calc(100vh - var(--sheet-gap) - max(76px, env(safe-area-inset-top) + 64px));
+  height: calc(100dvh - var(--sheet-gap) - max(76px, env(safe-area-inset-top) + 64px));
+}
+
 /* A peeking bottom sheet moves as a whole; its content only scrolls once it's open. */
 [data-sheet='peek'] [data-sheet-scroll] {
   overflow: hidden;

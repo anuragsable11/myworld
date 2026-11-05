@@ -94,8 +94,12 @@ src/components/panel/         Country profile and its sections
   `prefers-reduced-motion`.
 - **Shuffle**: the dice flies to a random country. On the globe it's a three-second camera flight with one extra turn
   (sine easing keeps the top speed low) and a slight pull-back; the profile and the pin wait until it lands, so the
-  globe has the main thread to itself. Phones vibrate a notch for every 30° the globe turns and bump when it lands
-  (`src/lib/haptics.ts`; iPhones only allow a light tap, and vibration can be switched off in the About dialog).
+  globe has the main thread to itself.
+- **Feel**: the globe clicks like a prize wheel as it turns, whether under a finger, coasting after a flick or in a
+  shuffle: a tick of vibration and sound every 20° (at most every 45 ms), and a bump and a chime when a shuffle
+  lands. Buttons pop, the shuffle whooshes and tapped characters go boing. The sounds are synthesised with the Web
+  Audio API (`src/lib/sounds.ts`), so there are no audio files; vibration is in `src/lib/haptics.ts` (iPhones only
+  allow a light tap). Both can be switched off: sound with the speaker button, both in the About dialog.
 - **Smooth globe**: while it moves fast the globe is drawn from a coarser outline at a lower pixel ratio, countries on
   the far side are skipped, and countries wholly in front are projected without horizon clipping; it is redrawn in full
   detail once still. A flicked globe keeps turning and slows down, and slow auto-rotation runs at half frame rate.
@@ -115,6 +119,9 @@ when you tap the button.
   it opens without a connection. It also caches the country list and the Factbook, Wikipedia, Wikidata and World Bank
   data for each country you open, so those countries keep working offline, along with the last 150 photo thumbnails. A
   sticker on the map shows when you're offline.
+- When a new version arrives while an older one is open (an installed app is often resumed rather than reloaded, and
+  checks for updates whenever it comes back to the screen), a "new version" button offers to reload. The previous
+  version's files are kept until the next update, so the older page keeps working meanwhile.
 - REST Countries API responses are never stored by the service worker. The app keeps them in localStorage for at most
   three days. Large flag images from its CDN follow the same three-day limit; offline, the flag emoji is shown instead.
 - The service worker only runs in production builds (`npm run build && npm run preview`). Installing on a phone needs

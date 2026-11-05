@@ -2,6 +2,7 @@ import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { ArrowUpRight, X } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
 import { haptics, hapticsEnabled, hapticsSupported, setHapticsEnabled, subscribeHaptics } from '../../lib/haptics';
+import { setSoundEnabled, soundEnabled, sounds, subscribeSound } from '../../lib/sounds';
 import { InstallCard } from './Install';
 
 const SOURCES = [
@@ -96,7 +97,10 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
         )}
 
         <InstallCard />
-        <VibrationSetting />
+        <div className="toon mt-5 divide-y-2 divide-dashed divide-indigo-100 rounded-2xl bg-white px-4">
+          <SoundSetting />
+          <VibrationSetting />
+        </div>
 
         <ul className="mt-5 divide-y-2 divide-dashed divide-indigo-100">
           {SOURCES.map((s) => (
@@ -124,26 +128,50 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
   );
 }
 
-/** On/off switch for touch vibrations, on phones and tablets that can vibrate. */
+function SoundSetting() {
+  const on = useSyncExternalStore(subscribeSound, soundEnabled, () => true);
+  return (
+    <SettingSwitch
+      title="🔊 Sounds"
+      detail="Clicks as the globe turns, a whoosh and a chime when you shuffle, pops on buttons."
+      on={on}
+      onChange={(next) => {
+        setSoundEnabled(next);
+        if (next) sounds.pop();
+      }}
+    />
+  );
+}
+
+/** Only on phones and tablets that can vibrate. */
 function VibrationSetting() {
   const on = useSyncExternalStore(subscribeHaptics, hapticsEnabled, () => true);
   if (!hapticsSupported || !window.matchMedia('(pointer: coarse)').matches) return null;
   return (
-    <label className="toon mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-2xl bg-white p-4">
+    <SettingSwitch
+      title="📳 Vibration"
+      detail="A tick as the globe turns under your finger or spins, and a bump when it lands."
+      on={on}
+      onChange={(next) => {
+        setHapticsEnabled(next);
+        if (next) haptics.select();
+      }}
+    />
+  );
+}
+
+function SettingSwitch({ title, detail, on, onChange }: { title: string; detail: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 py-3.5">
       <span>
-        <span className="block font-display text-[16px] font-semibold text-ink">📳 Vibration</span>
-        <span className="mt-0.5 block text-[13px] font-semibold leading-snug text-slate-500">
-          A little buzz when the globe spins and lands, and when you tap.
-        </span>
+        <span className="block font-display text-[16px] font-semibold text-ink">{title}</span>
+        <span className="mt-0.5 block text-[13px] font-semibold leading-snug text-slate-500">{detail}</span>
       </span>
       <input
         type="checkbox"
         role="switch"
         checked={on}
-        onChange={(e) => {
-          setHapticsEnabled(e.target.checked);
-          if (e.target.checked) haptics.select();
-        }}
+        onChange={(e) => onChange(e.target.checked)}
         className="relative h-7 w-12 shrink-0 cursor-pointer appearance-none rounded-full border-2 border-ink bg-slate-200 transition-colors duration-300 before:absolute before:left-0.5 before:top-0.5 before:size-5 before:rounded-full before:border-2 before:border-ink before:bg-white before:transition-transform before:duration-300 before:ease-[cubic-bezier(0.34,1.56,0.64,1)] checked:bg-emerald-400 checked:before:translate-x-5"
       />
     </label>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import clsx from 'clsx';
 
 export const SHEET_PEEK_PX = 300;
@@ -153,14 +153,10 @@ export function BottomSheet({
       onPointerUp={expanded ? undefined : end}
       onPointerCancel={expanded ? undefined : end}
       className={clsx(
-        'fixed inset-x-0 z-30 flex flex-col overflow-hidden rounded-t-[30px] border-x-[3px] border-t-[3px] border-ink bg-paper shadow-[0_-4px_0_0_rgba(30,27,75,0.15)] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform',
+        'sheet-height fixed inset-x-0 z-30 flex flex-col overflow-hidden rounded-t-[30px] border-x-[3px] border-t-[3px] border-ink bg-paper shadow-[0_-4px_0_0_rgba(30,27,75,0.15)] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform',
         !expanded && 'touch-none',
       )}
-      style={{
-        bottom,
-        height: `calc(100dvh - ${bottom}px - max(76px, env(safe-area-inset-top) + 64px))`,
-        transform: `translateY(${base})`,
-      }}
+      style={{ bottom, '--sheet-gap': `${bottom}px`, transform: `translateY(${base})` } as CSSProperties}
     >
       {children(handle)}
     </div>

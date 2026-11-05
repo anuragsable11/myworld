@@ -5,6 +5,7 @@ import { interpolate } from 'd3-interpolate';
 import type { Feature, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
 import { boundsContain, colorSlotFor, type LowDetail, type Shape, type World } from '../../lib/geo';
 import { haptics } from '../../lib/haptics';
+import { sounds } from '../../lib/sounds';
 import { antipode, nightBands, NIGHT_COLOR, subsolarPoint } from '../../lib/sun';
 import { SHUFFLE_MS, type FocusOptions, type MapHandle, type MapViewProps } from './types';
 
@@ -21,8 +22,12 @@ const INK = '#1e1b4b';
 const MOVING_DPR = 1.25;
 /** A flicked globe keeps turning, slowing down with this time constant (ms). */
 const INERTIA_MS = 380;
-/** Degrees the globe turns between haptic notches during a shuffle. */
-const NOTCH_DEGREES = 30;
+/**
+ * While a finger turns the globe, a flick carries it on, or a shuffle spins it, it "clicks" (a tick
+ * of vibration and sound) every this many degrees, but never closer together than NOTCH_MS.
+ */
+const NOTCH_DEGREES = 20;
+const NOTCH_MS = 45;
 
 /** Cartoon land colours (one per colour slot, matching the flat map). */
 const LAND = ['#7ee2a8', '#80e4dc', '#ff9f9f', '#c3b1ff', '#ffbd7a', '#c8ec7a', '#ffa7d7'];
@@ -229,8 +234,8 @@ interface Animation {
   ease: (t: number) => number;
   /** How far the camera pulls back halfway through, as a share of the zoom. */
   dip: number;
-  /** A shuffle: counts the haptic notches played so far. */
-  spin: { notches: number } | null;
+  /** A shuffle, which clicks as it turns and chimes when it lands. */
+  spin: boolean;
 }
 
 /**
@@ -280,6 +285,10 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     inertia: null as null | { vx: number; vy: number },
     /** Last time the clouds and plane were drawn; they update at half rate while the land is still. */
     lastScenery: 0,
+    /** For the clicks: the rotation last frame, degrees turned since the last click, and its time. */
+    lastRotate: null as [number, number, number] | null,
+    turned: 0,
+    lastNotch: 0,
     lastInteraction: 0,
     /** Last time the view moved; full detail is drawn once it has been still for a moment. */
     lastMotion: 0,
@@ -325,7 +334,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       duration: propsRef.current.reducedMotion ? 0 : duration,
       ease,
       dip: options.dip ?? 0,
-      spin: options.spin ? { notches: 0 } : null,
+      spin: !!options.spin,
     };
   };
 
@@ -347,8 +356,10 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       const scale = Math.min(FOCUS_MAX_SCALE, Math.max(1, wanted / baseRadius()));
       // A shuffle is a camera flight: one smooth extra turn (sine easing keeps the top speed low),
       // pulling back a little on the way.
-      if (options?.spin) animateTo([-center[0], -center[1], 0], scale, SHUFFLE_MS.globe, easeSinInOut, { dip: 0.22, spin: true });
-      else animateTo([-center[0], -center[1], 0], scale, 1300);
+      if (options?.spin) {
+        sounds.whoosh();
+        animateTo([-center[0], -center[1], 0], scale, SHUFFLE_MS.globe, easeSinInOut, { dip: 0.22, spin: true });
+      } else animateTo([-center[0], -center[1], 0], scale, 1300);
     },
   }));
 
@@ -768,17 +779,12 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         s.rotate = interpolate(a.from.rotate, a.to.rotate)(e) as [number, number, number];
         // Zoom along the way, pulling the camera back a little mid-flight if asked to.
         s.scale = Math.max(0.2, (a.from.scale + (a.to.scale - a.from.scale) * e) * (1 - a.dip * Math.sin(Math.PI * t)));
-        if (a.spin) {
-          // A haptic notch every few degrees, so the buzzing speeds up and slows down with the globe.
-          const notches = Math.floor(Math.abs(s.rotate[0] - a.from.rotate[0]) / NOTCH_DEGREES);
-          if (notches > a.spin.notches) {
-            a.spin.notches = notches;
-            haptics.notch();
-          }
-        }
         if (t >= 1) {
           s.animation = null;
-          if (a.spin) haptics.land();
+          if (a.spin) {
+            haptics.land();
+            sounds.land();
+          }
         }
         s.dirty = true;
         s.lastMotion = now;
@@ -795,6 +801,20 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         s.dirty = true;
         s.lastMotion = now;
       }
+
+      // Click as the globe turns by hand, coasts after a flick or spins in a shuffle (not while it
+      // drifts on its own): the clicks speed up and slow down with it, like a prize wheel.
+      const prev = s.lastRotate;
+      s.lastRotate = [...s.rotate];
+      if (prev && (s.drag || s.inertia || s.animation?.spin)) {
+        s.turned += Math.hypot(s.rotate[0] - prev[0], s.rotate[1] - prev[1]);
+        if (s.turned >= NOTCH_DEGREES && now - s.lastNotch >= NOTCH_MS) {
+          s.turned %= NOTCH_DEGREES;
+          s.lastNotch = now;
+          haptics.notch();
+          sounds.tick();
+        }
+      } else s.turned = 0;
 
       // Ease the globe toward the centre and size of the unobscured area when cards open and close.
       const [tx, ty] = available().center;

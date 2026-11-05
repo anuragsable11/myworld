@@ -1,6 +1,7 @@
 import { forwardRef, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { haptics } from '../../lib/haptics';
+import { sounds } from '../../lib/sounds';
 import type { ViewMode } from '../map/MapStage';
 
 interface BottomNavProps {
@@ -42,6 +43,7 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
           <button
             type="button"
             onClick={() => {
+              // The spin itself whooshes, so no pop here.
               haptics.tap();
               onShuffle();
             }}
@@ -83,6 +85,7 @@ function Tab({
       type="button"
       onClick={() => {
         haptics.tap();
+        sounds.pop();
         onClick();
       }}
       aria-current={active ? 'page' : undefined}

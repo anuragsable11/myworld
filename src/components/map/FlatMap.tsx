@@ -9,6 +9,7 @@ import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior, type ZoomTrans
 import polylabel from 'polylabel';
 import { colorSlotFor, type Focus } from '../../lib/geo';
 import { haptics } from '../../lib/haptics';
+import { sounds } from '../../lib/sounds';
 import { antipode, nightBands, NIGHT_COLOR, subsolarPoint } from '../../lib/sun';
 import { useMinute } from '../../hooks/useMinute';
 import { SHUFFLE_MS, type FocusOptions, type MapHandle, type MapViewProps } from './types';
@@ -312,8 +313,13 @@ export const FlatMap = forwardRef<MapHandle, MapViewProps>(function FlatMap(prop
         const target = transformFor(k, [(x0 + x1) / 2, (y0 + y1) / 2], center);
         // A shuffle flies a little slower, rattling like a rolled dice until it lands.
         if (options?.spin) {
+          sounds.whoosh();
           haptics.roll();
-          animateTo(target, SHUFFLE_MS.map, haptics.land);
+          sounds.roll();
+          animateTo(target, SHUFFLE_MS.map, () => {
+            haptics.land();
+            sounds.land();
+          });
         } else animateTo(target);
       },
     }),

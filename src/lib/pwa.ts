@@ -1,6 +1,6 @@
 /**
- * Installable-app support: registers the service worker (src/sw.js) and keeps track of whether,
- * and how, this browser can install the app.
+ * Installable-app support: registers the service worker (src/sw.js), notices when a newer version
+ * has arrived, and keeps track of whether, and how, this browser can install the app.
  */
 
 interface BeforeInstallPromptEvent extends Event {
@@ -33,11 +33,51 @@ export function registerServiceWorker() {
       { once: true },
     );
   }
+  // A newer version took over while this page still runs an older one (it was opened from the
+  // offline copy, or left open for a while): offer to reload. The worker knows whether this page's
+  // own script belongs to its version.
+  let controlled = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const wasControlled = controlled;
+    controlled = true;
+    const worker = navigator.serviceWorker.controller;
+    if (!wasControlled || !worker) return;
+    const channel = new MessageChannel();
+    channel.port1.onmessage = (event) => {
+      if (event.data === false) setUpdateReady();
+    };
+    worker.postMessage({ type: 'is-current', url: import.meta.url }, [channel.port2]);
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register(`${import.meta.env.BASE_URL}sw.js`)
+      .then((registration) => {
+        // An installed app is often resumed rather than reopened, so look for updates when it comes back.
+        let lastCheck = Date.now();
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState !== 'visible' || Date.now() - lastCheck < 60_000) return;
+          lastCheck = Date.now();
+          registration.update().catch(() => {});
+        });
+      })
       .catch((err) => console.warn('[atlas] Offline support is unavailable:', err));
   });
+}
+
+let updateReady = false;
+const updateListeners = new Set<() => void>();
+
+function setUpdateReady() {
+  updateReady = true;
+  updateListeners.forEach((fn) => fn());
+}
+
+/** True once a newer version is ready and this page should reload to show it. */
+export const isUpdateReady = () => updateReady;
+
+export function subscribeUpdate(fn: () => void) {
+  updateListeners.add(fn);
+  return () => updateListeners.delete(fn);
 }
 
 const ua = navigator.userAgent;

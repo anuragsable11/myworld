@@ -32,8 +32,8 @@ export const CountryList = memo(function CountryList({
     const out: { letter: string; items: Country[] }[] = [];
     for (const c of countries) {
       const letter = groupLetter(c.name);
-      if (out.at(-1)?.letter !== letter) out.push({ letter, items: [] });
-      out.at(-1)!.items.push(c);
+      if (out[out.length - 1]?.letter !== letter) out.push({ letter, items: [] });
+      out[out.length - 1].items.push(c);
     }
     return out;
   }, [countries, grouped]);

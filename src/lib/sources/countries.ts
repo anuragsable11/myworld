@@ -1,5 +1,5 @@
 import type { Country, CountryDataset, CountryStatus, Currency } from '../../types';
-import { fetchJson, HttpError } from '../http';
+import { fetchJson, fetchJsonFirst, HttpError } from '../http';
 import { buildSearchText } from '../search';
 
 /**
@@ -50,7 +50,11 @@ const REST_COUNTRIES_FIELDS = [
 const CACHE_KEY = 'atlas:restcountries:v5';
 const CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
-const OPEN_DATASET_URL = 'https://cdn.jsdelivr.net/gh/mledoze/countries@master/countries.json';
+// jsDelivr first; GitHub directly if the CDN is unreachable (some mobile networks have blocked it).
+const OPEN_DATASET_URLS = [
+  'https://cdn.jsdelivr.net/gh/mledoze/countries@master/countries.json',
+  'https://raw.githubusercontent.com/mledoze/countries/master/countries.json',
+];
 const WORLD_BANK_POPULATION_URL =
   'https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?format=json&mrnev=1&per_page=400';
 
@@ -312,7 +316,7 @@ async function loadWorldBankPopulation(signal?: AbortSignal): Promise<Map<string
 
 async function loadFromOpenDataset(signal?: AbortSignal): Promise<Country[]> {
   const [records, population] = await Promise.all([
-    fetchJson<OpenCountry[]>(OPEN_DATASET_URL, { signal, timeoutMs: 30_000 }),
+    fetchJsonFirst<OpenCountry[]>(OPEN_DATASET_URLS, { signal, timeoutMs: 30_000 }),
     loadWorldBankPopulation(signal).catch((err) => {
       if (signal?.aborted) throw err;
       console.warn('[atlas] World Bank population unavailable:', err);
