@@ -22,7 +22,7 @@ export function Overview({ country, wikipedia, factbook }: CountryDetails) {
             href={summary.url}
             target="_blank"
             rel="noreferrer"
-            className="toon-sm toon-press-sm mt-3 inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-[12.5px] font-extrabold text-ink"
+            className="toon-sm toon-press-sm mt-3 inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-[12.5px] font-bold text-ink"
           >
             Read the full article on Wikipedia
             <ArrowUpRight className="size-3.5" />

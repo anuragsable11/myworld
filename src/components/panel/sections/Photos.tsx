@@ -27,8 +27,6 @@ const SYMBOLS: { kind: SymbolKind; label: string; emoji: string }[] = [
   { kind: 'dish', label: 'Dish', emoji: '🍲' },
 ];
 
-const TILTS = ['-rotate-2', 'rotate-[1.5deg]', 'rotate-1', '-rotate-[1.5deg]'];
-
 /** Anything the photo viewer can show: an article photo or a national symbol. */
 interface Shot {
   key: string;
@@ -96,15 +94,12 @@ export function Photos({ country, wikipedia }: CountryDetails) {
             {symbolShots.map((s, i) => (
               <button key={s.key} type="button" onClick={() => setViewing({ shots: symbolShots, index: i })} className="group min-w-0 text-left">
                 <div
-                  className={clsx(
-                    'toon-sm rounded-2xl bg-white p-1.5 transition-transform duration-300 group-hover:rotate-0 group-hover:scale-105',
-                    TILTS[i % TILTS.length],
-                  )}
+                  className="toon-sm rounded-2xl bg-white p-1.5 transition-transform duration-300 group-hover:scale-105"
                 >
                   <Picture src={s.thumb} className="aspect-square rounded-xl" />
                 </div>
-                <div className="mt-2 text-[10px] font-black uppercase leading-tight tracking-wide text-ink/50">{s.tag}</div>
-                <div className="line-clamp-2 text-[13px] font-extrabold leading-tight text-ink">{s.title}</div>
+                <div className="mt-2 text-[10px] font-bold uppercase leading-tight tracking-wide text-ink/50">{s.tag}</div>
+                <div className="line-clamp-2 text-[13px] font-bold leading-tight text-ink">{s.title}</div>
               </button>
             ))}
           </div>
@@ -123,8 +118,8 @@ export function Photos({ country, wikipedia }: CountryDetails) {
                 aria-pressed={on}
                 onClick={() => setChosen(g.id)}
                 className={clsx(
-                  'shrink-0 rounded-full border-2 border-ink px-3 py-1 text-[12.5px] font-extrabold text-ink transition-all duration-200',
-                  on ? 'bg-sun shadow-[2px_2px_0_0_var(--color-ink)]' : 'bg-white hover:bg-indigo-50',
+                  'shrink-0 rounded-full border-2 border-ink px-3 py-1 text-[12.5px] font-bold text-ink transition-all duration-200',
+                  on ? 'bg-sun shadow-[0_2px_6px_rgba(30,27,75,0.16)]' : 'bg-white hover:bg-indigo-50',
                 )}
               >
                 {g.emoji} {g.label}
@@ -148,14 +143,11 @@ export function Photos({ country, wikipedia }: CountryDetails) {
               key={s.key}
               type="button"
               onClick={() => setViewing({ shots, index: i })}
-              className={clsx(
-                'relative block w-full animate-pop rounded-lg border-2 border-ink bg-white p-1.5 pb-2 text-left shadow-[3px_3px_0_0_var(--color-ink)] transition-transform duration-300 hover:z-10 hover:rotate-0 hover:scale-[1.04]',
-                TILTS[(i + 1) % TILTS.length],
-              )}
+              className="relative block w-full animate-pop rounded-lg border-2 border-ink bg-white p-1.5 pb-2 text-left shadow-[0_3px_10px_rgba(30,27,75,0.16)] transition-transform duration-300 hover:z-10 hover:scale-[1.04]"
               style={{ animationDelay: `${i * 45}ms` }}
             >
               {/* A strip of tape holding the photo on the page */}
-              <span aria-hidden className="absolute -top-2 left-1/2 h-4 w-12 -translate-x-1/2 -rotate-3 rounded-sm bg-amber-200/85" />
+              <span aria-hidden className="absolute -top-2 left-1/2 h-4 w-12 -translate-x-1/2 rounded-sm bg-amber-200/85" />
               <Picture src={s.thumb} className="aspect-[4/3] rounded-md" />
               {s.title ? (
                 <span className="mt-1.5 line-clamp-2 text-[12px] font-bold leading-snug text-slate-600">{s.title}</span>
@@ -271,14 +263,14 @@ function PhotoViewer({
               <ViewerButton label="Next photo" onClick={() => go(1)} className="right-2">
                 <ChevronRight className="size-5" strokeWidth={2.8} />
               </ViewerButton>
-              <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-ink/70 px-2.5 py-0.5 text-[11.5px] font-extrabold text-white">
+              <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-ink/70 px-2.5 py-0.5 text-[11.5px] font-bold text-white">
                 {index + 1} / {shots.length}
               </span>
             </>
           )}
         </div>
         <figcaption className="px-1 pt-3">
-          {shot.label && <div className="text-[11px] font-black uppercase tracking-wide text-ink/50">{shot.label}</div>}
+          {shot.label && <div className="text-[11px] font-bold uppercase tracking-wide text-ink/50">{shot.label}</div>}
           <p className="text-[15px] font-bold leading-snug">{title}</p>
           <p className="mt-1.5 text-[12px] font-semibold leading-snug text-slate-500">
             📷{' '}
@@ -315,7 +307,7 @@ function PhotoViewer({
               href={shot.article}
               target="_blank"
               rel="noreferrer"
-              className="toon-sm toon-press-sm mt-3 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-[12.5px] font-extrabold text-ink"
+              className="toon-sm toon-press-sm mt-3 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-[12.5px] font-bold text-ink"
             >
               Read about it on Wikipedia
               <ArrowUpRight className="size-3.5" />

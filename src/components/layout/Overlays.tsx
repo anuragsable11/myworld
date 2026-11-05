@@ -498,7 +498,7 @@ export function BottomSheet({
       }}
       className="flex shrink-0 cursor-grab touch-none justify-center bg-paper pb-2 pt-3 active:cursor-grabbing"
     >
-      <span className="h-2 w-12 rounded-full border-2 border-ink bg-sun" />
+      <span className="h-1.5 w-11 rounded-full bg-ink/25" />
     </div>
   );
 
@@ -511,7 +511,7 @@ export function BottomSheet({
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
       onClick={onClick}
-      className="sheet-height fixed inset-x-0 z-30 flex touch-manipulation flex-col overflow-hidden rounded-t-[30px] border-x-[3px] border-t-[3px] border-ink bg-paper shadow-[0_-4px_0_0_rgba(30,27,75,0.15)] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform"
+      className="sheet-height fixed inset-x-0 z-30 flex touch-manipulation flex-col overflow-hidden rounded-t-[30px] border-x-2 border-t-2 border-ink bg-paper shadow-[0_-10px_36px_rgba(30,27,75,0.16)] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform"
       style={{ bottom: bottom - OVERHANG, '--sheet-gap': `${bottom - OVERHANG}px`, transform: `translateY(${base})` } as CSSProperties}
     >
       {children(handle)}

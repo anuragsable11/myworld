@@ -192,7 +192,7 @@ function Picker({
         />
       </div>
       {!query.trim() && suggested.length > 0 && (
-        <p className="mt-4 text-[11.5px] font-black uppercase tracking-wide text-slate-500">Neighbours, then well-known countries</p>
+        <p className="mt-4 text-[11.5px] font-bold uppercase tracking-wide text-slate-500">Neighbours, then well-known countries</p>
       )}
       <ul className="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {results.map((c) => (
@@ -203,7 +203,7 @@ function Picker({
               className="toon-sm toon-press-sm flex w-full items-center gap-2 rounded-2xl bg-white px-2.5 py-2 text-left hover:bg-sky-50"
             >
               <Flag country={c} className="h-5 w-[30px] shrink-0 rounded-[4px] border-2 border-ink" />
-              <span className="min-w-0 truncate text-[13.5px] font-extrabold">{c.name}</span>
+              <span className="min-w-0 truncate text-[13.5px] font-bold">{c.name}</span>
             </button>
           </li>
         ))}
@@ -259,10 +259,7 @@ function Comparison({ a, b, onChange, onShowCountry }: { a: Country; b: Country;
             type="button"
             onClick={() => onShowCountry(c.cca3)}
             title={`Open ${c.name}`}
-            className={clsx(
-              'toon toon-press flex animate-pop flex-col items-center rounded-3xl bg-white p-3 text-center',
-              i === 0 ? '-rotate-1' : 'rotate-1',
-            )}
+            className="toon toon-press flex animate-pop flex-col items-center rounded-3xl bg-white p-3 text-center"
             style={{ animationDelay: `${i * 90}ms` }}
           >
             <Flag country={c} variant="full" className="h-14 w-auto max-w-full rounded-md border-2 border-ink object-contain" />
@@ -270,7 +267,7 @@ function Comparison({ a, b, onChange, onShowCountry }: { a: Country; b: Country;
               <span aria-hidden className={clsx('size-2.5 shrink-0 rounded-full border border-ink', SIDES[i].dot)} />
               <span className="line-clamp-2 font-display text-[18px] font-bold leading-tight">{c.name}</span>
             </span>
-            <span className="mt-1.5 rounded-full border-2 border-ink bg-sky-100 px-2 text-[11px] font-extrabold">
+            <span className="mt-1.5 rounded-full border-2 border-ink bg-sky-100 px-2 text-[11px] font-bold">
               {REGION_EMOJI[c.region] ?? '🌍'} {c.subregion ?? c.region}
             </span>
           </button>
@@ -279,7 +276,7 @@ function Comparison({ a, b, onChange, onShowCountry }: { a: Country; b: Country;
       <button
         type="button"
         onClick={onChange}
-        className="mx-auto block text-[13.5px] font-extrabold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
+        className="mx-auto block text-[13.5px] font-bold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
       >
         Pick a different country
       </button>
@@ -304,7 +301,7 @@ function Comparison({ a, b, onChange, onShowCountry }: { a: Country; b: Country;
       <dl className="toon rounded-3xl bg-white px-4">
         <div className="grid grid-cols-2 gap-3 border-b-2 border-dashed border-indigo-100 py-2.5 text-center">
           {[a, b].map((c, i) => (
-            <span key={c.cca3} className="flex min-w-0 items-center justify-center gap-1.5 text-[12.5px] font-extrabold">
+            <span key={c.cca3} className="flex min-w-0 items-center justify-center gap-1.5 text-[12.5px] font-bold">
               <span aria-hidden className={clsx('size-2.5 shrink-0 rounded-full border border-ink', SIDES[i].dot)} />
               <span className="truncate">{c.name}</span>
             </span>
@@ -319,8 +316,8 @@ function Comparison({ a, b, onChange, onShowCountry }: { a: Country; b: Country;
           <TextRow label="🌊 Coast" a={a.landlocked ? 'None (landlocked)' : 'Yes'} b={b.landlocked ? 'None (landlocked)' : 'Yes'} />
           <TextRow label="🏳️ Status" a={isSovereign(a) ? 'Country' : 'Territory'} b={isSovereign(b) ? 'Country' : 'Territory'} />
           <div className="py-3 text-center">
-            <dt className="text-[11.5px] font-black uppercase tracking-wide text-slate-500">🕐 Time difference</dt>
-            <dd className="mt-0.5 text-[14.5px] font-extrabold">{clock}</dd>
+            <dt className="text-[11.5px] font-bold uppercase tracking-wide text-slate-500">🕐 Time difference</dt>
+            <dd className="mt-0.5 text-[14.5px] font-bold">{clock}</dd>
           </div>
         </div>
       </dl>
@@ -344,7 +341,7 @@ function BarRow({
   const top = Math.max(a ?? 0, b ?? 0) || 1;
   return (
     <div>
-      <p className="text-[11.5px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11.5px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
       {[a, b].map((v, i) => (
         <div key={i} className="mt-1.5 flex items-center gap-2">
           {/* Each bar names its country, so colour isn't the only clue. */}
@@ -356,7 +353,7 @@ function BarRow({
               style={{ width: `${v ? Math.max(3, (v / top) * 100) : 0}%`, animationDelay: `${150 + i * 120}ms` }}
             />
           </div>
-          <span className="w-20 shrink-0 text-right text-[13.5px] font-extrabold tabular-nums">{v ? format(v) : '—'}</span>
+          <span className="w-20 shrink-0 text-right text-[13.5px] font-bold tabular-nums">{v ? format(v) : '—'}</span>
         </div>
       ))}
     </div>
@@ -366,8 +363,8 @@ function BarRow({
 function TextRow({ label, a, b }: { label: string; a: string | undefined; b: string | undefined }) {
   return (
     <div className="py-3">
-      <dt className="text-center text-[11.5px] font-black uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-1 grid grid-cols-2 gap-3 text-center text-[14.5px] font-extrabold">
+      <dt className="text-center text-[11.5px] font-bold uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-1 grid grid-cols-2 gap-3 text-center text-[14.5px] font-bold">
         <span className={clsx('min-w-0 break-words', SIDES[0].text)}>{a || '—'}</span>
         <span className={clsx('min-w-0 break-words', SIDES[1].text)}>{b || '—'}</span>
       </dd>

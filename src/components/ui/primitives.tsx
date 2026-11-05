@@ -54,7 +54,7 @@ export function ChipList({ items, limit = 18 }: { items: string[]; limit?: numbe
         <button
           type="button"
           onClick={() => setAll((v) => !v)}
-          className="rounded-full px-2.5 py-1 text-[12.5px] font-extrabold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
+          className="rounded-full px-2.5 py-1 text-[12.5px] font-bold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
         >
           {all ? 'Show less' : `+${items.length - limit} more`}
         </button>
@@ -87,7 +87,7 @@ export function ExpandableText({ text, lines = 4 }: { text: string; lines?: numb
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-1.5 text-[13px] font-extrabold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
+          className="mt-1.5 text-[13px] font-bold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
         >
           {open ? 'Show less' : 'Read more'}
         </button>
@@ -117,7 +117,7 @@ export function Fact({
   const empty = children === undefined || children === null || children === '' || children === false;
   return (
     <div className={clsx('min-w-0', wide && 'col-span-full')}>
-      <dt className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-indigo-400">{label}</dt>
+      <dt className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-indigo-400">{label}</dt>
       <dd className="text-[15px] font-bold leading-snug text-ink">
         {empty ? loading ? <Skeleton className="h-4 w-3/4 max-w-40" /> : <Missing /> : children}
         {!empty && hint && <div className="mt-0.5 text-[12.5px] font-semibold leading-snug text-slate-500">{hint}</div>}
@@ -160,7 +160,7 @@ export function BarList({
             <span title={typeof item.label === 'string' ? item.label : undefined} className="min-w-0 truncate font-bold text-ink">
               {item.label}
             </span>
-            <span className="tabular shrink-0 text-[12.5px] font-extrabold text-slate-500">{format(item.value)}</span>
+            <span className="tabular shrink-0 text-[12.5px] font-bold text-slate-500">{format(item.value)}</span>
           </div>
           <div className="mt-1.5 h-3 overflow-hidden rounded-full border-2 border-ink bg-white">
             <div

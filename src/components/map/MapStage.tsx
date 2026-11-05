@@ -157,13 +157,13 @@ export function MapStage({
               <button
                 type="button"
                 onClick={onRetry}
-                className="toon-sm toon-press-sm mt-3 rounded-full bg-sun px-4 py-1.5 text-sm font-extrabold text-ink"
+                className="toon-sm toon-press-sm mt-3 rounded-full bg-sun px-4 py-1.5 text-sm font-bold text-ink"
               >
                 Try again
               </button>
             </div>
           ) : (
-            <div className="toon flex items-center gap-2.5 rounded-full bg-white px-4 py-2 text-sm font-extrabold text-ink">
+            <div className="toon flex items-center gap-2.5 rounded-full bg-white px-4 py-2 text-sm font-bold text-ink">
               <Loader2 className="size-4 animate-spin" />
               Painting the world… 🎨
             </div>
@@ -189,7 +189,7 @@ export function MapStage({
       >
         {/* Phones switch views from the tab bar. */}
         {!compact && (
-          <div className="toon pointer-events-auto flex gap-1 rounded-full bg-white p-1">
+          <div className="toon glass pointer-events-auto flex gap-1 rounded-full p-1">
             {(
               [
                 ['globe', 'Globe', '🌍'],
@@ -203,7 +203,9 @@ export function MapStage({
                 onClick={() => onViewChange(mode)}
                 className={clsx(
                   'flex items-center gap-1.5 rounded-full border-2 px-4 py-1 font-display text-[14px] font-semibold transition-all duration-300',
-                  view === mode ? 'border-ink bg-sun text-ink' : 'border-transparent text-slate-500 hover:bg-indigo-50 hover:text-ink',
+                  view === mode
+                    ? 'border-transparent bg-sun text-ink shadow-[0_2px_8px_rgba(30,27,75,0.18)]'
+                    : 'border-transparent text-slate-500 hover:bg-white/70 hover:text-ink',
                 )}
               >
                 <span aria-hidden className="text-[16px]">

@@ -71,8 +71,8 @@ export function TraditionalDress({ country }: { country: Country }) {
         <div className="relative mt-2 grid grid-cols-2 gap-2 text-center">
           {(['man', 'woman'] as const).map((who) => (
             <div key={who} className="toon-sm rounded-2xl bg-white px-2 py-1.5">
-              <div className="text-[10.5px] font-black uppercase tracking-wide text-ink/50">{who === 'man' ? '👨 Men' : '👩 Women'}</div>
-              <div className="text-[13px] font-extrabold leading-tight text-ink">{c.labels?.[who] ?? 'Traditional dress'}</div>
+              <div className="text-[10.5px] font-bold uppercase tracking-wide text-ink/50">{who === 'man' ? '👨 Men' : '👩 Women'}</div>
+              <div className="text-[13px] font-bold leading-tight text-ink">{c.labels?.[who] ?? 'Traditional dress'}</div>
             </div>
           ))}
         </div>

@@ -38,7 +38,7 @@ export function WelcomePanel({
 
   return (
     <div className="dots-bg h-full overflow-y-auto px-5 pb-8 pt-6">
-      <span className="toon-sm inline-flex animate-pop items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[13px] font-extrabold text-ink">
+      <span className="toon-sm inline-flex animate-pop items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[13px] font-bold text-ink">
         <span aria-hidden className="inline-block origin-[70%_70%] animate-wave">
           👋
         </span>
@@ -47,7 +47,7 @@ export function WelcomePanel({
       <h2 className="toon-title mt-4 animate-rise text-[40px] leading-[1.02]">
         Where to{' '}
         <span className="relative inline-block">
-          <span aria-hidden className="absolute inset-x-[-4px] bottom-1 top-[45%] -z-0 -rotate-2 rounded-md bg-sun" />
+          <span aria-hidden className="absolute inset-x-[-4px] bottom-1 top-[45%] -z-0 rounded-md bg-sun" />
           <span className="relative">next?</span>
         </span>
       </h2>
@@ -89,10 +89,10 @@ export function WelcomePanel({
       {facts ? (
         <>
           <dl className="mt-7 grid grid-cols-2 gap-3">
-            <Stat tone="sky" emoji="🗺️" label="Countries" value={index!.sovereignCount} order={0} tilt="-rotate-2" />
-            <Stat tone="pink" emoji="🏝️" label="Territories" value={index!.sorted.length - index!.sovereignCount} order={1} tilt="rotate-1" />
-            <Stat tone="amber" emoji="🗣️" label="Languages" value={facts.languages} order={2} tilt="rotate-1" />
-            <Stat tone="emerald" emoji="💸" label="Currencies" value={facts.currencies} order={3} tilt="-rotate-2" />
+            <Stat tone="sky" emoji="🗺️" label="Countries" value={index!.sovereignCount} order={0} />
+            <Stat tone="pink" emoji="🏝️" label="Territories" value={index!.sorted.length - index!.sovereignCount} order={1} />
+            <Stat tone="amber" emoji="🗣️" label="Languages" value={facts.languages} order={2} />
+            <Stat tone="emerald" emoji="💸" label="Currencies" value={facts.currencies} order={3} />
           </dl>
 
           <h3 className="toon-title mb-3 mt-8 text-[19px]">World records 🌟</h3>
@@ -135,7 +135,7 @@ export function WelcomePanel({
                     </span>
                     <Flag country={c} className="h-[18px] w-[27px] rounded-[5px] border-2 border-ink" />
                     <span className="flex-1 truncate text-[15px] font-bold text-ink">{c.name}</span>
-                    <span className="tabular text-[12.5px] font-extrabold text-slate-500">{formatPopulation(c.population!)}</span>
+                    <span className="tabular text-[12.5px] font-bold text-slate-500">{formatPopulation(c.population!)}</span>
                   </button>
                 </li>
               ))}
@@ -172,7 +172,7 @@ export function WelcomePanel({
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded-lg border-2 border-ink bg-white px-2 py-0.5 font-sans text-[11px] font-black text-ink shadow-[0_2px_0_0_var(--color-ink)]">
+    <kbd className="rounded-lg border-2 border-ink bg-white px-2 py-0.5 font-sans text-[11px] font-bold text-ink shadow-[0_1px_3px_rgba(30,27,75,0.16)]">
       {children}
     </kbd>
   );
@@ -184,19 +184,17 @@ function Stat({
   label,
   value,
   order,
-  tilt,
 }: {
   tone: Tone;
   emoji: string;
   label: string;
   value: number;
   order: number;
-  tilt: string;
 }) {
   return (
     <div className="animate-pop" style={{ animationDelay: `${160 + order * 80}ms` }}>
-      <div className={clsx('toon rounded-3xl px-4 py-3 transition-transform duration-300 hover:rotate-0 hover:scale-105', tilt, TONES[tone].soft)}>
-        <dt className="flex items-center gap-1.5 text-[12px] font-black uppercase tracking-wide text-ink">
+      <div className={clsx('toon rounded-3xl px-4 py-3 transition-transform duration-300 hover:scale-105', TONES[tone].soft)}>
+        <dt className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-ink">
           <span aria-hidden className="text-[17px]">
             {emoji}
           </span>
@@ -229,7 +227,7 @@ function Record({
       onClick={() => onSelect(country.cca3)}
       className="toon toon-press min-w-0 rounded-3xl bg-white p-3 text-left"
     >
-      <span className={clsx('inline-flex items-center gap-1 rounded-full border-2 border-ink px-2 py-0.5 text-[11px] font-black text-ink', TONES[tone].chip)}>
+      <span className={clsx('inline-flex items-center gap-1 rounded-full border-2 border-ink px-2 py-0.5 text-[11px] font-bold text-ink', TONES[tone].chip)}>
         <span aria-hidden>{emoji}</span>
         {title}
       </span>

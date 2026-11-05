@@ -29,7 +29,7 @@ export function Cities({ country, factbook }: CountryDetails) {
               <>
                 {c.name}
                 {c.capital && (
-                  <span className="ml-2 rounded-full border-2 border-ink bg-sun px-1.5 py-px align-[1px] text-[10px] font-extrabold uppercase tracking-wide text-ink">
+                  <span className="ml-2 rounded-full border-2 border-ink bg-sun px-1.5 py-px align-[1px] text-[10px] font-bold uppercase tracking-wide text-ink">
                     Capital
                   </span>
                 )}

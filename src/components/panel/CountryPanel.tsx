@@ -80,7 +80,7 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, onCompare
             <button
               type="button"
               onClick={onClose}
-              className="toon-sm toon-press-sm mt-3 rounded-full bg-sun px-4 py-1 text-sm font-extrabold text-ink"
+              className="toon-sm toon-press-sm mt-3 rounded-full bg-sun px-4 py-1 text-sm font-bold text-ink"
             >
               Close
             </button>
@@ -156,7 +156,7 @@ const CountryProfile = memo(function CountryProfile({
               country={country}
               variant="full"
               eager
-              className="h-[72px] w-auto max-w-[124px] -rotate-3 rounded-xl border-[3px] border-ink bg-white object-contain shadow-[4px_4px_0_0_var(--color-ink)] outline outline-4 -outline-offset-[7px] outline-white transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105"
+              className="h-[72px] w-auto max-w-[124px] rounded-xl border-2 border-ink bg-white object-contain shadow-[0_4px_14px_rgba(30,27,75,0.16)] outline outline-4 -outline-offset-[7px] outline-white transition-transform duration-300 group-hover:scale-105"
             />
           </div>
           <div className="flex gap-2">
@@ -183,7 +183,7 @@ const CountryProfile = memo(function CountryProfile({
             type="button"
             onClick={() => onCompare(country.cca3)}
             title={`Compare ${country.name} with another country`}
-            className="toon-sm toon-press-sm rounded-full bg-sky-200 px-2.5 py-0.5 text-[12px] font-extrabold text-ink hover:bg-sky-300"
+            className="toon-sm toon-press-sm rounded-full bg-sky-200 px-2.5 py-0.5 text-[12px] font-bold text-ink hover:bg-sky-300"
           >
             <span aria-hidden>⚖️ </span>Compare
           </button>
@@ -290,7 +290,7 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
           className={clsx(
             'shrink-0 rounded-full border-2 px-3.5 py-1.5 font-display text-[14px] font-semibold transition-all duration-300 active:scale-95',
             active === id
-              ? 'border-ink bg-sun text-ink shadow-[2px_2px_0_0_var(--color-ink)]'
+              ? 'border-ink bg-sun text-ink shadow-[0_2px_6px_rgba(30,27,75,0.16)]'
               : 'border-transparent text-slate-500 hover:border-ink hover:bg-white hover:text-ink',
           )}
         >
@@ -316,14 +316,13 @@ function QuickStat({
   unit?: string;
   order: number;
 }) {
-  const tilt = ['-rotate-2', 'rotate-1', '-rotate-1'][order];
   return (
     <div className="animate-pop" style={{ animationDelay: `${140 + order * 90}ms` }}>
-      <div className={clsx('toon min-w-0 rounded-2xl px-3 py-2.5 transition-transform duration-300 hover:rotate-0 hover:scale-105', tilt, TONES[tone].soft)}>
+      <div className={clsx('toon min-w-0 rounded-2xl px-3 py-2.5 transition-transform duration-300 hover:scale-105', TONES[tone].soft)}>
         <span aria-hidden className="block text-[22px] leading-none">
           {emoji}
         </span>
-        <dt className="mt-1.5 text-[10.5px] font-black uppercase tracking-[0.08em] text-ink/60">{label}</dt>
+        <dt className="mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink/60">{label}</dt>
         <dd className="tabular toon-title mt-0.5 truncate text-[18px]" title={value}>
           {value ?? <Skeleton className="h-4 w-14" />}
           {value && unit && <span className="ml-0.5 text-[12px] font-bold text-ink/60">{unit}</span>}
@@ -335,7 +334,7 @@ function QuickStat({
 
 function Badge({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={clsx('toon-sm rounded-full px-2.5 py-0.5 text-[12px] font-extrabold text-ink', className)}>{children}</span>
+    <span className={clsx('toon-sm rounded-full px-2.5 py-0.5 text-[12px] font-bold text-ink', className)}>{children}</span>
   );
 }
 

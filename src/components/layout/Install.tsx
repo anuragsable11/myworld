@@ -73,7 +73,7 @@ export function InstallCard() {
   if (!canInstall(mode)) return null;
   return (
     <div className="toon mt-4 rounded-2xl bg-amber-100 p-4">
-      <div className="font-extrabold text-ink">📲 Install World Atlas</div>
+      <div className="font-bold text-ink">📲 Install World Atlas</div>
       <p className="mt-1 text-[13.5px] font-semibold leading-relaxed text-ink/70">
         Open it from your home screen or dock like any other app. Countries you've opened before keep working offline.
       </p>

@@ -82,7 +82,7 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
 
         {index && (
           <div className="toon mt-5 rounded-2xl bg-sky-100 p-4 text-[13.5px]">
-            <div className="font-extrabold text-ink">
+            <div className="font-bold text-ink">
               Country records:{' '}
               {index.provider === 'restcountries' ? 'REST Countries v5 API' : 'open mledoze/countries dataset'}
             </div>

@@ -114,7 +114,7 @@ export function Sidebar({
             aria-activedescendant={activeIndex >= 0 && results[activeIndex] ? `country-${results[activeIndex].cca3}` : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="toon-sm h-12 w-full rounded-2xl bg-white pl-11 pr-14 text-[15px] font-bold text-ink transition-all duration-200 placeholder:font-semibold placeholder:text-slate-400 focus:-translate-x-px focus:-translate-y-px focus:bg-amber-50 focus:shadow-[4px_4px_0_0_var(--color-ink)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+            className="toon-sm h-12 w-full rounded-2xl bg-white pl-11 pr-14 text-[15px] font-bold text-ink transition-all duration-200 placeholder:font-semibold placeholder:text-slate-400 focus:-translate-x-px focus:-translate-y-px focus:bg-amber-50 focus:shadow-[0_4px_14px_rgba(30,27,75,0.16)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
           />
           {query ? (
             <button
@@ -129,7 +129,7 @@ export function Sidebar({
               <X className="size-3.5" strokeWidth={3} />
             </button>
           ) : (
-            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-lg border-2 border-ink bg-sun px-1.5 font-sans text-[11px] font-black text-ink shadow-[0_2px_0_0_var(--color-ink)] sm:block">
+            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-lg border-2 border-ink bg-sun px-1.5 font-sans text-[11px] font-bold text-ink shadow-[0_1px_3px_rgba(30,27,75,0.16)] sm:block">
               /
             </kbd>
           )}
@@ -150,7 +150,7 @@ export function Sidebar({
               aria-checked={scope === value}
               onClick={() => onScopeChange(value)}
               className={clsx(
-                'flex items-baseline justify-center gap-1 whitespace-nowrap rounded-xl border-2 px-1 py-1 font-extrabold transition-all duration-300',
+                'flex items-baseline justify-center gap-1 whitespace-nowrap rounded-xl border-2 px-1 py-1 font-bold transition-all duration-300',
                 scope === value ? 'border-ink bg-sun text-ink' : 'border-transparent text-slate-500 hover:text-ink',
               )}
             >
@@ -168,9 +168,9 @@ export function Sidebar({
               aria-pressed={region === r}
               onClick={() => onRegionChange(r)}
               className={clsx(
-                'flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1 text-[12.5px] font-extrabold transition-all duration-200',
+                'flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1 text-[12.5px] font-bold transition-all duration-200',
                 region === r
-                  ? 'border-ink bg-sun text-ink shadow-[2px_2px_0_0_var(--color-ink)]'
+                  ? 'border-ink bg-sun text-ink shadow-[0_2px_6px_rgba(30,27,75,0.16)]'
                   : 'border-ink/25 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-ink hover:text-ink',
               )}
             >
@@ -187,7 +187,7 @@ export function Sidebar({
         {error ? (
           <div className="p-6 text-center text-sm text-slate-500">
             Country data could not be loaded.
-            <button type="button" onClick={onRetry} className="mt-3 block w-full font-extrabold text-indigo-600 underline decoration-2 hover:text-indigo-700">
+            <button type="button" onClick={onRetry} className="mt-3 block w-full font-bold text-indigo-600 underline decoration-2 hover:text-indigo-700">
               Try again
             </button>
           </div>

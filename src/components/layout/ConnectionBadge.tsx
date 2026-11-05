@@ -22,7 +22,7 @@ export function ConnectionBadge() {
       {(!online || reconnected) && (
         <span
           className={clsx(
-            'toon-sm inline-flex -rotate-2 animate-pop items-center gap-1.5 rounded-full px-3.5 py-1 text-[13px] font-extrabold',
+            'toon-sm inline-flex animate-pop items-center gap-1.5 rounded-full px-3.5 py-1 text-[13px] font-bold',
             online ? 'bg-emerald-200 text-ink' : 'bg-ink text-white',
           )}
         >

@@ -61,7 +61,7 @@ export function GestureHint({ ready, view, top }: { ready: boolean; view: ViewMo
     <div className="pointer-events-none fixed inset-x-0 z-20 flex justify-center px-4" style={{ top }} role="status">
       <p
         className={clsx(
-          'toon-sm flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[13.5px] font-extrabold text-ink',
+          'toon-sm flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[13.5px] font-bold text-ink',
           phase === 'on' ? 'animate-pop' : 'opacity-0 transition-opacity duration-300',
         )}
       >

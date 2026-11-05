@@ -28,7 +28,7 @@ export function Brand() {
       {/* Very narrow phones show just the logo, to leave room for the buttons. */}
       <span className="relative leading-none max-[379px]:hidden">
         <span className="toon-title block text-[22px]">World Atlas</span>
-        <span className="absolute -right-9 -top-3 rotate-12 rounded-full border-2 border-ink bg-sun px-1.5 py-px text-[9.5px] font-black uppercase tracking-wide text-ink shadow-[1.5px_1.5px_0_0_var(--color-ink)]">
+        <span className="absolute -right-9 -top-3 rotate-12 rounded-full border-2 border-ink bg-sun px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-ink shadow-[0_1px_3px_rgba(30,27,75,0.18)]">
           Explorer!
         </span>
       </span>
@@ -106,7 +106,7 @@ export function TopBar({
 }) {
   return (
     <header
-      className="toon absolute inset-x-3 z-30 flex h-14 animate-rise items-center gap-3 rounded-2xl bg-white px-2.5"
+      className="toon glass absolute inset-x-3 z-30 flex h-14 animate-rise items-center gap-3 rounded-[22px] px-2.5"
       style={{ top: 'max(12px, env(safe-area-inset-top))' }}
     >
       {onOpenSearch && (

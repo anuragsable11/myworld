@@ -28,7 +28,7 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
     <nav
       ref={ref}
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 animate-rise rounded-t-[26px] border-x-[3px] border-t-[3px] border-ink bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_0_0_rgba(30,27,75,0.12)]"
+      className="glass fixed inset-x-0 bottom-0 z-40 animate-rise rounded-t-[26px] border-x-2 border-t-2 border-ink pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgba(30,27,75,0.12)]"
     >
       <div className="relative mx-auto grid h-[66px] max-w-lg grid-cols-5">
         {/* Sliding highlight behind the active view */}
@@ -37,7 +37,7 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
           className="pointer-events-none absolute left-0 top-[8px] grid w-1/5 place-items-center transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
           style={{ transform: `translateX(${slot * 100}%)` }}
         >
-          <span className="h-7 w-14 rounded-full border-2 border-ink bg-sun" />
+          <span className="h-7 w-14 rounded-full bg-sun shadow-[0_2px_8px_rgba(245,183,0,0.45)]" />
         </span>
         <Tab label="Globe" emoji="🌍" active={view === 'globe'} onClick={() => onView('globe')} />
         <Tab label="Map" emoji="🗺️" active={view === 'map'} onClick={() => onView('map')} />
@@ -60,7 +60,7 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
               🎲
             </span>
           </button>
-          <span className="absolute bottom-[7px] text-[11px] font-extrabold text-ink">{shuffling ? 'Spinning…' : 'Shuffle'}</span>
+          <span className="absolute bottom-[7px] text-[11px] font-bold text-ink">{shuffling ? 'Spinning…' : 'Shuffle'}</span>
         </div>
         <Tab label="Play" emoji="🎮" onClick={onPlay} disabled={!canPlay} badge={quizIsNew() ? 'New' : undefined} />
         <Tab label="Search" emoji="🔍" onClick={onSearch} />
@@ -98,14 +98,14 @@ function Tab({
       className="relative flex flex-col items-center justify-start gap-1 pt-[11px] transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90 disabled:opacity-50"
     >
       {badge && (
-        <span className="absolute right-[calc(50%-26px)] top-1 rotate-12 rounded-full border-2 border-ink bg-rose-400 px-1 text-[8.5px] font-black uppercase leading-[12px] text-white">
+        <span className="absolute right-[calc(50%-26px)] top-1 rotate-12 rounded-full border-2 border-ink bg-rose-400 px-1 text-[8.5px] font-bold uppercase leading-[12px] text-white">
           {badge}
         </span>
       )}
       <span aria-hidden className={clsx('text-[21px] leading-none transition-transform duration-300', active && 'scale-110')}>
         {emoji}
       </span>
-      <span className={clsx('text-[11px] font-extrabold leading-none', active ? 'text-ink' : 'text-slate-500')}>{label}</span>
+      <span className={clsx('text-[11px] font-bold leading-none', active ? 'text-ink' : 'text-slate-500')}>{label}</span>
     </button>
   );
 }

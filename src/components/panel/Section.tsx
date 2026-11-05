@@ -32,7 +32,7 @@ export function Section({
         <span
           aria-hidden
           className={clsx(
-            'grid size-11 shrink-0 -rotate-6 place-items-center rounded-2xl border-2 border-ink text-[22px] shadow-[2px_2px_0_0_var(--color-ink)]',
+            'grid size-11 shrink-0 place-items-center rounded-2xl border-2 border-ink text-[22px] shadow-[0_2px_6px_rgba(30,27,75,0.16)]',
             TONES[tone].chip,
           )}
         >

@@ -77,15 +77,15 @@ export const CountryList = memo(function CountryList({
                     className={clsx(
                       'group relative flex cursor-pointer items-center gap-3 rounded-2xl border-2 px-3 py-1.5 transition-all duration-200',
                       selected
-                        ? 'border-ink bg-sun shadow-[3px_3px_0_0_var(--color-ink)]'
+                        ? 'border-ink bg-sun shadow-[0_3px_10px_rgba(30,27,75,0.16)]'
                         : c.cca3 === activeId
                           ? 'border-ink/30 bg-amber-50'
                           : 'border-transparent hover:translate-x-1 hover:bg-sky-50',
                     )}
                   >
-                                        <Flag country={c} className="h-[20px] w-[30px] shrink-0 rounded-md border-2 border-ink transition-transform duration-300 group-hover:-rotate-6" />
+                                        <Flag country={c} className="h-[20px] w-[30px] shrink-0 rounded-md border-2 border-ink transition-transform duration-300" />
                     <span className="min-w-0 flex-1">
-                      <span className={clsx('block truncate text-[13.5px]', selected ? 'font-extrabold text-ink' : 'font-bold text-ink')}>
+                      <span className={clsx('block truncate text-[13.5px]', selected ? 'font-bold text-ink' : 'font-bold text-ink')}>
                         {c.name}
                       </span>
                       <span className={clsx('block truncate text-[12px] font-semibold', selected ? 'text-ink/70' : 'text-slate-400')}>
@@ -95,7 +95,7 @@ export const CountryList = memo(function CountryList({
                     {!isSovereign(c) && (
                       <span
                         className={clsx(
-                          'shrink-0 rounded-full border-2 border-ink px-1.5 py-px text-[9.5px] font-black uppercase tracking-wide text-ink',
+                          'shrink-0 rounded-full border-2 border-ink px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-ink',
                           selected ? 'bg-white' : 'bg-pink-200',
                         )}
                       >
