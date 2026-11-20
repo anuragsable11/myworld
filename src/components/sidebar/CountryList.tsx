@@ -48,7 +48,7 @@ export const CountryList = memo(function CountryList({
   }, [selectedId, activeId, grouped]);
 
   if (!countries.length) {
-    return <p className="px-6 py-10 text-center text-[14px] font-bold text-slate-500">{emptyMessage}</p>;
+    return <p className="px-6 py-10 text-center text-[15px] text-secondary">{emptyMessage}</p>;
   }
 
   return (
@@ -57,10 +57,9 @@ export const CountryList = memo(function CountryList({
         {groups.map((g) => (
           <li key={g.letter || 'results'} role="presentation">
             {g.letter && (
-              <div role="presentation" className="sticky top-0 z-10 bg-white px-2 pb-1.5 pt-3">
-                <span className="grid size-7 place-items-center rounded-full border-2 border-ink bg-sky-200 font-display text-[14px] font-semibold text-ink">
-                  {g.letter}
-                </span>
+              // An iOS section header, frosted so rows scrolling underneath blur away behind it.
+              <div role="presentation" className="sticky top-0 z-10 bg-white/10 px-3 pb-1 pt-3 text-[13px] font-semibold text-secondary backdrop-blur-md">
+                {g.letter}
               </div>
             )}
             <ul role="presentation">
@@ -75,28 +74,29 @@ export const CountryList = memo(function CountryList({
                     aria-selected={selected}
                     onClick={() => onSelect(c.cca3)}
                     className={clsx(
-                      'group relative flex cursor-pointer items-center gap-3 rounded-2xl border-2 px-3 py-1.5 transition-all duration-200',
+                      // Selected rows are filled with the tint colour, as in an iPad sidebar.
+                      'group relative flex cursor-pointer items-center gap-3 rounded-[12px] px-2.5 py-[7px] transition-colors duration-150',
                       selected
-                        ? 'border-ink bg-sun shadow-[0_3px_10px_rgba(30,27,75,0.16)]'
+                        ? 'bg-tint text-white shadow-[0_2px_10px_rgb(0_122_255/0.3)]'
                         : c.cca3 === activeId
-                          ? 'border-ink/30 bg-amber-50'
-                          : 'border-transparent hover:translate-x-1 hover:bg-sky-50',
+                          ? 'bg-control-strong'
+                          : 'hover:bg-control active:bg-control-strong',
                     )}
                   >
-                                        <Flag country={c} className="h-[20px] w-[30px] shrink-0 rounded-md border-2 border-ink transition-transform duration-300" />
+                    <Flag country={c} className="h-[20px] w-[30px] shrink-0 rounded-[4px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.15)]" />
                     <span className="min-w-0 flex-1">
-                      <span className={clsx('block truncate text-[13.5px]', selected ? 'font-bold text-ink' : 'font-bold text-ink')}>
+                      <span className={clsx('block truncate text-[15px] font-medium tracking-[-0.01em]', selected ? 'text-white' : 'text-label')}>
                         {c.name}
                       </span>
-                      <span className={clsx('block truncate text-[12px] font-semibold', selected ? 'text-ink/70' : 'text-slate-400')}>
+                      <span className={clsx('block truncate text-[13px]', selected ? 'text-white/80' : 'text-secondary')}>
                         {c.capitals[0]?.name ?? c.subregion ?? c.region}
                       </span>
                     </span>
                     {!isSovereign(c) && (
                       <span
                         className={clsx(
-                          'shrink-0 rounded-full border-2 border-ink px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-ink',
-                          selected ? 'bg-white' : 'bg-pink-200',
+                          'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                          selected ? 'bg-white/25 text-white' : 'bg-control text-secondary',
                         )}
                       >
                         {c.status === 'disputed' ? 'Disputed' : 'Territory'}

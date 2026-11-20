@@ -17,14 +17,14 @@ export function Sources({ country, index, wikidata, wikipedia }: CountryDetails)
   ].filter((l): l is { label: string; href: string } => !!l.href);
 
   return (
-    <footer className="px-1 pb-2 pt-1 text-[11.5px] leading-relaxed text-slate-400">
+    <footer className="px-1 pb-2 pt-1 text-[11.5px] leading-relaxed text-secondary">
       <p>
         Figures come from several independent sources and can differ in date and method. Population, GDP and leaders update
         live; boundaries follow Natural Earth, with India as shown on its official map.
       </p>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
         {links.map((l) => (
-          <a key={l.label} href={l.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-slate-500 hover:text-indigo-600">
+          <a key={l.label} href={l.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-secondary hover:text-tint">
             {l.label}
             <ArrowUpRight className="size-3" />
           </a>

@@ -18,8 +18,8 @@ export function Chip({
   leading?: ReactNode;
 }) {
   const cls = clsx(
-    'inline-flex max-w-full items-center gap-1.5 rounded-full border-2 border-ink bg-white px-2.5 py-0.5 text-[12.5px] font-bold leading-snug text-ink',
-    onClick && 'toon-sm toon-press-sm hover:bg-sun',
+    'inline-flex max-w-full items-center gap-1.5 rounded-full bg-control px-2.5 py-1 text-[13px] font-medium leading-snug text-label',
+    onClick && 'ios-press hover:bg-control-strong',
   );
   if (onClick) {
     return (
@@ -54,7 +54,7 @@ export function ChipList({ items, limit = 18 }: { items: string[]; limit?: numbe
         <button
           type="button"
           onClick={() => setAll((v) => !v)}
-          className="rounded-full px-2.5 py-1 text-[12.5px] font-bold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
+          className="rounded-full px-2.5 py-1 text-[13px] font-semibold text-tint hover:opacity-70"
         >
           {all ? 'Show less' : `+${items.length - limit} more`}
         </button>
@@ -78,7 +78,7 @@ export function ExpandableText({ text, lines = 4 }: { text: string; lines?: numb
     <div>
       <p
         ref={ref}
-        className="whitespace-pre-line text-[14.5px] font-medium leading-relaxed text-slate-700"
+        className="whitespace-pre-line text-[15px] leading-relaxed text-label/90"
         style={open ? undefined : { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines, overflow: 'hidden' }}
       >
         {text}
@@ -87,7 +87,7 @@ export function ExpandableText({ text, lines = 4 }: { text: string; lines?: numb
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-1.5 text-[13px] font-bold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
+          className="mt-1.5 text-[14px] font-semibold text-tint hover:opacity-70"
         >
           {open ? 'Show less' : 'Read more'}
         </button>
@@ -97,7 +97,7 @@ export function ExpandableText({ text, lines = 4 }: { text: string; lines?: numb
 }
 
 export function Missing({ children = 'Not available' }: { children?: ReactNode }) {
-  return <span className="text-[13px] font-semibold italic text-slate-400">{children}</span>;
+  return <span className="text-[14px] text-tertiary">{children}</span>;
 }
 
 /** A labelled fact. `value === undefined` while `loading` shows a skeleton; otherwise "Not available". */
@@ -117,10 +117,10 @@ export function Fact({
   const empty = children === undefined || children === null || children === '' || children === false;
   return (
     <div className={clsx('min-w-0', wide && 'col-span-full')}>
-      <dt className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-indigo-400">{label}</dt>
-      <dd className="text-[15px] font-bold leading-snug text-ink">
+      <dt className="mb-0.5 text-[13px] text-secondary">{label}</dt>
+      <dd className="text-[16px] font-medium leading-snug text-label">
         {empty ? loading ? <Skeleton className="h-4 w-3/4 max-w-40" /> : <Missing /> : children}
-        {!empty && hint && <div className="mt-0.5 text-[12.5px] font-semibold leading-snug text-slate-500">{hint}</div>}
+        {!empty && hint && <div className="mt-0.5 text-[13px] font-normal leading-snug text-secondary">{hint}</div>}
       </dd>
     </div>
   );
@@ -133,13 +133,13 @@ export function FactGrid({ children }: { children: ReactNode }) {
 export function SubHeading({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
     <div className="mb-2.5 mt-6 flex items-baseline justify-between gap-3 first:mt-0">
-      <h4 className="font-display text-[15px] font-semibold text-ink">{children}</h4>
-      {aside && <span className="text-[11.5px] font-bold text-slate-400">{aside}</span>}
+      <h4 className="text-[16px] font-semibold tracking-[-0.01em] text-label">{children}</h4>
+      {aside && <span className="text-[12px] text-secondary">{aside}</span>}
     </div>
   );
 }
 
-/** Chunky outlined bars for shares and rankings (religions, cities, rivers). */
+/** Rounded bars for shares and rankings (religions, cities, rivers). */
 export function BarList({
   items,
   format,
@@ -156,22 +156,19 @@ export function BarList({
     <ul className="space-y-3">
       {items.map((item) => (
         <li key={item.key} className="min-w-0">
-          <div className="flex items-baseline justify-between gap-3 text-[14px]">
-            <span title={typeof item.label === 'string' ? item.label : undefined} className="min-w-0 truncate font-bold text-ink">
+          <div className="flex items-baseline justify-between gap-3 text-[15px]">
+            <span title={typeof item.label === 'string' ? item.label : undefined} className="min-w-0 truncate font-medium text-label">
               {item.label}
             </span>
-            <span className="tabular shrink-0 text-[12.5px] font-bold text-slate-500">{format(item.value)}</span>
+            <span className="tabular shrink-0 text-[13px] text-secondary">{format(item.value)}</span>
           </div>
-          <div className="mt-1.5 h-3 overflow-hidden rounded-full border-2 border-ink bg-white">
+          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-control">
             <div
-              className={clsx(
-                'h-full origin-left animate-grow rounded-full border-r-2 border-ink',
-                item.highlight ? 'bg-sun' : TONES[tone].bar,
-              )}
+              className={clsx('h-full origin-left animate-grow rounded-full', item.highlight ? 'bg-tint' : TONES[tone].bar)}
               style={{ width: `${Math.max(4, (item.value / top) * 100)}%` }}
             />
           </div>
-          {item.detail && <div className="mt-1 text-[12px] font-semibold leading-snug text-slate-400">{item.detail}</div>}
+          {item.detail && <div className="mt-1 text-[12px] leading-snug text-secondary">{item.detail}</div>}
         </li>
       ))}
     </ul>

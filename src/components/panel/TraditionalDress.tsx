@@ -58,7 +58,7 @@ export function TraditionalDress({ country }: { country: Country }) {
     <div
       ref={cardRef}
       className={clsx(
-        'toon relative overflow-hidden rounded-3xl bg-[linear-gradient(180deg,#d8f1ff_0%,#fff7e6_100%)] px-3 pb-3 pt-4',
+        'relative overflow-hidden rounded-[20px] bg-[linear-gradient(180deg,#d8f1ff_0%,#fff7e6_100%)] px-3 pb-3 pt-4 shadow-[0_0_0_0.5px_rgb(0_0_0/0.06)]',
         !inView && 'motion-paused',
       )}
     >
@@ -70,14 +70,14 @@ export function TraditionalDress({ country }: { country: Country }) {
       {!c.note && c.labels && (
         <div className="relative mt-2 grid grid-cols-2 gap-2 text-center">
           {(['man', 'woman'] as const).map((who) => (
-            <div key={who} className="toon-sm rounded-2xl bg-white px-2 py-1.5">
-              <div className="text-[10.5px] font-bold uppercase tracking-wide text-ink/50">{who === 'man' ? '👨 Men' : '👩 Women'}</div>
-              <div className="text-[13px] font-bold leading-tight text-ink">{c.labels?.[who] ?? 'Traditional dress'}</div>
+            <div key={who} className="rounded-[14px] bg-white/80 px-2 py-1.5 shadow-[0_0_0_0.5px_rgb(0_0_0/0.06)]">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">{who === 'man' ? 'Men' : 'Women'}</div>
+              <div className="text-[13px] font-semibold leading-tight text-label">{c.labels?.[who] ?? 'Traditional dress'}</div>
             </div>
           ))}
         </div>
       )}
-      <p className="relative mt-2.5 text-center text-[11.5px] font-semibold leading-snug text-slate-500">{caption}</p>
+      <p className="relative mt-2.5 text-center text-[12px] leading-snug text-secondary">{caption}</p>
     </div>
   );
 }

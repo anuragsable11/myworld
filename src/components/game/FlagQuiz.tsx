@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { Check, X } from 'lucide-react';
+import { Check, Flame, Lightbulb, Share, Star, Target, Timer, Trophy, X, Zap } from 'lucide-react';
 import type { Country } from '../../types';
 import { costumeFor } from '../../data/costumes';
 import { formatShortCount } from '../../lib/format';
@@ -27,10 +27,10 @@ interface LevelStyle {
 }
 
 const LEVELS: Record<Level, LevelStyle> = {
-  easy: { n: 1, label: 'Easy', emoji: '🌱', xp: 10, tagline: "Let's warm up with famous flags!", mood: 'happy', chip: 'bg-emerald-200', bar: '#4ade80', banner: 'bg-[#d9f99d] text-ink' },
-  medium: { n: 2, label: 'Medium', emoji: '🔥', xp: 20, tagline: 'Neighbours join in now. Trickier!', mood: 'happy', chip: 'bg-amber-200', bar: '#fbbf24', banner: 'bg-[#fde68a] text-ink' },
-  hard: { n: 3, label: 'Hard', emoji: '💪', xp: 30, tagline: 'These flags look a lot alike. Look closely!', mood: 'think', chip: 'bg-orange-300', bar: '#fb923c', banner: 'bg-[#fdba74] text-ink' },
-  impossible: { n: 4, label: 'Impossible', emoji: '💀', xp: 60, tagline: 'Almost nobody gets this one. Good luck!', mood: 'shock', chip: 'bg-violet-300', bar: '#a78bfa', banner: 'bg-[#221a3d] text-white' },
+  easy: { n: 1, label: 'Easy', emoji: '🌱', xp: 10, tagline: "Let's warm up with famous flags!", mood: 'happy', chip: 'bg-ios-green/15 text-[#248a3d]', bar: '#34c759', banner: 'bg-[linear-gradient(160deg,#34c759,#30b0c7)] text-white' },
+  medium: { n: 2, label: 'Medium', emoji: '🔥', xp: 20, tagline: 'Neighbours join in now. Trickier!', mood: 'happy', chip: 'bg-[#ffcc00]/25 text-[#8a6100]', bar: '#ffcc00', banner: 'bg-[linear-gradient(160deg,#ffcc00,#ff9500)] text-white' },
+  hard: { n: 3, label: 'Hard', emoji: '💪', xp: 30, tagline: 'These flags look a lot alike. Look closely!', mood: 'think', chip: 'bg-ios-orange/15 text-[#b25f00]', bar: '#ff9500', banner: 'bg-[linear-gradient(160deg,#ff9500,#ff3b30)] text-white' },
+  impossible: { n: 4, label: 'Impossible', emoji: '💀', xp: 60, tagline: 'Almost nobody gets this one. Good luck!', mood: 'shock', chip: 'bg-ios-purple/30 text-[#e5c2ff]', bar: '#af52de', banner: 'bg-[linear-gradient(160deg,#1c1c1e,#3a1d5c)] text-white' },
 };
 const LEVEL_ORDER: Level[] = ['easy', 'medium', 'hard', 'impossible'];
 
@@ -384,7 +384,7 @@ export default function FlagQuiz({
         className={clsx(
           'relative flex h-full flex-col outline-none',
           replay ? 'animate-fade-in' : 'animate-sheet-up',
-          impossible ? 'bg-[#221a3d] bg-[radial-gradient(#ffffff26_1px,transparent_1.4px)] bg-[length:22px_22px] text-white' : 'dots-bg bg-paper text-ink',
+          impossible ? 'bg-[#1c1c1e] text-white' : 'bg-[#f2f2f7] text-label',
         )}
       >
         {/* Top bar: quit, progress, points */}
@@ -393,20 +393,27 @@ export default function FlagQuiz({
             type="button"
             onClick={leave}
             aria-label="Quit the quiz"
-            className="toon-sm toon-press-sm grid size-10 shrink-0 place-items-center rounded-full bg-white text-ink"
+            className={clsx(
+              'ios-press grid size-9 shrink-0 place-items-center rounded-full',
+              impossible ? 'bg-white/15 text-white' : 'bg-control text-label',
+            )}
           >
-            <X className="size-5" strokeWidth={3} />
+            <X className="size-[18px]" strokeWidth={2.6} />
           </button>
           <Progress value={phase === 'done' ? questions.length : answers.length} total={questions.length} color={level.bar} />
           <span className="relative shrink-0">
-            <span className="toon-sm block rounded-full bg-white px-2.5 py-1 font-display text-[14px] font-bold tabular-nums text-ink" aria-label={`${xp} points`}>
-              ⚡ <CountUp value={xp} />
+            <span
+              className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[15px] font-semibold tabular-nums text-label shadow-[0_0_0_0.5px_rgb(0_0_0/0.06)]"
+              aria-label={`${xp} points`}
+            >
+              <Zap aria-hidden className="size-4 fill-ios-orange text-ios-orange" strokeWidth={2} />
+              <CountUp value={xp} />
             </span>
             {phase === 'checked' && lastGain && lastGain.total > 0 && (
               <span
                 key={`gain-${run}-${step}`}
                 aria-hidden
-                className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 animate-float-up whitespace-nowrap font-display text-[17px] font-bold text-emerald-500 [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff]"
+                className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 animate-float-up whitespace-nowrap text-[17px] font-bold text-ios-green [text-shadow:0_1px_3px_rgb(255_255_255/0.9)]"
               >
                 +{lastGain.total}
               </span>
@@ -417,7 +424,7 @@ export default function FlagQuiz({
         {/* A streak cheer */}
         {toast && (
           <div key={toast.id} role="status" className="pointer-events-none absolute inset-x-0 top-[calc(max(14px,env(safe-area-inset-top))+58px)] z-10 flex justify-center px-4">
-            <span className="toon animate-toast rounded-full bg-[#ff8a3d] px-4 py-1.5 font-display text-[16px] font-bold text-white">{toast.text}</span>
+            <span className="animate-toast rounded-full bg-ios-orange px-4 py-1.5 text-[15px] font-semibold text-white shadow-[0_6px_20px_rgb(255_149_0/0.4)]">{toast.text}</span>
           </div>
         )}
 
@@ -442,10 +449,8 @@ export default function FlagQuiz({
                 className={clsx('flex flex-col', leaving ? 'animate-slide-out' : 'animate-slide-in')}
               >
                 <div className="mt-4 flex items-center gap-2">
-                  <span className={clsx('toon-sm rounded-full px-2.5 py-0.5 font-display text-[13px] font-bold uppercase tracking-wide text-ink', level.chip)}>
-                    {level.emoji} {level.label}
-                  </span>
-                  <span className={clsx('min-w-0 truncate text-[13px] font-extrabold', impossible ? 'text-white/70' : 'text-slate-500')}>
+                  <span className={clsx('rounded-full px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-[0.04em]', level.chip)}>{level.label}</span>
+                  <span className={clsx('min-w-0 truncate text-[13px] font-medium', impossible ? 'text-white/60' : 'text-secondary')}>
                     Question {step + 1} of {questions.length}
                   </span>
                   <button
@@ -453,9 +458,10 @@ export default function FlagQuiz({
                     onClick={takeHint}
                     disabled={hintUsed || phase !== 'ask'}
                     aria-label={hintUsed ? 'Hint already used this round' : 'Hint: take away two wrong answers (once per round, half points)'}
-                    className="toon-sm toon-press-sm ml-auto shrink-0 rounded-full bg-white px-2.5 py-0.5 font-display text-[13px] font-bold text-ink disabled:pointer-events-none disabled:opacity-40"
+                    className="ios-press ml-auto flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1 text-[13px] font-semibold text-tint disabled:pointer-events-none disabled:opacity-40"
                   >
-                    💡 {hintUsed ? 'Used' : '50/50'}
+                    <Lightbulb aria-hidden className="size-3.5" strokeWidth={2.4} />
+                    {hintUsed ? 'Used' : '50/50'}
                   </button>
                 </div>
 
@@ -490,59 +496,58 @@ export default function FlagQuiz({
           <footer
             role="status"
             className={clsx(
-              'border-t-[3px] border-ink px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-4 text-ink',
-              right ? 'bg-[#cdf5a8]' : 'bg-[#ffd0d4]',
+              'rounded-t-[28px] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-4 text-label shadow-[0_-8px_30px_rgb(0_0_0/0.12)]',
+              right ? 'bg-[#e8f8ec]' : 'bg-[#fdeceb]',
               leaving ? 'animate-feedback-out' : 'animate-feedback-in',
             )}
           >
             <div className="mx-auto max-w-xl">
               <div className="flex items-center gap-3">
                 <span
-                  className={clsx(
-                    'grid size-12 shrink-0 animate-pop place-items-center rounded-full border-[3px] border-ink text-white',
-                    right ? 'bg-emerald-500' : 'bg-rose-500',
-                  )}
+                  className={clsx('grid size-11 shrink-0 animate-pop place-items-center rounded-full text-white', right ? 'bg-ios-green' : 'bg-ios-red')}
                 >
-                  {right ? <Check className="size-7" strokeWidth={4} /> : <X className="size-7" strokeWidth={4} />}
+                  {right ? <Check className="size-6" strokeWidth={3} /> : <X className="size-6" strokeWidth={3} />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="toon-title text-[22px] leading-tight">{right ? 'Correct!' : 'Not quite!'}</p>
-                  <p className="mt-0.5 flex items-center gap-1.5 text-[14.5px] font-bold">
-                    <Flag country={q.answer} className="h-4 w-6 shrink-0 rounded-[3px] border border-ink/30" />
+                  <p className={clsx('ios-title text-[22px] leading-tight', right ? 'text-[#248a3d]' : 'text-[#d70015]')}>
+                    {right ? 'Correct!' : 'Not quite'}
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-[15px] font-semibold">
+                    <Flag country={q.answer} className="h-4 w-6 shrink-0 rounded-[3px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.15)]" />
                     <span className="truncate">
                       {right ? q.answer.name : `It’s ${q.answer.name}`}
-                      {q.answer.capitals[0] && <span className="font-semibold opacity-70"> · capital {q.answer.capitals[0].name}</span>}
+                      {q.answer.capitals[0] && <span className="font-normal text-secondary"> · capital {q.answer.capitals[0].name}</span>}
                     </span>
                   </p>
-                  <p className="mt-0.5 truncate text-[12.5px] font-semibold opacity-65">
-                    📍 {q.answer.subregion ?? q.answer.region}
-                    {q.answer.population ? ` · 👥 ${formatShortCount(q.answer.population)} people` : ''}
+                  <p className="mt-0.5 truncate text-[13px] text-secondary">
+                    {q.answer.subregion ?? q.answer.region}
+                    {q.answer.population ? ` · ${formatShortCount(q.answer.population)} people` : ''}
                   </p>
                 </div>
               </div>
               {right && lastGain && (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  <GainChip className="bg-white">⚡ +{lastGain.base} XP</GainChip>
-                  {lastGain.combo > 0 && <GainChip className="bg-[#ffd8b5]">🔥 +{lastGain.combo} combo</GainChip>}
-                  {lastGain.speed > 0 && <GainChip className="bg-[#fff1a8]">⏱️ +{lastGain.speed} quick</GainChip>}
-                  {lastGain.hint && <GainChip className="bg-white/70">💡 half points</GainChip>}
+                  <GainChip>⚡ +{lastGain.base} XP</GainChip>
+                  {lastGain.combo > 0 && <GainChip>🔥 +{lastGain.combo} combo</GainChip>}
+                  {lastGain.speed > 0 && <GainChip>⏱️ +{lastGain.speed} quick</GainChip>}
+                  {lastGain.hint && <GainChip>💡 half points</GainChip>}
                 </div>
               )}
               <button
                 type="button"
                 ref={focusAfterPaint}
                 onClick={next}
-                className={clsx('toon toon-press mt-3.5 w-full rounded-2xl py-3.5 font-display text-[19px] font-semibold text-ink', right ? 'bg-emerald-400' : 'bg-rose-400')}
+                className={clsx('ios-press mt-3.5 w-full rounded-[14px] py-3.5 text-[17px] font-semibold text-white', right ? 'bg-ios-green' : 'bg-ios-red')}
               >
-                {last ? 'See my score' : 'Continue'}
+                {last ? 'See My Score' : 'Continue'}
               </button>
             </div>
           </footer>
         ) : phase === 'done' ? (
-          <footer className="border-t-2 border-ink/10 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3">
+          <footer className="border-t border-hairline bg-white/70 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
             <div className="mx-auto flex max-w-xl gap-3">
-              <button type="button" onClick={onClose} className="toon toon-press flex-1 rounded-2xl bg-white py-3.5 font-display text-[17px] font-semibold text-ink">
-                Back to map
+              <button type="button" onClick={onClose} className="ios-press flex-1 rounded-[14px] bg-control py-3.5 text-[17px] font-semibold text-tint">
+                Back to Map
               </button>
               <button
                 type="button"
@@ -551,19 +556,24 @@ export default function FlagQuiz({
                   setReplay(true);
                   start();
                 }}
-                className="toon toon-press flex-[1.4] rounded-2xl bg-sun py-3.5 font-display text-[17px] font-semibold text-ink"
+                className="ios-press flex-[1.4] rounded-[14px] bg-tint py-3.5 text-[17px] font-semibold text-white"
               >
-                Play again 🔁
+                Play Again
               </button>
             </div>
           </footer>
         ) : (
-          <footer className={clsx('border-t-2 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3', impossible ? 'border-white/10' : 'border-ink/10')}>
+          <footer
+            className={clsx(
+              'border-t px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl',
+              impossible ? 'border-white/10 bg-black/30' : 'border-hairline bg-white/70',
+            )}
+          >
             <button
               type="button"
               onClick={check}
               disabled={!picked}
-              className="toon toon-press mx-auto block w-full max-w-xl rounded-2xl bg-sun py-3.5 font-display text-[19px] font-semibold text-ink disabled:pointer-events-none disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+              className="ios-press mx-auto block w-full max-w-xl rounded-[14px] bg-tint py-3.5 text-[17px] font-semibold text-white disabled:pointer-events-none disabled:bg-control disabled:text-tertiary"
             >
               Check
             </button>
@@ -579,38 +589,38 @@ export default function FlagQuiz({
           >
             {impossible && <span aria-hidden className="pointer-events-none absolute inset-0 animate-flash bg-[#ff3b5c]" />}
             <Mascot mood={level.mood} className="w-36 animate-banner-in" />
-            <span className="toon-sm mt-5 animate-banner-in rounded-full bg-white px-4 py-1 text-[13px] font-black uppercase tracking-[0.14em] text-ink [animation-delay:80ms]">
+            <span className="mt-5 animate-banner-in rounded-full bg-white/90 px-4 py-1 text-[13px] font-semibold uppercase tracking-[0.1em] text-label [animation-delay:80ms]">
               Level {level.n} of 4
             </span>
-            <span role="status" className="mt-3 block animate-banner-in font-display text-[46px] font-bold leading-none [animation-delay:140ms]">
+            <span role="status" className="mt-3 block animate-banner-in font-display text-[46px] font-bold leading-none tracking-[-0.03em] [animation-delay:140ms]">
               {level.emoji} {level.label}
             </span>
             <span className="mt-3 block max-w-xs animate-banner-in text-[16px] font-bold opacity-80 [animation-delay:200ms]">{level.tagline}</span>
-            <span className="mt-10 block text-[12px] font-extrabold uppercase tracking-widest opacity-50">Tap to start</span>
+            <span className="mt-10 block text-[12px] font-semibold uppercase tracking-widest opacity-60">Tap to start</span>
           </button>
         )}
 
         {/* Quit? */}
         {confirmQuit && (
-          <div className="absolute inset-0 z-30 flex items-end bg-indigo-950/45" onClick={() => setConfirmQuit(false)}>
+          <div className="absolute inset-0 z-30 flex items-end bg-black/40" onClick={() => setConfirmQuit(false)}>
             <div
               role="alertdialog"
               aria-label="Quit the quiz?"
               onClick={(e) => e.stopPropagation()}
-              className="mx-auto w-full max-w-xl animate-feedback-in rounded-t-[28px] border-x-[3px] border-t-[3px] border-ink bg-paper px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-5 text-center text-ink"
+              className="mx-auto w-full max-w-xl animate-feedback-in rounded-t-[30px] bg-white px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-5 text-center text-label shadow-[0_-8px_30px_rgb(0_0_0/0.15)]"
             >
               <Mascot mood="sad" className="mx-auto w-24" />
-              <p className="toon-title mt-2 text-[22px]">Leaving already? 🥺</p>
-              <p className="mt-1 text-[14.5px] font-semibold text-slate-600">You’ll lose your progress in this round.</p>
+              <p className="ios-title mt-2 text-[22px]">Leaving already?</p>
+              <p className="mt-1 text-[15px] text-secondary">You’ll lose your progress in this round.</p>
               <button
                 type="button"
                 ref={focusAfterPaint}
                 onClick={() => setConfirmQuit(false)}
-                className="toon toon-press mt-4 w-full rounded-2xl bg-sun py-3.5 font-display text-[18px] font-semibold text-ink"
+                className="ios-press mt-4 w-full rounded-[14px] bg-tint py-3.5 text-[17px] font-semibold text-white"
               >
-                Keep playing
+                Keep Playing
               </button>
-              <button type="button" onClick={onClose} className="mt-2 w-full rounded-2xl py-3 font-display text-[16px] font-semibold text-rose-600">
+              <button type="button" onClick={onClose} className="mt-2 w-full rounded-[14px] py-3 text-[17px] font-semibold text-ios-red">
                 Quit
               </button>
             </div>
@@ -658,30 +668,29 @@ function Progress({ value, total, color }: { value: number; total: number; color
       aria-valuemin={0}
       aria-valuemax={total}
       aria-valuenow={value}
-      className="relative h-5 min-w-0 flex-1 overflow-hidden rounded-full border-[2.5px] border-ink bg-white"
+      className="relative h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-control"
     >
       <div
-        className="relative h-full overflow-hidden rounded-full transition-[width,background-color] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+        className="relative h-full overflow-hidden rounded-full transition-[width,background-color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
         style={{ width: `${(value / total) * 100}%`, background: color }}
       >
-        <div className="mx-2 mt-[3px] h-1 rounded-full bg-white/55" />
         {/* A shine sweeping along it each time it grows */}
         <span key={value} aria-hidden className="absolute inset-y-0 -left-1/2 w-1/2 animate-shine bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.75),transparent)]" />
       </div>
       {/* Where each level ends */}
       {[3, 6, 9].map((n) => (
-        <span key={n} aria-hidden className="absolute inset-y-0 w-0.5 bg-ink/15" style={{ left: `${(n / total) * 100}%` }} />
+        <span key={n} aria-hidden className="absolute inset-y-0 w-0.5 bg-white/70" style={{ left: `${(n / total) * 100}%` }} />
       ))}
     </div>
   );
 }
 
-/** Globy's speech bubble; the words pop in one after another as it talks. */
+/** Globy's speech bubble, like a message on iPhone; the words pop in one after another as it talks. */
 function Bubble({ text }: { text: string }) {
   const words = text.split(' ');
   return (
-    <p className="toon-sm relative mb-7 min-w-0 flex-1 animate-pop rounded-2xl bg-white px-4 py-3 font-display text-[17px] font-semibold leading-snug text-ink">
-      <span aria-hidden className="absolute -left-[9px] bottom-4 size-4 rotate-45 border-b-2 border-l-2 border-ink bg-white" />
+    <p className="relative mb-7 min-w-0 flex-1 animate-pop rounded-[20px] bg-white px-4 py-2.5 text-[17px] leading-snug text-label shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
+      <span aria-hidden className="absolute -left-[5px] bottom-3 size-3 rotate-45 rounded-[2px] bg-white" />
       <span className="relative">
         {words.map((word, i) => (
           <span key={i}>
@@ -702,13 +711,13 @@ function MysteryFlag({ country, glow }: { country: Country; glow: boolean }) {
     // A flex box with a set height, so the flag scales down to fit it whatever its shape.
     <div
       className={clsx(
-        'toon relative mt-1 flex w-full shrink-0 animate-flip-in items-center justify-center overflow-hidden rounded-3xl bg-white p-4',
-        glow && 'shadow-[0_0_0_5px_#a78bfa,5px_5px_0_5px_#1e1b4b]',
+        'relative mt-1 flex w-full shrink-0 animate-flip-in items-center justify-center overflow-hidden rounded-[24px] bg-white p-4',
+        glow ? 'shadow-[0_0_0_3px_#af52de,0_0_44px_rgb(175_82_222/0.55)]' : 'shadow-[0_0_0_0.5px_rgb(0_0_0/0.05),0_4px_18px_rgb(0_0_0/0.08)]',
       )}
       style={{ height: 'clamp(118px, 25vh, 220px)' }}
     >
       {state === 'failed' ? (
-        <p className="px-3 text-center text-[14px] font-bold text-slate-500">🏳️ This flag needs an internet connection. Take a guess anyway!</p>
+        <p className="px-3 text-center text-[15px] text-secondary">This flag needs an internet connection. Take a guess anyway!</p>
       ) : (
         <>
           {state === 'loading' && <span aria-hidden className="skeleton absolute inset-4 rounded-xl" />}
@@ -720,7 +729,7 @@ function MysteryFlag({ country, glow }: { country: Country; glow: boolean }) {
             onError={() => setState('failed')}
             className={clsx(
               // A faint edge, so flags with white stripes don't melt into the white card
-              'relative max-h-full max-w-full rounded-[3px] object-contain shadow-[0_0_0_1px_rgba(30,27,75,0.14),0_3px_0_rgba(30,27,75,0.14)]',
+              'relative max-h-full max-w-full rounded-[4px] object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.15),0_2px_8px_rgb(0_0_0/0.12)]',
               state === 'loaded' ? 'animate-pop' : 'opacity-0',
             )}
           />
@@ -734,10 +743,10 @@ function MysteryFlag({ country, glow }: { country: Country; glow: boolean }) {
 function SpeedBar({ running, forfeited }: { running: boolean; forfeited: boolean }) {
   return (
     <div aria-hidden className={clsx('mt-2.5 flex items-center gap-2 transition-opacity duration-300', forfeited && 'opacity-25')}>
-      <span className="text-[13px] leading-none">⏱️</span>
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-ink/10">
+      <Timer className="size-3.5 text-secondary" strokeWidth={2.4} />
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-control">
         <div
-          className="h-full origin-left animate-drain rounded-full bg-[linear-gradient(90deg,#fbbf24,#fb923c)]"
+          className="h-full origin-left animate-drain rounded-full bg-[linear-gradient(90deg,#ffcc00,#ff9500)]"
           style={{ animationDuration: `${SPEED_MS}ms`, animationPlayState: running ? 'running' : 'paused' }}
         />
       </div>
@@ -788,42 +797,42 @@ function Option({ index, country, state, onPick }: { index: number; country: Cou
         aria-pressed={state === 'picked'}
         aria-hidden={state === 'gone' || undefined}
         className={clsx(
-          'toon-sm relative flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-ink transition-[transform,box-shadow,background-color,opacity] duration-200 [@media(max-height:700px)]:min-h-12 [@media(max-height:700px)]:py-2',
-          state === 'idle' && 'toon-press-sm bg-white',
-          state === 'picked' && '-translate-x-0.5 -translate-y-0.5 bg-sky-200 shadow-[4px_4px_0_0_var(--color-ink)]',
-          state === 'right' && 'animate-tada bg-emerald-300',
-          state === 'wrong' && 'animate-shake bg-rose-300',
+          'relative flex min-h-14 w-full items-center gap-3 rounded-[16px] px-3 py-2.5 text-left text-label transition-[transform,box-shadow,background-color,opacity] duration-200 [@media(max-height:700px)]:min-h-12 [@media(max-height:700px)]:py-2',
+          state === 'idle' && 'ios-press bg-white shadow-[0_0_0_0.5px_rgb(0_0_0/0.04),0_1px_2px_rgb(0_0_0/0.05)]',
+          state === 'picked' && 'bg-[#e5f1ff] shadow-[0_0_0_2px_#007aff]',
+          state === 'right' && 'animate-tada bg-[#e3f7e8] shadow-[0_0_0_2px_#34c759]',
+          state === 'wrong' && 'animate-shake bg-[#fde7e6] shadow-[0_0_0_2px_#ff3b30]',
           state === 'dim' && 'bg-white opacity-45',
           state === 'gone' && 'animate-poof bg-white',
         )}
       >
         <span
           className={clsx(
-            'grid size-8 shrink-0 place-items-center rounded-xl border-2 font-display text-[15px] font-bold',
-            state === 'idle' || state === 'dim' || state === 'gone' ? 'border-ink/20 text-ink/50' : 'border-ink bg-white',
+            'grid size-8 shrink-0 place-items-center rounded-full text-[15px] font-semibold',
+            state === 'picked' ? 'bg-tint text-white' : state === 'right' ? 'bg-ios-green text-white' : state === 'wrong' ? 'bg-ios-red text-white' : 'bg-control text-secondary',
           )}
         >
           {index + 1}
         </span>
-        <span className="min-w-0 flex-1 font-display text-[17px] font-semibold leading-snug">{country.name}</span>
-        {state === 'right' && <Check className="size-6 shrink-0" strokeWidth={3.4} />}
-        {state === 'wrong' && <X className="size-6 shrink-0" strokeWidth={3.4} />}
+        <span className="min-w-0 flex-1 text-[17px] font-medium leading-snug">{country.name}</span>
+        {state === 'right' && <Check className="size-6 shrink-0 text-ios-green" strokeWidth={3} />}
+        {state === 'wrong' && <X className="size-6 shrink-0 text-ios-red" strokeWidth={3} />}
         {state === 'right' && <Burst />}
       </button>
     </li>
   );
 }
 
-function GainChip({ className, children }: { className: string; children: ReactNode }) {
-  return <span className={clsx('animate-pop rounded-full border-2 border-ink px-2 py-0.5 font-display text-[13px] font-bold text-ink', className)}>{children}</span>;
+function GainChip({ children }: { children: ReactNode }) {
+  return <span className="animate-pop rounded-full bg-white/90 px-2.5 py-0.5 text-[13px] font-semibold text-label shadow-[0_0_0_0.5px_rgb(0_0_0/0.05)]">{children}</span>;
 }
 
 const TITLES: [number, string][] = [
-  [10, 'Perfect score! 🏆'],
-  [8, 'Amazing! 🌟'],
-  [6, 'Great job! 🎉'],
-  [4, 'Nice try! 👍'],
-  [0, 'Keep exploring! 🧭'],
+  [10, 'Perfect Score!'],
+  [8, 'Amazing!'],
+  [6, 'Great Job!'],
+  [4, 'Nice Try!'],
+  [0, 'Keep Exploring!'],
 ];
 
 function Results({
@@ -881,33 +890,41 @@ function Results({
         )}
       </div>
       {fan && (
-        <p className="mt-1 flex items-center gap-1.5 text-[12px] font-bold text-slate-500">
-          Cheering from <Flag country={fan} className="h-3 w-[18px] rounded-[2px] border border-ink/30" /> {fan.name}
+        <p className="mt-1 flex items-center gap-1.5 text-[13px] text-secondary">
+          Cheering from <Flag country={fan} className="h-3 w-[18px] rounded-[2px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.15)]" /> {fan.name}
         </p>
       )}
 
-      <h2 className="toon-title mt-3 animate-pop text-[34px] leading-tight">{title}</h2>
-      <div className="mt-2 flex items-end gap-1" role="img" aria-label={`${stars} of 3 stars`}>
+      <h2 className="ios-title mt-3 animate-pop text-[34px] leading-tight">{title}</h2>
+      <div className="mt-2 flex items-end gap-1.5" role="img" aria-label={`${stars} of 3 stars`}>
         {[0, 1, 2].map((i) => (
-          <span
+          <Star
             key={i}
             aria-hidden
-            className={clsx('inline-block leading-none', i === 1 ? 'mb-2 text-[48px]' : 'text-[38px]', i < stars ? 'animate-star-pop' : 'opacity-20 grayscale')}
+            className={clsx(
+              i === 1 ? 'mb-2 size-12' : 'size-10',
+              i < stars ? 'animate-star-pop fill-[#ffcc00] text-[#ffcc00]' : 'fill-control text-transparent',
+            )}
+            strokeWidth={1.5}
             style={i < stars ? { animationDelay: `${STAR_DELAY + i * STAR_GAP}ms` } : undefined}
-          >
-            ⭐
-          </span>
+          />
         ))}
       </div>
-      <p className="mt-1 text-[16px] font-bold text-slate-600">
-        You got <span className="text-ink">{score}</span> of {questions.length} flags right
+      <p className="mt-1 text-[16px] text-secondary">
+        You got <span className="font-semibold text-label">{score}</span> of {questions.length} flags right
       </p>
       {outcome && (outcome.newBest || outcome.after.dayStreak >= 2) && (
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {outcome.newBest && <span className="toon-sm animate-pop rounded-full bg-sun px-3 py-1 font-display text-[14px] font-bold text-ink">🏅 New best score!</span>}
+          {outcome.newBest && (
+            <span className="flex animate-pop items-center gap-1.5 rounded-full bg-[#ffcc00]/25 px-3 py-1 text-[14px] font-semibold text-[#8a6100]">
+              <Trophy aria-hidden className="size-4" strokeWidth={2.3} />
+              New best score
+            </span>
+          )}
           {outcome.after.dayStreak >= 2 && (
-            <span className="toon-sm animate-pop rounded-full bg-[#ffd8b5] px-3 py-1 font-display text-[14px] font-bold text-ink [animation-delay:120ms]">
-              🔥 {outcome.after.dayStreak}-day streak!
+            <span className="flex animate-pop items-center gap-1.5 rounded-full bg-ios-orange/15 px-3 py-1 text-[14px] font-semibold text-[#b25f00] [animation-delay:120ms]">
+              <Flame aria-hidden className="size-4" strokeWidth={2.3} />
+              {outcome.after.dayStreak}-day streak
             </span>
           )}
         </div>
@@ -916,49 +933,49 @@ function Results({
       <dl className="mt-5 grid w-full grid-cols-3 gap-3">
         <Stat
           label="Points"
-          value={
-            <>
-              ⚡ <CountUp value={xp} from={0} duration={1100} delay={350} onTick={sounds.count} />
-            </>
-          }
-          tone="bg-amber-100"
-          tilt="-rotate-2"
+          icon={<Zap aria-hidden className="size-4 fill-ios-orange text-ios-orange" strokeWidth={2} />}
+          value={<CountUp value={xp} from={0} duration={1100} delay={350} onTick={sounds.count} />}
         />
-        <Stat label="Accuracy" value={`🎯 ${Math.round((score / questions.length) * 100)}%`} tone="bg-emerald-100" tilt="rotate-1" />
-        <Stat label="Best streak" value={`🔥 ${bestStreak}`} tone="bg-rose-100" tilt="-rotate-1" />
+        <Stat
+          label="Accuracy"
+          icon={<Target aria-hidden className="size-4 text-ios-green" strokeWidth={2.4} />}
+          value={`${Math.round((score / questions.length) * 100)}%`}
+        />
+        <Stat label="Best streak" icon={<Flame aria-hidden className="size-4 text-ios-red" strokeWidth={2.4} />} value={bestStreak} />
       </dl>
 
       {after && outcome && (
-        <div className="toon mt-5 w-full animate-rise rounded-3xl bg-white p-4 text-left [animation-delay:250ms]">
+        <div className="mt-5 w-full animate-rise rounded-[22px] bg-white p-4 text-left [animation-delay:250ms]">
           <div className="flex items-center gap-3">
             <span aria-hidden className={clsx('text-[38px] leading-none', rankedUp && 'animate-star-pop [animation-delay:1500ms]')}>
               {after.rank.emoji}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">{rankedUp ? 'Rank up! 🎉' : 'Your rank'}</p>
-              <p className="toon-title text-[20px] leading-tight">{after.rank.name}</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-secondary">{rankedUp ? 'Rank up!' : 'Your rank'}</p>
+              <p className="ios-title text-[20px] leading-tight">{after.rank.name}</p>
             </div>
-            <span className="font-display text-[15px] font-bold tabular-nums text-ink">{outcome.after.totalXp} XP</span>
+            <span className="text-[15px] font-semibold tabular-nums text-label">{outcome.after.totalXp} XP</span>
           </div>
-          <div className="mt-3 h-3.5 overflow-hidden rounded-full border-2 border-ink bg-slate-100">
+          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-control">
             <div
-              className="h-full origin-left rounded-full bg-[linear-gradient(90deg,#4ade80,#fbbf24)] transition-transform duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+              className="h-full origin-left rounded-full bg-[linear-gradient(90deg,#34c759,#ffcc00)] transition-transform duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
               style={{ transform: `scaleX(${fill})` }}
             />
           </div>
-          <p className="mt-1.5 text-[12px] font-bold text-slate-500">
-            {after.next ? `${after.next.min - outcome.after.totalXp} XP to ${after.next.emoji} ${after.next.name}` : 'Top rank reached! 👑'}
+          <p className="mt-1.5 text-[13px] text-secondary">
+            {after.next ? `${after.next.min - outcome.after.totalXp} XP to ${after.next.emoji} ${after.next.name}` : 'Top rank reached!'}
             {' · '}
             {outcome.after.games} {outcome.after.games === 1 ? 'round' : 'rounds'} played
           </p>
         </div>
       )}
 
-      <button type="button" onClick={onShare} className="toon-sm toon-press-sm mt-4 rounded-full bg-white px-4 py-2 font-display text-[15px] font-semibold text-ink">
-        📤 {shareLabel}
+      <button type="button" onClick={onShare} className="ios-press mt-4 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[15px] font-semibold text-tint">
+        <Share aria-hidden className="size-4" strokeWidth={2.3} />
+        {shareLabel}
       </button>
 
-      <h3 className="toon-title mt-6 self-start text-[17px]">Your flags · tap one to explore it 🗺️</h3>
+      <h3 className="mt-6 self-start text-[17px] font-semibold tracking-[-0.01em] text-label">Your flags · tap one to explore it</h3>
       <ol className="mt-3 grid w-full grid-cols-5 gap-2.5">
         {questions.map((question, i) => {
           const ok = answers[i] === question.answer.cca3;
@@ -968,19 +985,19 @@ function Results({
                 type="button"
                 onClick={() => onShowCountry(question.answer.cca3)}
                 aria-label={`${question.answer.name}: ${ok ? 'right' : 'missed'}. Show it in the atlas`}
-                className="toon-sm toon-press-sm relative block w-full rounded-xl bg-white p-1.5"
+                className="ios-press relative block w-full rounded-[12px] bg-white p-1.5 shadow-[0_0_0_0.5px_rgb(0_0_0/0.05),0_1px_3px_rgb(0_0_0/0.06)]"
               >
-                <Flag country={question.answer} className="aspect-[3/2] w-full rounded-md" />
+                <Flag country={question.answer} className="aspect-[3/2] w-full rounded-[4px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.12)]" />
                 <span
                   aria-hidden
                   className={clsx(
-                    'absolute -right-2 -top-2 grid size-5 place-items-center rounded-full border-2 border-ink text-white',
-                    ok ? 'bg-emerald-500' : 'bg-rose-500',
+                    'absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full text-white ring-2 ring-[#f2f2f7]',
+                    ok ? 'bg-ios-green' : 'bg-ios-red',
                   )}
                 >
-                  {ok ? <Check className="size-3" strokeWidth={4} /> : <X className="size-3" strokeWidth={4} />}
+                  {ok ? <Check className="size-3" strokeWidth={3.5} /> : <X className="size-3" strokeWidth={3.5} />}
                 </span>
-                <span className="mt-1 block truncate text-[10px] font-extrabold text-ink">{question.answer.name}</span>
+                <span className="mt-1 block truncate text-[10px] font-medium text-label">{question.answer.name}</span>
               </button>
             </li>
           );
@@ -990,11 +1007,14 @@ function Results({
   );
 }
 
-function Stat({ label, value, tone, tilt }: { label: string; value: ReactNode; tone: string; tilt: string }) {
+function Stat({ label, icon, value }: { label: string; icon: ReactNode; value: ReactNode }) {
   return (
-    <div className={clsx('toon animate-rise rounded-2xl px-1 py-3', tone, tilt)}>
-      <dt className="text-[11px] font-black uppercase tracking-wide text-ink/55">{label}</dt>
-      <dd className="mt-1 font-display text-[20px] font-bold tabular-nums text-ink">{value}</dd>
+    <div className="animate-rise rounded-[18px] bg-white px-1 py-3">
+      <dt className="text-[12px] font-semibold uppercase tracking-[0.04em] text-secondary">{label}</dt>
+      <dd className="mt-1 flex items-center justify-center gap-1 text-[22px] font-bold tabular-nums tracking-[-0.02em] text-label">
+        {icon}
+        {value}
+      </dd>
     </div>
   );
 }

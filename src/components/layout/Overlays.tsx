@@ -10,8 +10,8 @@ const GLIDE = 'cubic-bezier(0.32, 0.72, 0, 1)';
 /** How much faster than its average speed that curve starts out. */
 const GLIDE_START = 0.72 / 0.32;
 /**
- * The sheet reaches this far below its visible bottom edge, hidden behind the tab bar, so pulling it
- * up past its open height never opens a gap underneath.
+ * The sheet reaches this far below its bottom edge, out of sight, so pulling it up past its open
+ * height never opens a gap underneath.
  */
 const OVERHANG = 40;
 
@@ -181,7 +181,7 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: ()
         aria-hidden
         onClick={onClose}
         className={clsx(
-          'fixed inset-0 z-[45] bg-indigo-950/35 transition-opacity duration-300',
+          'fixed inset-0 z-[45] bg-black/25 transition-opacity duration-300',
           open ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       />
@@ -190,7 +190,8 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: ()
         aria-label="Countries"
         aria-hidden={!open}
         className={clsx(
-          'toon-lg fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] z-50 w-[min(84vw,340px)] overflow-hidden rounded-[28px] bg-white transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)]',
+          // Over the dimmed map the glass is a little milkier, so it stays bright.
+          'glass-panel fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] z-50 w-[min(84vw,340px)] overflow-hidden rounded-[32px] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] [--glass-alpha:0.72]',
           open ? 'translate-x-0' : '-translate-x-[110%]',
           asleep && !open && '[content-visibility:hidden]',
         )}
@@ -496,9 +497,10 @@ export function BottomSheet({
         e.preventDefault();
         onExpandedChange(!expanded);
       }}
-      className="flex shrink-0 cursor-grab touch-none justify-center bg-paper pb-2 pt-3 active:cursor-grabbing"
+      className="flex shrink-0 cursor-grab touch-none justify-center pb-1.5 pt-2 active:cursor-grabbing"
     >
-      <span className="h-1.5 w-11 rounded-full bg-ink/25" />
+      {/* The iOS grabber */}
+      <span className="h-[5px] w-9 rounded-full bg-tertiary" />
     </div>
   );
 
@@ -511,10 +513,15 @@ export function BottomSheet({
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
       onClick={onClick}
-      className="sheet-height fixed inset-x-0 z-30 flex touch-manipulation flex-col overflow-hidden rounded-t-[30px] border-x-2 border-t-2 border-ink bg-paper shadow-[0_-10px_36px_rgba(30,27,75,0.16)] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform"
+      className="glass-panel sheet-height fixed inset-x-0 z-30 flex touch-manipulation flex-col overflow-hidden rounded-t-[38px] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform [--glass-alpha:0.62] [--glass-shadow:0_0_0_0.5px_rgb(0_0_0/0.05),0_-8px_32px_rgb(0_0_0/0.12)]"
       style={{ bottom: bottom - OVERHANG, '--sheet-gap': `${bottom - OVERHANG}px`, transform: `translateY(${base})` } as CSSProperties}
     >
       {children(handle)}
+      {/* iOS 26's scroll edge effect: content fades out as it slides under the floating tab bar. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(150px+env(safe-area-inset-bottom))] bg-[linear-gradient(to_top,rgb(246_248_252/0.92)_45%,rgb(246_248_252/0))]"
+      />
     </div>
   );
 }

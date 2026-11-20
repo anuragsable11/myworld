@@ -8,15 +8,7 @@ import { CountryList } from './CountryList';
 
 export type Scope = 'all' | 'sovereign' | 'territories';
 export const REGIONS = ['Africa', 'Americas', 'Asia', 'Europe', 'Oceania', 'Antarctic'] as const;
-
-const REGION_EMOJI: Record<(typeof REGIONS)[number], string> = {
-  Africa: '🦁',
-  Americas: '🦅',
-  Asia: '🐼',
-  Europe: '🏰',
-  Oceania: '🦘',
-  Antarctic: '🐧',
-};
+const SCOPES: Scope[] = ['all', 'sovereign', 'territories'];
 
 interface SidebarProps {
   index: CountryIndex | undefined;
@@ -97,8 +89,9 @@ export function Sidebar({
     <div className="flex h-full min-h-0 flex-col">
       <div className="space-y-3 px-4 pb-3 pt-4">
         {header}
+        {/* iOS search field */}
         <div className="group relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-ink" strokeWidth={2.8} />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-[17px] -translate-y-1/2 text-secondary" strokeWidth={2.3} />
           <input
             ref={searchRef}
             type="search"
@@ -114,7 +107,8 @@ export function Sidebar({
             aria-activedescendant={activeIndex >= 0 && results[activeIndex] ? `country-${results[activeIndex].cca3}` : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="toon-sm h-12 w-full rounded-2xl bg-white pl-11 pr-14 text-[15px] font-bold text-ink transition-all duration-200 placeholder:font-semibold placeholder:text-slate-400 focus:-translate-x-px focus:-translate-y-px focus:bg-amber-50 focus:shadow-[0_4px_14px_rgba(30,27,75,0.16)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+            // 16px keeps iOS Safari from zooming in when the field is focused.
+            className="h-10 w-full rounded-[11px] bg-control pl-9 pr-10 text-[16px] text-label transition-shadow duration-200 placeholder:text-secondary focus:shadow-[0_0_0_3px_rgb(0_122_255/0.25)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
           />
           {query ? (
             <button
@@ -124,18 +118,24 @@ export function Sidebar({
                 searchRef.current?.focus();
               }}
               aria-label="Clear search"
-              className="absolute right-3 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full border-2 border-ink bg-pink-200 text-ink hover:bg-pink-300"
+              className="absolute right-2.5 top-1/2 grid size-[18px] -translate-y-1/2 place-items-center rounded-full bg-tertiary text-white hover:bg-secondary"
             >
-              <X className="size-3.5" strokeWidth={3} />
+              <X className="size-3" strokeWidth={3.2} />
             </button>
           ) : (
-            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-lg border-2 border-ink bg-sun px-1.5 font-sans text-[11px] font-bold text-ink shadow-[0_1px_3px_rgba(30,27,75,0.16)] sm:block">
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded-[6px] bg-white/80 px-1.5 font-sans text-[11px] font-semibold text-secondary shadow-[0_0_0_0.5px_rgb(0_0_0/0.08)] sm:block">
               /
             </kbd>
           )}
         </div>
 
-        <div role="radiogroup" aria-label="Country type" className="grid grid-cols-3 gap-1 rounded-2xl border-2 border-ink bg-white p-1 text-[12px]">
+        {/* iOS segmented control: a white thumb slides along a grey track. */}
+        <div role="radiogroup" aria-label="Country type" className="relative grid grid-cols-3 rounded-[10px] bg-control p-[2px] text-[13px]">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-[2px] left-[2px] w-[calc((100%-4px)/3)] rounded-[8px] bg-white shadow-[0_3px_8px_rgb(0_0_0/0.12),0_3px_1px_rgb(0_0_0/0.04)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+            style={{ transform: `translateX(${SCOPES.indexOf(scope) * 100}%)` }}
+          />
           {(
             [
               ['all', 'All', counts.all],
@@ -150,12 +150,12 @@ export function Sidebar({
               aria-checked={scope === value}
               onClick={() => onScopeChange(value)}
               className={clsx(
-                'flex items-baseline justify-center gap-1 whitespace-nowrap rounded-xl border-2 px-1 py-1 font-bold transition-all duration-300',
-                scope === value ? 'border-ink bg-sun text-ink' : 'border-transparent text-slate-500 hover:text-ink',
+                'relative flex items-baseline justify-center gap-1 whitespace-nowrap rounded-[8px] px-1 py-[5px] text-label transition-colors',
+                scope === value ? 'font-semibold' : 'font-medium hover:text-secondary',
               )}
             >
               {label}
-              {index && <span className={clsx('tabular text-[10.5px] font-bold', scope === value ? 'text-ink/60' : 'text-slate-400')}>{count}</span>}
+              {index && <span className="tabular text-[11px] font-medium text-secondary">{count}</span>}
             </button>
           ))}
         </div>
@@ -168,15 +168,10 @@ export function Sidebar({
               aria-pressed={region === r}
               onClick={() => onRegionChange(r)}
               className={clsx(
-                'flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1 text-[12.5px] font-bold transition-all duration-200',
-                region === r
-                  ? 'border-ink bg-sun text-ink shadow-[0_2px_6px_rgba(30,27,75,0.16)]'
-                  : 'border-ink/25 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-ink hover:text-ink',
+                'ios-press shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold',
+                region === r ? 'bg-tint text-white shadow-[0_2px_8px_rgb(0_122_255/0.28)]' : 'bg-control text-label hover:bg-control-strong',
               )}
             >
-              <span aria-hidden className="text-[14px]">
-                {r ? REGION_EMOJI[r] : '🌍'}
-              </span>
               {r ?? 'Everywhere'}
             </button>
           ))}
@@ -185,10 +180,10 @@ export function Sidebar({
 
       <div className="relative min-h-0 flex-1">
         {error ? (
-          <div className="p-6 text-center text-sm text-slate-500">
+          <div className="p-6 text-center text-[15px] text-secondary">
             Country data could not be loaded.
-            <button type="button" onClick={onRetry} className="mt-3 block w-full font-bold text-indigo-600 underline decoration-2 hover:text-indigo-700">
-              Try again
+            <button type="button" onClick={onRetry} className="mt-3 block w-full font-semibold text-tint hover:opacity-70">
+              Try Again
             </button>
           </div>
         ) : loading ? (
@@ -207,7 +202,7 @@ export function Sidebar({
       </div>
 
       {index && (
-        <div className="border-t-2 border-dashed border-indigo-100 px-4 py-2.5 text-[12px] font-bold text-slate-500">
+        <div className="border-t border-hairline px-4 py-2.5 text-center text-[12px] text-secondary">
           {query || region || scope !== 'all'
             ? `${results.length} of ${index.sorted.length} shown`
             : `${index.sovereignCount} sovereign states · ${index.sorted.length - index.sovereignCount} territories`}

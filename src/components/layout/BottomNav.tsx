@@ -1,5 +1,6 @@
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef } from 'react';
 import clsx from 'clsx';
+import { Dices, Gamepad2, Globe, Map as MapIcon, Search, type LucideIcon } from 'lucide-react';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
 import { quizIsNew } from '../game/stats';
@@ -18,7 +19,10 @@ interface BottomNavProps {
   canPlay: boolean;
 }
 
-/** Phone tab bar: the two views, a big shuffle button in the middle, the flag quiz and search. */
+/**
+ * Phone tab bar, as in iOS 26: a floating glass capsule with the two views, shuffle and the flag
+ * quiz, and search in its own round button beside it. The page shows through behind it.
+ */
 export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function BottomNav(
   { view, onView, onShuffle, shuffling, canShuffle, onSearch, onPlay, canPlay },
   ref,
@@ -28,61 +32,63 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
     <nav
       ref={ref}
       aria-label="Main"
-      className="glass fixed inset-x-0 bottom-0 z-40 animate-rise rounded-t-[26px] border-x-2 border-t-2 border-ink pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgba(30,27,75,0.12)]"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex animate-rise items-end gap-2.5 px-3.5 pb-[max(10px,env(safe-area-inset-bottom))] pt-2"
     >
-      <div className="relative mx-auto grid h-[66px] max-w-lg grid-cols-5">
-        {/* Sliding highlight behind the active view */}
+      <div className="glass pointer-events-auto relative mx-auto grid h-[62px] max-w-md flex-1 grid-cols-4 rounded-full p-1">
+        {/* The lens behind the view that is showing */}
         <span
           aria-hidden
-          className="pointer-events-none absolute left-0 top-[8px] grid w-1/5 place-items-center transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+          className="pointer-events-none absolute inset-y-1 left-1 w-[calc((100%-8px)/4)] rounded-full bg-control transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
           style={{ transform: `translateX(${slot * 100}%)` }}
-        >
-          <span className="h-7 w-14 rounded-full bg-sun shadow-[0_2px_8px_rgba(245,183,0,0.45)]" />
-        </span>
-        <Tab label="Globe" emoji="🌍" active={view === 'globe'} onClick={() => onView('globe')} />
-        <Tab label="Map" emoji="🗺️" active={view === 'map'} onClick={() => onView('map')} />
-        <div className="relative flex justify-center">
-          <button
-            type="button"
-            onClick={() => {
-              // The spin itself whooshes, so no pop here.
-              haptics.tap();
-              onShuffle();
-            }}
-            disabled={!canShuffle || shuffling}
-            aria-label="Shuffle: spin to a random country"
-            className={clsx(
-              'toon absolute -top-7 grid size-[66px] place-items-center rounded-full bg-sun transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90',
-              !canShuffle && 'opacity-50',
-            )}
-          >
-            <span aria-hidden className={clsx('text-[32px] leading-none', shuffling && 'animate-dice-roll')}>
-              🎲
-            </span>
-          </button>
-          <span className="absolute bottom-[7px] text-[11px] font-bold text-ink">{shuffling ? 'Spinning…' : 'Shuffle'}</span>
-        </div>
-        <Tab label="Play" emoji="🎮" onClick={onPlay} disabled={!canPlay} badge={quizIsNew() ? 'New' : undefined} />
-        <Tab label="Search" emoji="🔍" onClick={onSearch} />
+        />
+        <Tab label="Globe" icon={Globe} active={view === 'globe'} onClick={() => onView('globe')} />
+        <Tab label="Map" icon={MapIcon} active={view === 'map'} onClick={() => onView('map')} />
+        <Tab
+          label={shuffling ? 'Spinning' : 'Shuffle'}
+          icon={Dices}
+          spinning={shuffling}
+          disabled={!canShuffle || shuffling}
+          // The spin itself whooshes, so no pop here.
+          quiet
+          onClick={onShuffle}
+        />
+        <Tab label="Play" icon={Gamepad2} onClick={onPlay} disabled={!canPlay} badge={quizIsNew()} />
       </div>
+      <button
+        type="button"
+        onClick={() => {
+          haptics.tap();
+          sounds.pop();
+          onSearch();
+        }}
+        aria-label="Search countries"
+        className="glass ios-press pointer-events-auto grid size-[62px] shrink-0 place-items-center rounded-full text-label"
+      >
+        <Search className="size-[23px]" strokeWidth={2.2} />
+      </button>
     </nav>
   );
 });
 
 function Tab({
   label,
-  emoji,
+  icon: Icon,
   active,
   disabled,
   badge,
+  spinning,
+  quiet,
   onClick,
 }: {
   label: string;
-  emoji: ReactNode;
+  icon: LucideIcon;
   active?: boolean;
   disabled?: boolean;
-  /** A little sticker on the tab, such as "New". */
-  badge?: string;
+  /** A red dot on the tab, as iOS marks something new. */
+  badge?: boolean;
+  spinning?: boolean;
+  /** No tap sound (the action makes its own). */
+  quiet?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -90,22 +96,23 @@ function Tab({
       type="button"
       onClick={() => {
         haptics.tap();
-        sounds.pop();
+        if (!quiet) sounds.pop();
         onClick();
       }}
-      disabled={disabled}
+      disabled={disabled && !spinning}
+      aria-disabled={disabled}
       aria-current={active ? 'page' : undefined}
-      className="relative flex flex-col items-center justify-start gap-1 pt-[11px] transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-90 disabled:opacity-50"
-    >
-      {badge && (
-        <span className="absolute right-[calc(50%-26px)] top-1 rotate-12 rounded-full border-2 border-ink bg-rose-400 px-1 text-[8.5px] font-bold uppercase leading-[12px] text-white">
-          {badge}
-        </span>
+      className={clsx(
+        'relative flex flex-col items-center justify-center gap-[3px] rounded-full transition-[transform,color] duration-200 active:scale-90 disabled:opacity-40',
+        active ? 'text-tint' : 'text-label',
+        spinning && 'pointer-events-none',
       )}
-      <span aria-hidden className={clsx('text-[21px] leading-none transition-transform duration-300', active && 'scale-110')}>
-        {emoji}
+    >
+      <span className="relative">
+        <Icon className={clsx('size-[23px]', spinning && 'animate-dice-roll')} strokeWidth={active ? 2.3 : 2} />
+        {badge && <span className="absolute -right-1 -top-0.5 size-2.5 rounded-full bg-ios-red ring-2 ring-white/80" />}
       </span>
-      <span className={clsx('text-[11px] font-bold leading-none', active ? 'text-ink' : 'text-slate-500')}>{label}</span>
+      <span className="text-[10.5px] font-medium leading-none tracking-[0.01em]">{label}</span>
     </button>
   );
 }

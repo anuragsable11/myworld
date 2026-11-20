@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { ArrowLeftRight, Search, X } from 'lucide-react';
+import { ArrowLeftRight, Lightbulb, Search, X } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, useFactbook, type CountryIndex } from '../../hooks/queries';
 import { formatShortCount } from '../../lib/format';
@@ -11,19 +11,10 @@ import { capitalZone } from '../../lib/timezones';
 import { Mascot } from '../game/Mascot';
 import { Flag } from '../ui/Flag';
 
-const REGION_EMOJI: Record<string, string> = {
-  Africa: '🦁',
-  Americas: '🦅',
-  Asia: '🐼',
-  Europe: '🏰',
-  Oceania: '🦘',
-  Antarctic: '🐧',
-};
-
-/** The two sides of every comparison: colour of the bars, the dots and the values. */
+/** The two sides of every comparison: colour of the bars, the dots and the values (iOS blue and pink). */
 const SIDES = [
-  { dot: 'bg-sky-400', bar: 'bg-sky-400', text: 'text-sky-700' },
-  { dot: 'bg-pink-400', bar: 'bg-pink-400', text: 'text-pink-700' },
+  { dot: 'bg-tint', bar: 'bg-tint', text: 'text-[#0062cc]' },
+  { dot: 'bg-ios-pink', bar: 'bg-ios-pink', text: 'text-[#d6204a]' },
 ] as const;
 
 /** Well-known countries offered after a country's neighbours. */
@@ -100,11 +91,10 @@ export default function CompareDialog({
 
   return (
     <dialog ref={ref} aria-label="Compare countries" className="quiz-dialog" onClose={() => open && onClose()}>
-      <div className="dots-bg flex h-full animate-sheet-up flex-col bg-paper text-ink">
-        <header className="mx-auto flex w-full max-w-2xl items-center gap-2.5 px-4 pb-2 pt-[max(14px,env(safe-area-inset-top))]">
-          <h2 className="toon-title flex-1 text-[28px]">
-            Compare <span aria-hidden>⚖️</span>
-          </h2>
+      {/* A full-height iOS sheet on the grouped background */}
+      <div className="flex h-full animate-sheet-up flex-col bg-[#f2f2f7] text-label">
+        <header className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 pb-2 pt-[max(14px,env(safe-area-inset-top))]">
+          <h2 className="ios-title flex-1 text-[34px]">Compare</h2>
           {a && b && (
             <button
               type="button"
@@ -116,18 +106,18 @@ export default function CompareDialog({
               }}
               aria-label="Swap sides"
               title="Swap sides"
-              className="toon-sm toon-press-sm grid size-10 place-items-center rounded-full bg-white hover:bg-sun"
+              className="ios-press grid size-9 place-items-center rounded-full bg-control text-tint hover:bg-control-strong"
             >
-              <ArrowLeftRight className="size-[18px]" strokeWidth={2.6} />
+              <ArrowLeftRight className="size-[18px]" strokeWidth={2.4} />
             </button>
           )}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="toon-sm toon-press-sm grid size-10 place-items-center rounded-full bg-white hover:bg-pink-200"
+            className="ios-press grid size-9 place-items-center rounded-full bg-control text-label hover:bg-control-strong"
           >
-            <X className="size-5" strokeWidth={3} />
+            <X className="size-[18px]" strokeWidth={2.6} />
           </button>
         </header>
         <main className="mx-auto w-full max-w-2xl min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(20px,env(safe-area-inset-bottom))]">
@@ -175,35 +165,35 @@ function Picker({
 
   return (
     <div className="pt-2">
-      <label htmlFor="compare-search" className="toon-title block text-[19px]">
+      <label htmlFor="compare-search" className="block text-[20px] font-semibold tracking-[-0.015em] text-label">
         {title}
       </label>
       <div className="relative mt-3">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-ink" strokeWidth={2.8} />
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-[17px] -translate-y-1/2 text-secondary" strokeWidth={2.3} />
         <input
           id="compare-search"
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search a country or capital…"
+          placeholder="Search a country or capital"
           autoComplete="off"
           spellCheck={false}
-          className="toon-sm h-12 w-full rounded-2xl bg-white pl-11 pr-4 text-[16px] font-bold text-ink transition-all duration-200 placeholder:font-semibold placeholder:text-slate-400 focus:bg-amber-50 focus:outline-none"
+          className="h-10 w-full rounded-[11px] bg-[rgb(118_118_128/0.12)] pl-9 pr-4 text-[16px] text-label transition-shadow duration-200 placeholder:text-secondary focus:shadow-[0_0_0_3px_rgb(0_122_255/0.25)] focus:outline-none"
         />
       </div>
       {!query.trim() && suggested.length > 0 && (
-        <p className="mt-4 text-[11.5px] font-bold uppercase tracking-wide text-slate-500">Neighbours, then well-known countries</p>
+        <p className="ml-4 mt-5 text-[13px] font-semibold uppercase tracking-[0.04em] text-secondary">Neighbours, then well-known countries</p>
       )}
-      <ul className="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+      <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {results.map((c) => (
           <li key={c.cca3}>
             <button
               type="button"
               onClick={() => onPick(c.cca3)}
-              className="toon-sm toon-press-sm flex w-full items-center gap-2 rounded-2xl bg-white px-2.5 py-2 text-left hover:bg-sky-50"
+              className="ios-press flex w-full items-center gap-2.5 rounded-[14px] bg-white px-3 py-2.5 text-left hover:bg-white/70"
             >
-              <Flag country={c} className="h-5 w-[30px] shrink-0 rounded-[4px] border-2 border-ink" />
-              <span className="min-w-0 truncate text-[13.5px] font-bold">{c.name}</span>
+              <Flag country={c} className="h-5 w-[30px] shrink-0 rounded-[4px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.15)]" />
+              <span className="min-w-0 truncate text-[15px] font-medium">{c.name}</span>
             </button>
           </li>
         ))}
@@ -211,7 +201,7 @@ function Picker({
       {query.trim() && !results.length && (
         <div className="mt-6 flex flex-col items-center text-center">
           <Mascot mood="think" className="w-20" />
-          <p className="mt-2 text-[14px] font-bold text-slate-500">No country matches “{query}”.</p>
+          <p className="mt-2 text-[15px] text-secondary">No country matches “{query}”.</p>
         </div>
       )}
     </div>
@@ -259,38 +249,32 @@ function Comparison({ a, b, onChange, onShowCountry }: { a: Country; b: Country;
             type="button"
             onClick={() => onShowCountry(c.cca3)}
             title={`Open ${c.name}`}
-            className="toon toon-press flex animate-pop flex-col items-center rounded-3xl bg-white p-3 text-center"
+            className="ios-press flex animate-pop flex-col items-center rounded-[22px] bg-white p-3.5 text-center"
             style={{ animationDelay: `${i * 90}ms` }}
           >
-            <Flag country={c} variant="full" className="h-14 w-auto max-w-full rounded-md border-2 border-ink object-contain" />
-            <span className="mt-2 flex items-center gap-1.5">
-              <span aria-hidden className={clsx('size-2.5 shrink-0 rounded-full border border-ink', SIDES[i].dot)} />
-              <span className="line-clamp-2 font-display text-[18px] font-bold leading-tight">{c.name}</span>
+            <Flag country={c} variant="full" className="h-14 w-auto max-w-full rounded-[8px] object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.12),0_3px_10px_rgb(0_0_0/0.1)]" />
+            <span className="mt-2.5 flex items-center gap-1.5">
+              <span aria-hidden className={clsx('size-2.5 shrink-0 rounded-full', SIDES[i].dot)} />
+              <span className="line-clamp-2 text-[18px] font-semibold leading-tight tracking-[-0.015em]">{c.name}</span>
             </span>
-            <span className="mt-1.5 rounded-full border-2 border-ink bg-sky-100 px-2 text-[11px] font-bold">
-              {REGION_EMOJI[c.region] ?? '🌍'} {c.subregion ?? c.region}
-            </span>
+            <span className="mt-1.5 rounded-full bg-control px-2.5 py-0.5 text-[12px] font-medium text-secondary">{c.subregion ?? c.region}</span>
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        onClick={onChange}
-        className="mx-auto block text-[13.5px] font-bold text-indigo-600 underline decoration-2 underline-offset-2 hover:text-indigo-700"
-      >
-        Pick a different country
+      <button type="button" onClick={onChange} className="mx-auto block text-[15px] font-semibold text-tint hover:opacity-70">
+        Pick a Different Country
       </button>
 
-      <p className="toon animate-rise rounded-2xl bg-sun px-4 py-3 text-center font-display text-[16px] font-semibold leading-snug text-ink">
-        <span aria-hidden>💡 </span>
-        {headline}
+      <p className="flex animate-rise items-start gap-2.5 rounded-[18px] bg-white px-4 py-3.5 text-[16px] leading-snug">
+        <Lightbulb aria-hidden className="mt-0.5 size-5 shrink-0 text-ios-orange" strokeWidth={2.2} />
+        <span>{headline}</span>
       </p>
 
-      <div className="toon space-y-4 rounded-3xl bg-white p-4">
-        <BarRow label="👥 People" a={popA} b={popB} countries={[a, b]} format={formatShortCount} />
-        <BarRow label="📐 Area" a={a.area} b={b.area} countries={[a, b]} format={(v) => `${formatShortCount(v)} km²`} />
+      <div className="space-y-4 rounded-[22px] bg-white p-4">
+        <BarRow label="People" a={popA} b={popB} countries={[a, b]} format={formatShortCount} />
+        <BarRow label="Area" a={a.area} b={b.area} countries={[a, b]} format={(v) => `${formatShortCount(v)} km²`} />
         <BarRow
-          label="🏘️ People per km²"
+          label="People per km²"
           a={densA}
           b={densB}
           countries={[a, b]}
@@ -298,26 +282,26 @@ function Comparison({ a, b, onChange, onShowCountry }: { a: Country; b: Country;
         />
       </div>
 
-      <dl className="toon rounded-3xl bg-white px-4">
-        <div className="grid grid-cols-2 gap-3 border-b-2 border-dashed border-indigo-100 py-2.5 text-center">
+      <dl className="rounded-[22px] bg-white px-4">
+        <div className="grid grid-cols-2 gap-3 border-b border-hairline py-2.5 text-center">
           {[a, b].map((c, i) => (
-            <span key={c.cca3} className="flex min-w-0 items-center justify-center gap-1.5 text-[12.5px] font-bold">
-              <span aria-hidden className={clsx('size-2.5 shrink-0 rounded-full border border-ink', SIDES[i].dot)} />
+            <span key={c.cca3} className="flex min-w-0 items-center justify-center gap-1.5 text-[13px] font-semibold">
+              <span aria-hidden className={clsx('size-2.5 shrink-0 rounded-full', SIDES[i].dot)} />
               <span className="truncate">{c.name}</span>
             </span>
           ))}
         </div>
-        <div className="divide-y-2 divide-dashed divide-indigo-100">
-          <TextRow label="🏛️ Capital" a={a.capitals[0]?.name} b={b.capitals[0]?.name} />
-          <TextRow label="🗣️ Languages" a={a.languages.slice(0, 3).join(', ')} b={b.languages.slice(0, 3).join(', ')} />
-          <TextRow label="💰 Money" a={a.currencies[0]?.name} b={b.currencies[0]?.name} />
-          <TextRow label="🚗 Drives on the" a={side(a.drivingSide)} b={side(b.drivingSide)} />
-          <TextRow label="🤝 Neighbours" a={String(a.borders.length)} b={String(b.borders.length)} />
-          <TextRow label="🌊 Coast" a={a.landlocked ? 'None (landlocked)' : 'Yes'} b={b.landlocked ? 'None (landlocked)' : 'Yes'} />
-          <TextRow label="🏳️ Status" a={isSovereign(a) ? 'Country' : 'Territory'} b={isSovereign(b) ? 'Country' : 'Territory'} />
+        <div className="divide-y divide-hairline">
+          <TextRow label="Capital" a={a.capitals[0]?.name} b={b.capitals[0]?.name} />
+          <TextRow label="Languages" a={a.languages.slice(0, 3).join(', ')} b={b.languages.slice(0, 3).join(', ')} />
+          <TextRow label="Money" a={a.currencies[0]?.name} b={b.currencies[0]?.name} />
+          <TextRow label="Drives on the" a={side(a.drivingSide)} b={side(b.drivingSide)} />
+          <TextRow label="Neighbours" a={String(a.borders.length)} b={String(b.borders.length)} />
+          <TextRow label="Coast" a={a.landlocked ? 'None (landlocked)' : 'Yes'} b={b.landlocked ? 'None (landlocked)' : 'Yes'} />
+          <TextRow label="Status" a={isSovereign(a) ? 'Country' : 'Territory'} b={isSovereign(b) ? 'Country' : 'Territory'} />
           <div className="py-3 text-center">
-            <dt className="text-[11.5px] font-bold uppercase tracking-wide text-slate-500">🕐 Time difference</dt>
-            <dd className="mt-0.5 text-[14.5px] font-bold">{clock}</dd>
+            <dt className="text-[13px] text-secondary">Time difference</dt>
+            <dd className="mt-0.5 text-[16px] font-semibold">{clock}</dd>
           </div>
         </div>
       </dl>
@@ -341,19 +325,19 @@ function BarRow({
   const top = Math.max(a ?? 0, b ?? 0) || 1;
   return (
     <div>
-      <p className="text-[11.5px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[15px] font-semibold text-label">{label}</p>
       {[a, b].map((v, i) => (
         <div key={i} className="mt-1.5 flex items-center gap-2">
           {/* Each bar names its country, so colour isn't the only clue. */}
-          <Flag country={countries[i]} className="h-4 w-6 shrink-0 rounded-[3px] border border-ink" />
+          <Flag country={countries[i]} className="h-4 w-6 shrink-0 rounded-[3px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.15)]" />
           <span className="sr-only">{countries[i].name}</span>
-          <div className="h-4 flex-1 overflow-hidden rounded-full border-2 border-ink bg-white">
+          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-control">
             <div
-              className={clsx('h-full origin-left animate-grow rounded-full border-r-2 border-ink', SIDES[i].bar)}
+              className={clsx('h-full origin-left animate-grow rounded-full', SIDES[i].bar)}
               style={{ width: `${v ? Math.max(3, (v / top) * 100) : 0}%`, animationDelay: `${150 + i * 120}ms` }}
             />
           </div>
-          <span className="w-20 shrink-0 text-right text-[13.5px] font-bold tabular-nums">{v ? format(v) : '—'}</span>
+          <span className="w-20 shrink-0 text-right text-[14px] font-medium tabular-nums text-secondary">{v ? format(v) : '—'}</span>
         </div>
       ))}
     </div>
@@ -363,8 +347,8 @@ function BarRow({
 function TextRow({ label, a, b }: { label: string; a: string | undefined; b: string | undefined }) {
   return (
     <div className="py-3">
-      <dt className="text-center text-[11.5px] font-bold uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-1 grid grid-cols-2 gap-3 text-center text-[14.5px] font-bold">
+      <dt className="text-center text-[13px] text-secondary">{label}</dt>
+      <dd className="mt-1 grid grid-cols-2 gap-3 text-center text-[16px] font-semibold">
         <span className={clsx('min-w-0 break-words', SIDES[0].text)}>{a || '—'}</span>
         <span className={clsx('min-w-0 break-words', SIDES[1].text)}>{b || '—'}</span>
       </dd>

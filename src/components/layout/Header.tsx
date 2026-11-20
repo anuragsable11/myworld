@@ -1,51 +1,73 @@
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { Info, Search, Volume2, VolumeX } from 'lucide-react';
+import { Earth, Info, Moon, Search, Sun, Volume2, VolumeX } from 'lucide-react';
 import { haptics } from '../../lib/haptics';
 import { setSoundEnabled, soundEnabled, sounds, subscribeSound } from '../../lib/sounds';
 
-function LogoMark({ className }: { className?: string }) {
+/** The app's icon, drawn the way iOS draws one: a rounded square with a soft gradient and a white glyph. */
+function AppIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 44 44" className={className} aria-hidden>
-      <circle cx="22" cy="22" r="19" fill="#5fbcf5" stroke="#1e1b4b" strokeWidth="2.8" />
-      <path
-        d="M12 15c3-3 7-2 8 0s-1 5 1 7 6 1 7 5-2 7-6 7c-2-2-1-6-5-7s-6-3-6-6 0-4 1-6Z"
-        fill="#7ee2a8"
-        stroke="#1e1b4b"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <path d="M27 9c3 1 6 3 7 7-3 1-5 0-6-1s-2-4-1-6Z" fill="#ffe27a" stroke="#1e1b4b" strokeWidth="1.8" strokeLinejoin="round" />
-      <ellipse cx="13" cy="11" rx="4.5" ry="2.2" fill="#fff" opacity="0.8" transform="rotate(-35 13 11)" />
-    </svg>
+    <span
+      aria-hidden
+      className={clsx(
+        'grid shrink-0 place-items-center rounded-[23%] bg-[linear-gradient(165deg,#64d2ff_0%,#0a84ff_52%,#0040dd_100%)] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.55),0_1px_3px_rgb(0_0_0/0.18)]',
+        className,
+      )}
+    >
+      <Earth className="size-[64%]" strokeWidth={1.9} />
+    </span>
   );
 }
 
-export function Brand() {
+/** App icon and name: a large title in the desktop sidebar, a compact one in the floating top bar. */
+export function Brand({ large }: { large?: boolean }) {
   return (
-    <a href="#" className="group flex items-center gap-2.5" aria-label="World Atlas home">
-      <LogoMark className="size-10 transition-transform duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-[360deg]" />
-      {/* Very narrow phones show just the logo, to leave room for the buttons. */}
-      <span className="relative leading-none max-[379px]:hidden">
-        <span className="toon-title block text-[22px]">World Atlas</span>
-        <span className="absolute -right-9 -top-3 rotate-12 rounded-full border-2 border-ink bg-sun px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide text-ink shadow-[0_1px_3px_rgba(30,27,75,0.18)]">
-          Explorer!
-        </span>
-      </span>
+    <a href="#" className="flex min-w-0 items-center gap-2.5" aria-label="World Atlas home">
+      <AppIcon className={large ? 'size-10' : 'size-8'} />
+      {/* Very narrow phones show just the icon, to leave room for the buttons. */}
+      <span className={clsx('ios-title truncate max-[379px]:hidden', large ? 'text-[24px]' : 'text-[17px] font-semibold')}>World Atlas</span>
     </a>
+  );
+}
+
+/** A round icon button, as in an iOS navigation bar. `active` tints it, for a mode that is switched on. */
+function BarButton({
+  label,
+  title,
+  pressed,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  title?: string;
+  pressed?: boolean;
+  active?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={pressed}
+      title={title ?? label}
+      className={clsx(
+        'ios-press grid size-10 shrink-0 place-items-center rounded-full transition-colors',
+        active ? 'bg-tint/15 text-tint' : 'text-label hover:bg-control',
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
 export function InfoButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="About this atlas and its data sources"
-      className="toon-sm toon-press-sm grid size-10 place-items-center rounded-full bg-white text-ink hover:bg-sky-100"
-    >
-      <Info className="size-[18px]" strokeWidth={2.6} />
-    </button>
+    <BarButton label="About this atlas and its data sources" title="About" onClick={onClick}>
+      <Info className="size-[21px]" strokeWidth={2} />
+    </BarButton>
   );
 }
 
@@ -53,45 +75,42 @@ export function InfoButton({ onClick }: { onClick: () => void }) {
 export function SoundButton() {
   const on = useSyncExternalStore(subscribeSound, soundEnabled, () => true);
   return (
-    <button
-      type="button"
+    <BarButton
+      label="Sound effects"
+      title={on ? 'Mute sound effects' : 'Turn sound effects on'}
+      pressed={on}
       onClick={() => {
         setSoundEnabled(!on);
         if (!on) sounds.pop();
       }}
-      aria-pressed={on}
-      aria-label="Sound effects"
-      title={on ? 'Mute sound effects' : 'Turn sound effects on'}
-      className="toon-sm toon-press-sm grid size-10 place-items-center rounded-full bg-white text-ink hover:bg-sky-100"
     >
-      {on ? <Volume2 className="size-[18px]" strokeWidth={2.6} /> : <VolumeX className="size-[18px]" strokeWidth={2.6} />}
-    </button>
+      {on ? <Volume2 className="size-[21px]" strokeWidth={2} /> : <VolumeX className="size-[21px]" strokeWidth={2} />}
+    </BarButton>
   );
 }
 
 /** Shows or hides the live night side of the Earth. */
 export function NightButton({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
+    <BarButton
+      label="Live day and night"
+      title={on ? 'Hide live day & night' : 'Show live day & night'}
+      pressed={on}
+      active={on}
       onClick={() => {
         haptics.tap();
         sounds.pop();
         onClick();
       }}
-      aria-pressed={on}
-      aria-label="Live day and night"
-      title={on ? 'Hide live day & night' : 'Show live day & night'}
-      className={clsx('toon-sm toon-press-sm grid size-10 place-items-center rounded-full text-[18px] leading-none', on ? 'bg-indigo-300' : 'bg-white hover:bg-sky-100')}
     >
-      <span aria-hidden>{on ? '🌙' : '☀️'}</span>
-    </button>
+      {on ? <Moon className="size-[20px]" strokeWidth={2} /> : <Sun className="size-[21px]" strokeWidth={2} />}
+    </BarButton>
   );
 }
 
 /**
- * Floating top bar for tablet and phone layouts (phones search from the tab bar instead, and get the
- * day/night switch here).
+ * Floating glass bar for tablet and phone layouts, as in iOS (phones search from the tab bar
+ * instead, and get the day/night switch here).
  */
 export function TopBar({
   onOpenSearch,
@@ -106,23 +125,18 @@ export function TopBar({
 }) {
   return (
     <header
-      className="toon glass absolute inset-x-3 z-30 flex h-14 animate-rise items-center gap-3 rounded-[22px] px-2.5"
-      style={{ top: 'max(12px, env(safe-area-inset-top))' }}
+      className="glass absolute inset-x-3 z-30 flex h-[52px] animate-rise items-center gap-1 rounded-full pl-2.5 pr-1.5"
+      style={{ top: 'max(10px, env(safe-area-inset-top))' }}
     >
       {onOpenSearch && (
-        <button
-          type="button"
-          onClick={onOpenSearch}
-          aria-label="Search countries"
-          className="toon-sm toon-press-sm grid size-10 place-items-center rounded-xl bg-sun text-ink"
-        >
-          <Search className="size-[18px]" strokeWidth={2.8} />
-        </button>
+        <BarButton label="Search countries" onClick={onOpenSearch}>
+          <Search className="size-[20px] text-tint" strokeWidth={2.2} />
+        </BarButton>
       )}
-      <div className={onOpenSearch ? undefined : 'pl-1.5'}>
+      <div className={clsx('min-w-0', onOpenSearch && 'pl-1')}>
         <Brand />
       </div>
-      <div className="ml-auto flex gap-2">
+      <div className="ml-auto flex">
         {onNight && <NightButton on={!!night} onClick={onNight} />}
         <SoundButton />
         <InfoButton onClick={onOpenAbout} />

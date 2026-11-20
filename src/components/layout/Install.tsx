@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Share, X } from 'lucide-react';
+import { Download, Share, X } from 'lucide-react';
 import { useInstallMode } from '../../hooks/usePwa';
 import { promptInstall, type InstallMode } from '../../lib/pwa';
 
@@ -20,16 +20,16 @@ function readDismissed() {
 /** Browsers without an install dialog add web apps from their own menus. */
 function InstallSteps({ mode, className }: { mode: InstallMode; className?: string }) {
   return (
-    <p className={clsx('text-[13px] font-semibold leading-relaxed text-slate-600', className)}>
+    <p className={clsx('text-[14px] leading-relaxed text-secondary', className)}>
       {mode === 'ios' ? (
         <>
-          Tap <b className="text-ink">Share</b>{' '}
-          <Share className="inline size-4 -translate-y-px text-sky-600" strokeWidth={2.6} /> (on newer
-          iPhones it's in the <b className="text-ink">⋯</b> menu), then choose <b className="text-ink">Add to Home Screen</b> ➕
+          Tap <b className="font-semibold text-label">Share</b>{' '}
+          <Share className="inline size-4 -translate-y-px text-tint" strokeWidth={2.3} /> (on newer iPhones it's in the{' '}
+          <b className="font-semibold text-label">⋯</b> menu), then choose <b className="font-semibold text-label">Add to Home Screen</b>.
         </>
       ) : (
         <>
-          In Safari's menu bar, choose <b className="text-ink">File → Add to Dock</b> 🚀
+          In Safari's menu bar, choose <b className="font-semibold text-label">File → Add to Dock</b>.
         </>
       )}
     </p>
@@ -49,17 +49,15 @@ export function InstallButton({ className }: { className?: string }) {
         aria-expanded={mode === 'prompt' ? undefined : showSteps}
         onClick={() => (mode === 'prompt' ? void promptInstall() : setShowSteps((s) => !s))}
         className={clsx(
-          'toon toon-press inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 font-display text-[17px] font-semibold text-ink hover:bg-sky-100',
+          'ios-press inline-flex items-center gap-2 rounded-full bg-control px-5 py-2.5 text-[16px] font-semibold text-tint hover:bg-control-strong',
           className,
         )}
       >
-        <span aria-hidden className="text-[20px]">
-          📲
-        </span>
-        Install app
+        <Download aria-hidden className="size-[18px]" strokeWidth={2.3} />
+        Install App
       </button>
       {showSteps && mode !== 'prompt' && (
-        <div className="toon-sm mt-3 w-full animate-pop rounded-2xl bg-white px-4 py-3">
+        <div className="glass-soft mt-3 w-full animate-pop rounded-[18px] px-4 py-3">
           <InstallSteps mode={mode} />
         </div>
       )}
@@ -72,9 +70,9 @@ export function InstallCard() {
   const mode = useInstallMode();
   if (!canInstall(mode)) return null;
   return (
-    <div className="toon mt-4 rounded-2xl bg-amber-100 p-4">
-      <div className="font-bold text-ink">📲 Install World Atlas</div>
-      <p className="mt-1 text-[13.5px] font-semibold leading-relaxed text-ink/70">
+    <div className="mt-4 rounded-[18px] bg-white/85 p-4">
+      <div className="text-[16px] font-semibold text-label">Install World Atlas</div>
+      <p className="mt-1 text-[14px] leading-relaxed text-secondary">
         Open it from your home screen or dock like any other app. Countries you've opened before keep working offline.
       </p>
       <div className="mt-3 flex flex-wrap">
@@ -103,30 +101,28 @@ export function InstallPill() {
   return (
     <div className="relative animate-pop">
       {showSteps && mode !== 'prompt' && (
-        <div className="toon absolute bottom-full left-0 mb-3 w-[min(280px,calc(100vw-32px))] animate-pop rounded-2xl bg-white px-4 py-3">
-          <div className="toon-title mb-1 text-[15px]">Add it to your home screen</div>
+        <div className="glass absolute bottom-full left-0 mb-3 w-[min(280px,calc(100vw-32px))] animate-pop rounded-[20px] px-4 py-3">
+          <div className="mb-1 text-[15px] font-semibold text-label">Add it to your Home Screen</div>
           <InstallSteps mode={mode} />
         </div>
       )}
-      <div className="toon flex items-center gap-1 rounded-full bg-white p-1">
+      <div className="glass flex items-center gap-1 rounded-full p-1">
         <button
           type="button"
           aria-expanded={mode === 'prompt' ? undefined : showSteps}
           onClick={() => (mode === 'prompt' ? void promptInstall() : setShowSteps((s) => !s))}
-          className="flex items-center gap-1.5 rounded-full border-2 border-ink bg-sun px-3.5 py-1 font-display text-[14px] font-semibold text-ink transition-transform active:translate-y-px"
+          className="ios-press flex items-center gap-1.5 rounded-full bg-tint px-3.5 py-1.5 text-[14px] font-semibold text-white"
         >
-          <span aria-hidden className="text-[16px]">
-            📲
-          </span>
-          Install app
+          <Download aria-hidden className="size-4" strokeWidth={2.4} />
+          Install App
         </button>
         <button
           type="button"
           onClick={dismiss}
           aria-label="Hide the install button"
-          className="grid size-8 place-items-center rounded-full text-slate-500 transition-colors hover:bg-pink-100 hover:text-ink"
+          className="grid size-8 place-items-center rounded-full text-secondary transition-colors hover:bg-control hover:text-label"
         >
-          <X className="size-4" strokeWidth={3} />
+          <X className="size-4" strokeWidth={2.6} />
         </button>
       </div>
     </div>

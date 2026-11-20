@@ -59,13 +59,14 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="toon-lg m-auto w-[min(92vw,560px)] animate-pop rounded-[28px] bg-paper p-0 text-slate-700 backdrop:bg-indigo-950/30 backdrop:backdrop-blur-sm"
+      // An iOS sheet with Settings-style grouped cards.
+      className="m-auto w-[min(92vw,560px)] animate-pop rounded-[30px] border-0 bg-[rgb(242_242_247/0.9)] p-0 text-label shadow-[0_24px_70px_rgb(0_0_0/0.3)] backdrop-blur-2xl backdrop-saturate-150 backdrop:bg-black/30 backdrop:backdrop-blur-sm"
     >
-      <div className="max-h-[85dvh] overflow-y-auto p-6">
+      <div className="max-h-[85dvh] overflow-y-auto p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="toon-title text-[28px]">About this atlas 📚</h2>
-            <p className="mt-1.5 text-[14px] font-semibold leading-relaxed text-slate-600">
+            <h2 className="ios-title text-[28px]">About This Atlas</h2>
+            <p className="mt-1 text-[15px] leading-relaxed text-secondary">
               Every country profile is assembled live from public sources. Nothing is written by hand for individual
               countries.
             </p>
@@ -74,51 +75,52 @@ export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: 
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="toon-sm toon-press-sm grid size-10 shrink-0 place-items-center rounded-full bg-white text-ink hover:bg-pink-200"
+            className="ios-press grid size-9 shrink-0 place-items-center rounded-full bg-control text-label hover:bg-control-strong"
           >
-            <X className="size-4" />
+            <X className="size-[18px]" strokeWidth={2.6} />
           </button>
         </div>
 
         {index && (
-          <div className="toon mt-5 rounded-2xl bg-sky-100 p-4 text-[13.5px]">
-            <div className="font-bold text-ink">
+          <div className="mt-5 rounded-[18px] bg-white/85 p-4 text-[14px]">
+            <div className="font-semibold text-label">
               Country records:{' '}
               {index.provider === 'restcountries' ? 'REST Countries v5 API' : 'open mledoze/countries dataset'}
             </div>
-            {index.notice && <p className="mt-1 font-semibold leading-relaxed text-ink/70">{index.notice}</p>}
+            {index.notice && <p className="mt-1 leading-relaxed text-secondary">{index.notice}</p>}
             {index.provider === 'open' && (
-              <p className="mt-2 font-semibold leading-relaxed text-ink/60">
-                To use the REST Countries API, set <code className="font-semibold text-indigo-700">VITE_RESTCOUNTRIES_API_KEY</code> in{' '}
-                <code className="font-semibold text-indigo-700">.env</code> and allow this site's hostname for the key.
+              <p className="mt-2 leading-relaxed text-secondary">
+                To use the REST Countries API, set <code className="font-medium text-tint">VITE_RESTCOUNTRIES_API_KEY</code> in{' '}
+                <code className="font-medium text-tint">.env</code> and allow this site's hostname for the key.
               </p>
             )}
           </div>
         )}
 
         <InstallCard />
-        <div className="toon mt-5 divide-y-2 divide-dashed divide-indigo-100 rounded-2xl bg-white px-4">
+        <div className="mt-5 divide-y divide-hairline rounded-[18px] bg-white/85 px-4">
           <SoundSetting />
           <VibrationSetting />
         </div>
 
-        <ul className="mt-5 divide-y-2 divide-dashed divide-indigo-100">
+        <h3 className="mb-2 ml-4 mt-6 text-[13px] font-semibold uppercase tracking-[0.04em] text-secondary">Data sources</h3>
+        <ul className="divide-y divide-hairline rounded-[18px] bg-white/85 px-4">
           {SOURCES.map((s) => (
             <li key={s.name} className="py-3">
               <a
                 href={s.href}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 font-display text-[16px] font-semibold text-ink hover:text-indigo-600"
+                className="inline-flex items-center gap-1 text-[16px] font-semibold text-tint hover:opacity-70"
               >
                 {s.name}
-                <ArrowUpRight className="size-3.5" />
+                <ArrowUpRight className="size-4" strokeWidth={2.3} />
               </a>
-              <p className="mt-0.5 text-[13px] font-semibold leading-relaxed text-slate-500">{s.what}</p>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-secondary">{s.what}</p>
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-[12px] font-semibold leading-relaxed text-slate-400">
+        <p className="mx-4 mt-3 text-[12px] leading-relaxed text-secondary">
           Boundaries follow Natural Earth's de facto conventions, except India, which is drawn as on the Government of
           India's official map: all of Jammu and Kashmir and Ladakh, including Gilgit-Baltistan, Aksai Chin and the
           Shaksgam valley.
@@ -132,7 +134,7 @@ function SoundSetting() {
   const on = useSyncExternalStore(subscribeSound, soundEnabled, () => true);
   return (
     <SettingSwitch
-      title="🔊 Sounds"
+      title="Sounds"
       detail="Clicks as the globe turns, a whoosh and a chime when you shuffle, pops on buttons."
       on={on}
       onChange={(next) => {
@@ -149,7 +151,7 @@ function VibrationSetting() {
   if (!hapticsSupported || !window.matchMedia('(pointer: coarse)').matches) return null;
   return (
     <SettingSwitch
-      title="📳 Vibration"
+      title="Vibration"
       detail="A tick as the globe turns under your finger or spins, and a bump when it lands."
       on={on}
       onChange={(next) => {
@@ -164,15 +166,16 @@ function SettingSwitch({ title, detail, on, onChange }: { title: string; detail:
   return (
     <label className="flex cursor-pointer items-center justify-between gap-4 py-3.5">
       <span>
-        <span className="block font-display text-[16px] font-semibold text-ink">{title}</span>
-        <span className="mt-0.5 block text-[13px] font-semibold leading-snug text-slate-500">{detail}</span>
+        <span className="block text-[16px] font-medium text-label">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-secondary">{detail}</span>
       </span>
+      {/* The iOS switch: green when on, a white knob with a soft shadow */}
       <input
         type="checkbox"
         role="switch"
         checked={on}
         onChange={(e) => onChange(e.target.checked)}
-        className="relative h-7 w-12 shrink-0 cursor-pointer appearance-none rounded-full border-2 border-ink bg-slate-200 transition-colors duration-300 before:absolute before:left-0.5 before:top-0.5 before:size-5 before:rounded-full before:border-2 before:border-ink before:bg-white before:transition-transform before:duration-300 before:ease-[cubic-bezier(0.34,1.56,0.64,1)] checked:bg-emerald-400 checked:before:translate-x-5"
+        className="relative h-[31px] w-[51px] shrink-0 cursor-pointer appearance-none rounded-full bg-[rgb(120_120_128/0.2)] transition-colors duration-300 before:absolute before:left-[2px] before:top-[2px] before:size-[27px] before:rounded-full before:bg-white before:shadow-[0_3px_8px_rgb(0_0_0/0.15),0_3px_1px_rgb(0_0_0/0.06)] before:transition-transform before:duration-300 before:ease-[cubic-bezier(0.32,0.72,0,1)] checked:bg-ios-green checked:before:translate-x-5"
       />
     </label>
   );

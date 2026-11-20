@@ -81,8 +81,8 @@ export function Economy({ country, factbook, worldBank }: CountryDetails) {
       {fb?.exports && (
         <>
           <SubHeading>Main exports</SubHeading>
-          <p className="text-[13.5px] leading-relaxed text-slate-700">{fb.exports}</p>
-          {fb.exportPartners && <p className="mt-1 text-[12px] text-slate-500">Partners: {fb.exportPartners}</p>}
+          <p className="text-[13.5px] leading-relaxed text-label">{fb.exports}</p>
+          {fb.exportPartners && <p className="mt-1 text-[12px] text-secondary">Partners: {fb.exportPartners}</p>}
         </>
       )}
 

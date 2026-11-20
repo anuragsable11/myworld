@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
+import { Hand } from 'lucide-react';
 import type { ViewMode } from '../map/MapStage';
 
 const KEY = 'atlas:hinted';
@@ -61,13 +62,11 @@ export function GestureHint({ ready, view, top }: { ready: boolean; view: ViewMo
     <div className="pointer-events-none fixed inset-x-0 z-20 flex justify-center px-4" style={{ top }} role="status">
       <p
         className={clsx(
-          'toon-sm flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[13.5px] font-bold text-ink',
+          'glass flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-medium text-label',
           phase === 'on' ? 'animate-pop' : 'opacity-0 transition-opacity duration-300',
         )}
       >
-        <span aria-hidden className="inline-block animate-nudge text-[18px] leading-none">
-          👆
-        </span>
+        <Hand aria-hidden className="size-[18px] animate-nudge text-tint" strokeWidth={2.2} />
         {view === 'globe' ? 'Drag to spin the globe' : 'Drag to move the map'} · Tap a country
       </p>
     </div>

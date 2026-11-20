@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { Loader2, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Dices, Gamepad2, Globe, Loader2, Map as MapIcon, Minus, Moon, Plus, RotateCcw, Sun } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
 import type { World } from '../../lib/geo';
 import { ConnectionBadge } from '../layout/ConnectionBadge';
@@ -152,20 +152,20 @@ export function MapStage({
       ) : (
         <div className="absolute grid place-items-center" style={area}>
           {worldError ? (
-            <div className="toon rounded-3xl bg-white px-6 py-5 text-center">
-              <p className="text-sm font-bold text-ink">Oops! The world map could not be loaded. 🙈</p>
+            <div className="glass rounded-[22px] px-6 py-5 text-center">
+              <p className="text-[15px] font-medium text-label">The world map could not be loaded.</p>
               <button
                 type="button"
                 onClick={onRetry}
-                className="toon-sm toon-press-sm mt-3 rounded-full bg-sun px-4 py-1.5 text-sm font-bold text-ink"
+                className="ios-press mt-3 rounded-full bg-tint px-5 py-2 text-[15px] font-semibold text-white"
               >
-                Try again
+                Try Again
               </button>
             </div>
           ) : (
-            <div className="toon flex items-center gap-2.5 rounded-full bg-white px-4 py-2 text-sm font-bold text-ink">
-              <Loader2 className="size-4 animate-spin" />
-              Painting the world… 🎨
+            <div className="glass flex items-center gap-2.5 rounded-full px-4 py-2.5 text-[14px] font-medium text-label">
+              <Loader2 className="size-4 animate-spin text-secondary" strokeWidth={2.4} />
+              Loading the world…
             </div>
           )}
         </div>
@@ -189,28 +189,30 @@ export function MapStage({
       >
         {/* Phones switch views from the tab bar. */}
         {!compact && (
-          <div className="toon glass pointer-events-auto flex gap-1 rounded-full p-1">
+          // An iOS segmented control on glass: the white thumb slides to the view that is showing.
+          <div className="glass pointer-events-auto relative grid grid-cols-2 rounded-full p-1">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_3px_8px_rgb(0_0_0/0.12),0_1px_2px_rgb(0_0_0/0.06)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+              style={{ transform: view === 'map' ? 'translateX(100%)' : undefined }}
+            />
             {(
               [
-                ['globe', 'Globe', '🌍'],
-                ['map', 'Map', '🗺️'],
+                ['globe', 'Globe', Globe],
+                ['map', 'Map', MapIcon],
               ] as const
-            ).map(([mode, label, emoji]) => (
+            ).map(([mode, label, Icon]) => (
               <button
                 key={mode}
                 type="button"
                 aria-pressed={view === mode}
                 onClick={() => onViewChange(mode)}
                 className={clsx(
-                  'flex items-center gap-1.5 rounded-full border-2 px-4 py-1 font-display text-[14px] font-semibold transition-all duration-300',
-                  view === mode
-                    ? 'border-transparent bg-sun text-ink shadow-[0_2px_8px_rgba(30,27,75,0.18)]'
-                    : 'border-transparent text-slate-500 hover:bg-white/70 hover:text-ink',
+                  'relative flex items-center justify-center gap-1.5 rounded-full px-5 py-1.5 text-[14px] font-semibold transition-colors duration-300',
+                  view === mode ? 'text-label' : 'text-secondary hover:text-label',
                 )}
               >
-                <span aria-hidden className="text-[16px]">
-                  {emoji}
-                </span>
+                <Icon aria-hidden className="size-4" strokeWidth={2.3} />
                 {label}
               </button>
             ))}
@@ -219,81 +221,53 @@ export function MapStage({
         <ConnectionBadge />
       </div>
 
-      {/* Surprise + zoom controls; phones have the tab bar, and pinch to zoom */}
+      {/* Map controls in two glass groups, as in Apple Maps; phones have the tab bar, and pinch to zoom */}
       {!compact && (
         <div
           className="absolute z-10 flex flex-col items-center gap-3 transition-[right,bottom] duration-500"
           style={{ right: area.right, bottom: area.bottom }}
         >
-          <button
-            type="button"
-            onClick={onPlay}
-            disabled={!index}
-            title="Flag quiz"
-            aria-label="Play the flag quiz"
-            className="toon toon-press grid size-12 place-items-center rounded-2xl bg-emerald-300 text-[22px] disabled:opacity-50"
-          >
-            <span aria-hidden>🎮</span>
-          </button>
-          <button
-            type="button"
-            onClick={onToggleNight}
-            aria-pressed={showNight}
-            title={showNight ? 'Hide live day & night' : 'Show live day & night'}
-            aria-label="Live day and night"
-            className={clsx(
-              'toon toon-press grid size-12 place-items-center rounded-2xl text-[22px]',
-              showNight ? 'bg-indigo-300' : 'bg-white',
-            )}
-          >
-            <span aria-hidden>{showNight ? '🌙' : '☀️'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={onSurprise}
-            disabled={!index}
-            title="Surprise me!"
-            aria-label="Surprise me: fly to a random country"
-            className="toon toon-press group grid size-12 place-items-center rounded-2xl bg-sun text-[24px] disabled:opacity-50"
-          >
-            <span aria-hidden className="transition-transform duration-500 group-hover:rotate-[360deg]">
-              🎲
-            </span>
-          </button>
-          <div className="toon flex flex-col overflow-hidden rounded-2xl bg-white">
-            {(
-              [
-                ['Zoom in', Plus, () => mapRef.current?.zoomIn()],
-                ['Zoom out', Minus, () => mapRef.current?.zoomOut()],
-                ['Reset view', RotateCcw, () => mapRef.current?.reset()],
-              ] as const
-            ).map(([label, Icon, action]) => (
-              <button
-                key={label}
-                type="button"
-                title={label}
-                aria-label={label}
-                onClick={action}
-                className="grid size-10 place-items-center text-ink transition-colors hover:bg-sun active:bg-amber-300 [&:not(:last-child)]:border-b-2 [&:not(:last-child)]:border-ink"
-              >
-                <Icon className="size-[18px]" strokeWidth={2.8} />
-              </button>
-            ))}
+          <div className="glass flex flex-col overflow-hidden rounded-[18px]">
+            <ControlButton label="Play the flag quiz" title="Flag quiz" onClick={onPlay} disabled={!index}>
+              <Gamepad2 className="size-[21px]" strokeWidth={2} />
+            </ControlButton>
+            <ControlButton
+              label="Live day and night"
+              title={showNight ? 'Hide live day & night' : 'Show live day & night'}
+              pressed={showNight}
+              onClick={onToggleNight}
+            >
+              {showNight ? <Moon className="size-[20px]" strokeWidth={2} /> : <Sun className="size-[21px]" strokeWidth={2} />}
+            </ControlButton>
+            <ControlButton label="Surprise me: fly to a random country" title="Surprise me" onClick={onSurprise} disabled={!index}>
+              <Dices className="size-[21px]" strokeWidth={2} />
+            </ControlButton>
+          </div>
+          <div className="glass flex flex-col overflow-hidden rounded-[18px]">
+            <ControlButton label="Zoom in" onClick={() => mapRef.current?.zoomIn()}>
+              <Plus className="size-[21px]" strokeWidth={2.2} />
+            </ControlButton>
+            <ControlButton label="Zoom out" onClick={() => mapRef.current?.zoomOut()}>
+              <Minus className="size-[21px]" strokeWidth={2.2} />
+            </ControlButton>
+            <ControlButton label="Reset view" onClick={() => mapRef.current?.reset()}>
+              <RotateCcw className="size-[19px]" strokeWidth={2.2} />
+            </ControlButton>
           </div>
         </div>
       )}
 
       {showLegend && (
         <div
-          className="toon pointer-events-none absolute z-10 flex items-center gap-4 rounded-full bg-white px-4 py-1.5 text-[12px] font-bold text-ink"
+          className="glass pointer-events-none absolute z-10 flex items-center gap-4 rounded-full px-4 py-2 text-[12px] font-medium text-secondary"
           style={{ left: area.left, bottom: area.bottom }}
         >
           <span className="flex items-center gap-1.5">
-            <span aria-hidden>📍</span>
+            <span className="size-2.5 rounded-full bg-sun shadow-[0_0_0_0.5px_rgb(0_0_0/0.2)]" />
             Selected
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="flex h-3 w-5 overflow-hidden rounded-full border-2 border-ink">
+            <span className="flex h-2.5 w-5 overflow-hidden rounded-full shadow-[0_0_0_0.5px_rgb(0_0_0/0.2)]">
               <span className="flex-1 bg-[#7ee2a8]" />
               <span className="flex-1 bg-[#ff9f9f]" />
               <span className="flex-1 bg-[#c3b1ff]" />
@@ -301,17 +275,51 @@ export function MapStage({
             One colour per country
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="size-3 rounded-full border-2 border-ink bg-[#80e4dc]" />
+            <span className="size-2.5 rounded-full bg-[#80e4dc] shadow-[0_0_0_0.5px_rgb(0_0_0/0.2)]" />
             Tiny states
           </span>
           {showNight && (
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-5 rounded-full border-2 border-ink bg-[linear-gradient(90deg,#ffffff_0%,#ffffff_45%,#5b55a0_55%,#5b55a0_100%)]" />
+              <span className="h-2.5 w-5 rounded-full bg-[linear-gradient(90deg,#ffffff_0%,#ffffff_45%,#5b55a0_55%,#5b55a0_100%)] shadow-[0_0_0_0.5px_rgb(0_0_0/0.2)]" />
               Live night
             </span>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/** One button in a glass group of map controls; hairlines separate the buttons. */
+function ControlButton({
+  label,
+  title,
+  pressed,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  title?: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      aria-pressed={pressed}
+      title={title ?? label}
+      className={clsx(
+        'grid size-11 place-items-center transition-colors hover:bg-control active:bg-control-strong disabled:opacity-40 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-hairline',
+        pressed ? 'text-tint' : 'text-label',
+      )}
+    >
+      {children}
+    </button>
   );
 }

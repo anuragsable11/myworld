@@ -126,7 +126,7 @@ export function Basics(details: CountryDetails) {
               {country.currencies.map((c) => (
                 <div key={c.code}>
                   {c.name}{' '}
-                  <span className="text-slate-500">
+                  <span className="text-secondary">
                     ({c.code}
                     {c.symbol ? ` · ${c.symbol}` : ''})
                   </span>

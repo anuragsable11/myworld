@@ -29,7 +29,7 @@ export function Cities({ country, factbook }: CountryDetails) {
               <>
                 {c.name}
                 {c.capital && (
-                  <span className="ml-2 rounded-full border-2 border-ink bg-sun px-1.5 py-px align-[1px] text-[10px] font-bold uppercase tracking-wide text-ink">
+                  <span className="ml-2 rounded-full bg-tint/12 px-2 py-0.5 align-[1px] text-[11px] font-semibold text-tint">
                     Capital
                   </span>
                 )}
@@ -41,9 +41,9 @@ export function Cities({ country, factbook }: CountryDetails) {
           format={formatPopulation}
         />
       ) : country.capitals.length ? (
-        <p className="text-[13.5px] text-slate-700">
+        <p className="text-[13.5px] text-label">
           {country.capitals.map((c) => c.name).join(', ')}{' '}
-          <span className="text-slate-400">(capital — no urban population figures available)</span>
+          <span className="text-secondary">(capital — no urban population figures available)</span>
         </p>
       ) : (
         <Missing />

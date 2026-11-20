@@ -10,9 +10,9 @@ export function UpdateToast({ top }: { top: number }) {
       <button
         type="button"
         onClick={() => location.reload()}
-        className="toon toon-press pointer-events-auto animate-pop rounded-full bg-sun px-4 py-2 font-display text-[14px] font-semibold text-ink"
+        className="ios-press pointer-events-auto animate-pop rounded-full bg-tint px-4 py-2 text-[14px] font-semibold text-white shadow-[0_6px_20px_rgb(0_122_255/0.35)]"
       >
-        ✨ A new version is here! Tap to update
+        A new version is ready. Tap to update
       </button>
     </div>
   );

@@ -22,10 +22,10 @@ export function Overview({ country, wikipedia, factbook }: CountryDetails) {
             href={summary.url}
             target="_blank"
             rel="noreferrer"
-            className="toon-sm toon-press-sm mt-3 inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-[12.5px] font-bold text-ink"
+            className="ios-press mt-3 inline-flex items-center gap-1 rounded-full bg-tint/12 px-3.5 py-1.5 text-[14px] font-semibold text-tint"
           >
             Read the full article on Wikipedia
-            <ArrowUpRight className="size-3.5" />
+            <ArrowUpRight className="size-4" strokeWidth={2.3} />
           </a>
         </>
       ) : loading ? (
@@ -38,7 +38,7 @@ export function Overview({ country, wikipedia, factbook }: CountryDetails) {
       ) : fallback ? (
         <ExpandableText text={fallback} lines={6} />
       ) : (
-        <p className="text-[13px] italic text-slate-400">No summary is available for {country.name}.</p>
+        <p className="text-[14px] text-secondary">No summary is available for {country.name}.</p>
       )}
     </Section>
   );

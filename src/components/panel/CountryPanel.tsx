@@ -1,13 +1,12 @@
 import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import clsx from 'clsx';
-import { Crosshair, X } from 'lucide-react';
+import { ArrowLeftRight, Crosshair, Landmark, Ruler, Users, X, type LucideIcon } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, useFactbook, useMountains, useWikidata, useWikipedia, useWorldBank, type CountryIndex } from '../../hooks/queries';
 import { formatShortCount } from '../../lib/format';
 import { scrollWithin } from '../../lib/scroll';
 import { Flag } from '../ui/Flag';
 import { Skeleton } from '../ui/primitives';
-import { TONES, type Tone } from '../ui/tones';
 import type { CountryDetails } from './details';
 import { Basics, populationOf } from './sections/Basics';
 import { Cities } from './sections/Cities';
@@ -51,16 +50,16 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, onCompare
   }, [id]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-paper">
+    <div className="flex h-full min-h-0 flex-col">
       {sheetHeader}
       <div
         ref={scrollRef}
         data-sheet-scroll
         className={clsx(
-          'dots-bg relative min-h-0 flex-1 overflow-y-auto overscroll-contain',
-          // In the sheet: room to scroll the last lines clear of the tab bar's raised shuffle button,
-          // plus the 40px of sheet tucked behind the tab bar.
-          sheetHeader && 'pb-[76px]',
+          'relative min-h-0 flex-1 overflow-y-auto overscroll-contain',
+          // In the sheet: room to scroll the last lines clear of the floating tab bar, plus the 40px
+          // of sheet that reaches below the screen.
+          sheetHeader && 'pb-[calc(136px+env(safe-area-inset-bottom))]',
         )}
       >
         {country && index ? (
@@ -76,11 +75,11 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, onCompare
           />
         ) : index ? (
           <div className="p-8 text-center">
-            <p className="text-sm font-bold text-ink">Hmm, no country with the code “{id}”. 🤔</p>
+            <p className="text-[15px] font-medium text-label">There's no country with the code “{id}”.</p>
             <button
               type="button"
               onClick={onClose}
-              className="toon-sm toon-press-sm mt-3 rounded-full bg-sun px-4 py-1 text-sm font-bold text-ink"
+              className="ios-press mt-3 rounded-full bg-tint px-5 py-2 text-[15px] font-semibold text-white"
             >
               Close
             </button>
@@ -156,52 +155,50 @@ const CountryProfile = memo(function CountryProfile({
               country={country}
               variant="full"
               eager
-              className="h-[72px] w-auto max-w-[124px] rounded-xl border-2 border-ink bg-white object-contain shadow-[0_4px_14px_rgba(30,27,75,0.16)] outline outline-4 -outline-offset-[7px] outline-white transition-transform duration-300 group-hover:scale-105"
+              className="h-[68px] w-auto max-w-[120px] rounded-[12px] bg-white object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.12),0_6px_18px_rgb(0_0_0/0.14)] transition-transform duration-300 group-hover:scale-105"
             />
           </div>
           <div className="flex gap-2">
             <IconButton label="Show on map" onClick={onLocate}>
-              <Crosshair className="size-[18px]" strokeWidth={2.6} />
+              <Crosshair className="size-[18px]" strokeWidth={2.3} />
             </IconButton>
             <IconButton label="Close" onClick={onClose}>
-              <X className="size-[18px]" strokeWidth={2.8} />
+              <X className="size-[18px]" strokeWidth={2.6} />
             </IconButton>
           </div>
         </div>
-        <h2 className="toon-title mt-5 animate-rise text-[38px] leading-[1]">{country.name}</h2>
+        <h2 className="ios-title mt-4 animate-rise text-[34px] leading-[1.06]">{country.name}</h2>
         {country.officialName !== country.name && (
-          <p className="mt-1.5 text-[14.5px] font-bold leading-snug text-slate-500">{country.officialName}</p>
+          <p className="mt-1 text-[15px] leading-snug text-secondary">{country.officialName}</p>
         )}
-        <div className="mt-3.5 flex flex-wrap gap-2">
-          <Badge className={isSovereign(country) ? 'bg-sun' : 'bg-pink-200'}>
-            {isSovereign(country) ? '⭐ ' : '🏝️ '}
-            {statusLabel}
-          </Badge>
-          <Badge className="bg-white">🧭 {country.subregion ?? country.region}</Badge>
-          <Badge className="bg-white font-mono tracking-wider">{country.cca3}</Badge>
+        <div className="mt-3.5 flex flex-wrap gap-1.5">
+          <Badge className={isSovereign(country) ? 'bg-tint/12 text-tint' : 'bg-ios-orange/15 text-[#b25f00]'}>{statusLabel}</Badge>
+          <Badge className="bg-control text-label">{country.subregion ?? country.region}</Badge>
+          <Badge className="bg-control font-mono text-label">{country.cca3}</Badge>
           <button
             type="button"
             onClick={() => onCompare(country.cca3)}
             title={`Compare ${country.name} with another country`}
-            className="toon-sm toon-press-sm rounded-full bg-sky-200 px-2.5 py-0.5 text-[12px] font-bold text-ink hover:bg-sky-300"
+            className="ios-press inline-flex items-center gap-1 rounded-full bg-tint px-3 py-1 text-[13px] font-semibold text-white"
           >
-            <span aria-hidden>⚖️ </span>Compare
+            <ArrowLeftRight aria-hidden className="size-3.5" strokeWidth={2.4} />
+            Compare
           </button>
         </div>
       </header>
 
       <dl className="grid grid-cols-3 gap-2.5 px-4">
-        <QuickStat tone="sky" emoji="🏛️" label="Capital" value={country.capitals[0]?.name ?? '—'} order={0} />
+        <QuickStat icon={Landmark} color="#007aff" label="Capital" value={country.capitals[0]?.name ?? '—'} order={0} />
         <QuickStat
-          tone="violet"
-          emoji="👥"
+          icon={Users}
+          color="#af52de"
           label="People"
           value={population ? formatShortCount(population.value) : details.factbook.loading ? undefined : '—'}
           order={1}
         />
         <QuickStat
-          tone="emerald"
-          emoji="📐"
+          icon={Ruler}
+          color="#34c759"
           label="Area"
           value={country.area ? formatShortCount(country.area) : '—'}
           unit={country.area ? 'km²' : undefined}
@@ -273,7 +270,7 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
     <nav
       ref={navRef}
       aria-label="Profile sections"
-      className="no-scrollbar sticky top-0 z-20 mt-4 flex gap-1.5 overflow-x-auto border-b-2 border-dashed border-indigo-100 bg-paper px-4 py-2.5"
+      className="no-scrollbar sticky top-0 z-20 mt-4 flex gap-1.5 overflow-x-auto border-b border-hairline bg-white/30 px-4 py-2.5 backdrop-blur-xl backdrop-saturate-150"
     >
       {SECTIONS.map(([id, label]) => (
         <button
@@ -288,10 +285,8 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
             if (root && section) scrollWithin(root, section, { block: 'start', offset: 64, smooth: true });
           }}
           className={clsx(
-            'shrink-0 rounded-full border-2 px-3.5 py-1.5 font-display text-[14px] font-semibold transition-all duration-300 active:scale-95',
-            active === id
-              ? 'border-ink bg-sun text-ink shadow-[0_2px_6px_rgba(30,27,75,0.16)]'
-              : 'border-transparent text-slate-500 hover:border-ink hover:bg-white hover:text-ink',
+            'shrink-0 rounded-full px-3.5 py-1.5 text-[14px] font-semibold transition-colors duration-300 active:scale-95',
+            active === id ? 'bg-tint text-white shadow-[0_2px_8px_rgb(0_122_255/0.28)]' : 'text-label hover:bg-control',
           )}
         >
           {label}
@@ -301,16 +296,17 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
   );
 }
 
+/** A small widget-like tile: a tinted glyph, a caption and the figure. */
 function QuickStat({
-  tone,
-  emoji,
+  icon: Icon,
+  color,
   label,
   value,
   unit,
   order,
 }: {
-  tone: Tone;
-  emoji: string;
+  icon: LucideIcon;
+  color: string;
   label: string;
   value: string | undefined;
   unit?: string;
@@ -318,14 +314,12 @@ function QuickStat({
 }) {
   return (
     <div className="animate-pop" style={{ animationDelay: `${140 + order * 90}ms` }}>
-      <div className={clsx('toon min-w-0 rounded-2xl px-3 py-2.5 transition-transform duration-300 hover:scale-105', TONES[tone].soft)}>
-        <span aria-hidden className="block text-[22px] leading-none">
-          {emoji}
-        </span>
-        <dt className="mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-ink/60">{label}</dt>
-        <dd className="tabular toon-title mt-0.5 truncate text-[18px]" title={value}>
+      <div className="glass-soft min-w-0 rounded-[18px] px-3 py-2.5">
+        <Icon aria-hidden className="size-[19px]" style={{ color }} strokeWidth={2.2} />
+        <dt className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-secondary">{label}</dt>
+        <dd className="tabular mt-0.5 truncate text-[17px] font-semibold tracking-[-0.01em] text-label" title={value}>
           {value ?? <Skeleton className="h-4 w-14" />}
-          {value && unit && <span className="ml-0.5 text-[12px] font-bold text-ink/60">{unit}</span>}
+          {value && unit && <span className="ml-0.5 text-[12px] font-medium text-secondary">{unit}</span>}
         </dd>
       </div>
     </div>
@@ -333,9 +327,7 @@ function QuickStat({
 }
 
 function Badge({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <span className={clsx('toon-sm rounded-full px-2.5 py-0.5 text-[12px] font-bold text-ink', className)}>{children}</span>
-  );
+  return <span className={clsx('rounded-full px-3 py-1 text-[13px] font-semibold', className)}>{children}</span>;
 }
 
 function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
@@ -345,7 +337,7 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="toon-sm toon-press-sm grid size-10 place-items-center rounded-full bg-white text-ink hover:bg-sun"
+      className="ios-press grid size-9 place-items-center rounded-full bg-control text-label hover:bg-control-strong"
     >
       {children}
     </button>

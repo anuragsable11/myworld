@@ -49,7 +49,7 @@ export function Geography({ country, index, factbook, mountains, onSelect }: Cou
           {fb?.area?.land && (
             <>
               {fb.area.land}
-              {fb.area.water && <div className="mt-0.5 text-[12px] text-slate-500">Water: {fb.area.water}</div>}
+              {fb.area.water && <div className="mt-0.5 text-[12px] text-secondary">Water: {fb.area.water}</div>}
             </>
           )}
         </Fact>
@@ -65,7 +65,7 @@ export function Geography({ country, index, factbook, mountains, onSelect }: Cou
               leading={<Flag country={n} className="h-[11px] w-[16px] shrink-0 rounded-[2px]" />}
             >
               {n.name}
-              {lengths.get(n.cca3) ? <span className="tabular ml-1 text-slate-500">{formatInteger(lengths.get(n.cca3)!)} km</span> : null}
+              {lengths.get(n.cca3) ? <span className="tabular ml-1 text-secondary">{formatInteger(lengths.get(n.cca3)!)} km</span> : null}
             </Chip>
           ))}
         </div>
@@ -84,10 +84,10 @@ export function Geography({ country, index, factbook, mountains, onSelect }: Cou
           ].map(([label, point]) =>
             typeof point === 'object' && point ? (
               <div key={label as string} className="min-w-0">
-                <dt className="text-[11px] uppercase tracking-[0.08em] text-slate-400">{label as string}</dt>
-                <dd className="mt-0.5 text-[13.5px] leading-snug text-slate-800">
+                <dt className="text-[11px] uppercase tracking-[0.08em] text-secondary">{label as string}</dt>
+                <dd className="mt-0.5 text-[13.5px] leading-snug text-label">
                   {point.value != null && <span className="tabular block font-medium">{formatInteger(point.value)} m</span>}
-                  <span className="block truncate text-[12px] text-slate-500" title={point.name}>
+                  <span className="block truncate text-[12px] text-secondary" title={point.name}>
                     {point.name}
                   </span>
                 </dd>
@@ -96,8 +96,8 @@ export function Geography({ country, index, factbook, mountains, onSelect }: Cou
           )}
           {fb?.elevation?.mean && (
             <div>
-              <dt className="text-[11px] uppercase tracking-[0.08em] text-slate-400">Mean</dt>
-              <dd className="tabular mt-0.5 text-[13.5px] font-medium text-slate-800">{fb.elevation.mean}</dd>
+              <dt className="text-[11px] uppercase tracking-[0.08em] text-secondary">Mean</dt>
+              <dd className="tabular mt-0.5 text-[13.5px] font-medium text-label">{fb.elevation.mean}</dd>
             </div>
           )}
         </dl>
@@ -119,15 +119,15 @@ export function Geography({ country, index, factbook, mountains, onSelect }: Cou
           )}
           {ranges.length > 0 && (
             <div className={peaks.length ? 'mt-3' : undefined}>
-              <div className="mb-1.5 text-[11.5px] text-slate-400">Mountain ranges</div>
+              <div className="mb-1.5 text-[11.5px] text-secondary">Mountain ranges</div>
               <ChipList items={ranges} />
             </div>
           )}
         </>
       ) : highest?.name ? (
-        <p className="text-[13.5px] text-slate-700">
+        <p className="text-[13.5px] text-label">
           {highest.name}
-          {highest.value != null && <span className="text-slate-500"> · {formatInteger(highest.value)} m (highest point)</span>}
+          {highest.value != null && <span className="text-secondary"> · {formatInteger(highest.value)} m (highest point)</span>}
         </p>
       ) : (
         <Missing>No major mountains recorded.</Missing>

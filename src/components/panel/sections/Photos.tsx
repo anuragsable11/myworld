@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { ArrowUpRight, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ArrowUpRight, Camera, ChevronLeft, ChevronRight, ImageOff, X } from 'lucide-react';
 import { usePhotoCredit, usePhotos, useSymbols } from '../../../hooks/queries';
 import type { PhotoGroup } from '../../../lib/sources/photos';
 import type { SymbolKind } from '../../../lib/sources/symbols';
@@ -93,13 +93,11 @@ export function Photos({ country, wikipedia }: CountryDetails) {
           <div className="grid grid-cols-3 gap-x-2.5 gap-y-3.5">
             {symbolShots.map((s, i) => (
               <button key={s.key} type="button" onClick={() => setViewing({ shots: symbolShots, index: i })} className="group min-w-0 text-left">
-                <div
-                  className="toon-sm rounded-2xl bg-white p-1.5 transition-transform duration-300 group-hover:scale-105"
-                >
-                  <Picture src={s.thumb} className="aspect-square rounded-xl" />
+                <div className="overflow-hidden rounded-[16px] bg-white shadow-[0_0_0_0.5px_rgb(0_0_0/0.08),0_2px_8px_rgb(0_0_0/0.08)] transition-transform duration-300 group-hover:scale-105">
+                  <Picture src={s.thumb} className="aspect-square" />
                 </div>
-                <div className="mt-2 text-[10px] font-bold uppercase leading-tight tracking-wide text-ink/50">{s.tag}</div>
-                <div className="line-clamp-2 text-[13px] font-bold leading-tight text-ink">{s.title}</div>
+                <div className="mt-2 text-[11px] font-semibold uppercase leading-tight tracking-[0.04em] text-secondary">{s.tag}</div>
+                <div className="line-clamp-2 text-[13px] font-medium leading-tight text-label">{s.title}</div>
               </button>
             ))}
           </div>
@@ -118,12 +116,12 @@ export function Photos({ country, wikipedia }: CountryDetails) {
                 aria-pressed={on}
                 onClick={() => setChosen(g.id)}
                 className={clsx(
-                  'shrink-0 rounded-full border-2 border-ink px-3 py-1 text-[12.5px] font-bold text-ink transition-all duration-200',
-                  on ? 'bg-sun shadow-[0_2px_6px_rgba(30,27,75,0.16)]' : 'bg-white hover:bg-indigo-50',
+                  'ios-press shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold',
+                  on ? 'bg-tint text-white' : 'bg-control text-label hover:bg-control-strong',
                 )}
               >
-                {g.emoji} {g.label}
-                <span className="ml-1 text-ink/45">{all.filter((p) => p.group === g.id).length}</span>
+                {g.label}
+                <span className={clsx('ml-1 font-medium', on ? 'text-white/75' : 'text-secondary')}>{all.filter((p) => p.group === g.id).length}</span>
               </button>
             );
           })}
@@ -133,7 +131,7 @@ export function Photos({ country, wikipedia }: CountryDetails) {
       {loadingPhotos ? (
         <div className="mt-2 grid grid-cols-2 gap-3.5">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="aspect-[4/3.6] w-full rounded-lg" />
+            <Skeleton key={i} className="aspect-[4/3.6] w-full rounded-[16px]" />
           ))}
         </div>
       ) : shots.length ? (
@@ -143,14 +141,12 @@ export function Photos({ country, wikipedia }: CountryDetails) {
               key={s.key}
               type="button"
               onClick={() => setViewing({ shots, index: i })}
-              className="relative block w-full animate-pop rounded-lg border-2 border-ink bg-white p-1.5 pb-2 text-left shadow-[0_3px_10px_rgba(30,27,75,0.16)] transition-transform duration-300 hover:z-10 hover:scale-[1.04]"
+              className="relative block w-full animate-pop text-left transition-transform duration-300 hover:z-10 hover:scale-[1.03]"
               style={{ animationDelay: `${i * 45}ms` }}
             >
-              {/* A strip of tape holding the photo on the page */}
-              <span aria-hidden className="absolute -top-2 left-1/2 h-4 w-12 -translate-x-1/2 rounded-sm bg-amber-200/85" />
-              <Picture src={s.thumb} className="aspect-[4/3] rounded-md" />
+              <Picture src={s.thumb} className="aspect-[4/3] rounded-[16px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.08),0_2px_10px_rgb(0_0_0/0.1)]" />
               {s.title ? (
-                <span className="mt-1.5 line-clamp-2 text-[12px] font-bold leading-snug text-slate-600">{s.title}</span>
+                <span className="mt-1.5 line-clamp-2 px-0.5 text-[12px] leading-snug text-secondary">{s.title}</span>
               ) : (
                 <span aria-hidden className="block h-4" />
               )}
@@ -158,8 +154,8 @@ export function Photos({ country, wikipedia }: CountryDetails) {
           ))}
         </div>
       ) : (
-        <p className="text-[13px] font-semibold italic text-slate-400">
-          {nothing ? `No pictures of ${country.name} yet. 📷` : 'No photos found in this country’s article. 📷'}
+        <p className="text-[14px] text-secondary">
+          {nothing ? `No pictures of ${country.name} yet.` : 'No photos found in this country’s article.'}
         </p>
       )}
 
@@ -181,8 +177,8 @@ function Picture({ src, className }: { src: string; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
-      <span aria-hidden className={clsx('grid w-full place-items-center bg-indigo-50 text-[28px]', className)}>
-        📷
+      <span aria-hidden className={clsx('grid w-full place-items-center bg-control text-tertiary', className)}>
+        <ImageOff className="size-7" strokeWidth={1.8} />
       </span>
     );
   }
@@ -195,7 +191,7 @@ function Picture({ src, className }: { src: string; className?: string }) {
       // CORS mode lets the service worker keep a real copy for offline use.
       crossOrigin="anonymous"
       onError={() => setFailed(true)}
-      className={clsx('block w-full bg-indigo-50 object-cover', className)}
+      className={clsx('block w-full bg-control object-cover', className)}
     />
   );
 }
@@ -235,11 +231,11 @@ function PhotoViewer({
         if (e.key === 'ArrowRight') go(1);
         if (e.key === 'ArrowLeft') go(-1);
       }}
-      className="toon-lg m-auto w-[min(94vw,720px)] animate-pop rounded-[28px] bg-paper p-0 text-ink backdrop:bg-indigo-950/50 backdrop:backdrop-blur-sm"
+      className="m-auto w-[min(94vw,720px)] animate-pop rounded-[30px] border-0 bg-white/85 p-0 text-label shadow-[0_24px_70px_rgb(0_0_0/0.3)] backdrop-blur-2xl backdrop-saturate-150 backdrop:bg-black/40 backdrop:backdrop-blur-sm"
     >
       <figure className="p-3 sm:p-4">
         <div
-          className="relative grid min-h-48 touch-pan-y place-items-center overflow-hidden rounded-2xl border-2 border-ink bg-indigo-950"
+          className="relative grid min-h-48 touch-pan-y place-items-center overflow-hidden rounded-[20px] bg-black"
           onPointerDown={(e) => (swipeFrom.current = e.clientX)}
           onPointerUp={(e) => {
             const dx = swipeFrom.current === null ? 0 : e.clientX - swipeFrom.current;
@@ -258,22 +254,22 @@ function PhotoViewer({
           {shots.length > 1 && (
             <>
               <ViewerButton label="Previous photo" onClick={() => go(-1)} className="left-2">
-                <ChevronLeft className="size-5" strokeWidth={2.8} />
+                <ChevronLeft className="size-5" strokeWidth={2.5} />
               </ViewerButton>
               <ViewerButton label="Next photo" onClick={() => go(1)} className="right-2">
-                <ChevronRight className="size-5" strokeWidth={2.8} />
+                <ChevronRight className="size-5" strokeWidth={2.5} />
               </ViewerButton>
-              <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-ink/70 px-2.5 py-0.5 text-[11.5px] font-bold text-white">
+              <span className="absolute bottom-2.5 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-0.5 text-[12px] font-semibold text-white backdrop-blur-md">
                 {index + 1} / {shots.length}
               </span>
             </>
           )}
         </div>
         <figcaption className="px-1 pt-3">
-          {shot.label && <div className="text-[11px] font-bold uppercase tracking-wide text-ink/50">{shot.label}</div>}
-          <p className="text-[15px] font-bold leading-snug">{title}</p>
-          <p className="mt-1.5 text-[12px] font-semibold leading-snug text-slate-500">
-            📷{' '}
+          {shot.label && <div className="text-[12px] font-semibold uppercase tracking-[0.04em] text-secondary">{shot.label}</div>}
+          <p className="text-[17px] font-semibold leading-snug tracking-[-0.01em]">{title}</p>
+          <p className="mt-1.5 text-[13px] leading-snug text-secondary">
+            <Camera aria-hidden className="mr-1 inline size-3.5 -translate-y-px" strokeWidth={2.2} />
             {credit.isLoading ? (
               'Loading photo credit…'
             ) : (
@@ -307,10 +303,10 @@ function PhotoViewer({
               href={shot.article}
               target="_blank"
               rel="noreferrer"
-              className="toon-sm toon-press-sm mt-3 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-[12.5px] font-bold text-ink"
+              className="ios-press mt-3 inline-flex items-center gap-1 rounded-full bg-tint/12 px-3.5 py-1.5 text-[14px] font-semibold text-tint"
             >
               Read about it on Wikipedia
-              <ArrowUpRight className="size-3.5" />
+              <ArrowUpRight className="size-4" strokeWidth={2.3} />
             </a>
           )}
         </figcaption>
@@ -319,9 +315,9 @@ function PhotoViewer({
         type="button"
         onClick={() => ref.current?.close()}
         aria-label="Close"
-        className="toon-sm toon-press-sm absolute right-5 top-5 grid size-10 place-items-center rounded-full bg-white text-ink hover:bg-pink-200 sm:right-6 sm:top-6"
+        className="ios-press absolute right-5 top-5 grid size-9 place-items-center rounded-full bg-black/45 text-white backdrop-blur-md hover:bg-black/60 sm:right-6 sm:top-6"
       >
-        <X className="size-4" strokeWidth={2.8} />
+        <X className="size-[18px]" strokeWidth={2.6} />
       </button>
     </dialog>
   );
@@ -333,7 +329,7 @@ function ViewerButton({ label, onClick, className, children }: { label: string; 
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={clsx('toon-sm toon-press-sm absolute top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-white text-ink hover:bg-sun', className)}
+      className={clsx('ios-press absolute top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-white/75 text-label shadow-[0_2px_10px_rgb(0_0_0/0.2)] backdrop-blur-md hover:bg-white/90', className)}
     >
       {children}
     </button>

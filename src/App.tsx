@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Dices } from 'lucide-react';
 import { isSovereign, useCountryIndex, useWorld } from './hooks/queries';
 import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMediaQuery';
 import { useSafeArea } from './hooks/useSafeArea';
@@ -51,7 +52,8 @@ function readNight(): boolean {
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 
-const card = 'toon-lg overflow-hidden rounded-[30px]';
+/** The big floating cards are frosted glass, as on iOS. */
+const card = 'glass-panel overflow-hidden rounded-[30px]';
 
 export default function App() {
   const countries = useCountryIndex();
@@ -300,9 +302,9 @@ export default function App() {
       searchRef={searchRef}
       autoFocus={drawerOpen}
       header={
-        <div className="flex items-center justify-between pb-1">
-          <Brand />
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-2 pb-1">
+          <Brand large />
+          <div className="-mr-1.5 flex">
             <SoundButton />
             <InfoButton onClick={() => setAboutOpen(true)} />
           </div>
@@ -355,13 +357,13 @@ export default function App() {
       {layout === 'desktop' ? (
         <>
           <aside
-            className={`${card} absolute bottom-4 left-3 top-3 z-20 animate-rise bg-white`}
+            className={`${card} absolute bottom-4 left-3 top-3 z-20 animate-rise`}
             style={{ width: sidebarPx }}
           >
             {sidebar}
           </aside>
           <aside
-            className={`${card} absolute bottom-4 right-4 top-3 z-20 animate-rise bg-paper [animation-delay:90ms]`}
+            className={`${card} absolute bottom-4 right-4 top-3 z-20 animate-rise [animation-delay:90ms]`}
             style={{ width: panelPx }}
           >
             {spinning ? (
@@ -390,7 +392,7 @@ export default function App() {
 
       {layout === 'tablet' && (shownId || spinning) && (
         <aside
-          className={`${card} absolute bottom-4 right-4 z-20 animate-rise bg-paper`}
+          className={`${card} absolute bottom-4 right-4 z-20 animate-rise`}
           style={{ width: TABLET_PANEL_PX, top: topBarBottom + GAP }}
         >
           {spinning ? <SpinningCard /> : panel(shownId)}
@@ -399,13 +401,14 @@ export default function App() {
 
       {layout === 'mobile' && (
         <>
+          {/* As on iOS 26, the sheet runs down behind the floating tab bar, so it peeks that much higher. */}
           <BottomSheet
             open={!!shownId}
             expanded={sheetExpanded}
             onExpandedChange={setSheetExpanded}
             onDismiss={handleClose}
-            peek={peek}
-            bottom={navHeight}
+            peek={peek + navHeight}
+            bottom={0}
           >
             {(handle) => panel(sheetId, handle)}
           </BottomSheet>
@@ -453,12 +456,12 @@ export default function App() {
 function SpinningCard() {
   return (
     <div className="grid h-full place-items-center p-8 text-center" role="status">
-      <div>
-        <div aria-hidden className="inline-block animate-dice-roll text-[64px] leading-none">
-          🎲
-        </div>
-        <p className="toon-title mt-5 text-[24px]">Spinning the globe…</p>
-        <p className="mt-1.5 text-[14px] font-semibold text-slate-500">Where will it land? 🌍</p>
+      <div className="flex flex-col items-center">
+        <span aria-hidden className="grid size-16 place-items-center rounded-[18px] bg-tint text-white shadow-[0_6px_18px_rgb(0_122_255/0.35)]">
+          <Dices className="size-9 animate-dice-roll" strokeWidth={1.8} />
+        </span>
+        <p className="ios-title mt-5 text-[22px]">Spinning the globe…</p>
+        <p className="mt-1 text-[15px] text-secondary">Where will it land?</p>
       </div>
     </div>
   );
