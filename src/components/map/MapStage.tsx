@@ -3,6 +3,8 @@ import clsx from 'clsx';
 import { Dices, Gamepad2, Globe, Loader2, Map as MapIcon, Minus, Moon, Plus, RotateCcw, Sun } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
 import type { World } from '../../lib/geo';
+import { haptics } from '../../lib/haptics';
+import { sounds } from '../../lib/sounds';
 import { ConnectionBadge } from '../layout/ConnectionBadge';
 import { CartoonSky } from './CartoonSky';
 import { FlatMap } from './FlatMap';
@@ -228,7 +230,16 @@ export function MapStage({
           style={{ right: area.right, bottom: area.bottom }}
         >
           <div className="glass flex flex-col overflow-hidden rounded-[18px]">
-            <ControlButton label="Play the flag quiz" title="Flag quiz" onClick={onPlay} disabled={!index}>
+            <ControlButton
+              label="Play the flag quiz"
+              title="Flag quiz"
+              onClick={() => {
+                sounds.tap();
+                haptics.tap();
+                onPlay();
+              }}
+              disabled={!index}
+            >
               <Gamepad2 className="size-[21px]" strokeWidth={2} />
             </ControlButton>
             <ControlButton
@@ -244,13 +255,34 @@ export function MapStage({
             </ControlButton>
           </div>
           <div className="glass flex flex-col overflow-hidden rounded-[18px]">
-            <ControlButton label="Zoom in" onClick={() => mapRef.current?.zoomIn()}>
+            <ControlButton
+              label="Zoom in"
+              onClick={() => {
+                sounds.zoom('in');
+                haptics.tap();
+                mapRef.current?.zoomIn();
+              }}
+            >
               <Plus className="size-[21px]" strokeWidth={2.2} />
             </ControlButton>
-            <ControlButton label="Zoom out" onClick={() => mapRef.current?.zoomOut()}>
+            <ControlButton
+              label="Zoom out"
+              onClick={() => {
+                sounds.zoom('out');
+                haptics.tap();
+                mapRef.current?.zoomOut();
+              }}
+            >
               <Minus className="size-[21px]" strokeWidth={2.2} />
             </ControlButton>
-            <ControlButton label="Reset view" onClick={() => mapRef.current?.reset()}>
+            <ControlButton
+              label="Reset view"
+              onClick={() => {
+                sounds.zoom('out');
+                haptics.tap();
+                mapRef.current?.reset();
+              }}
+            >
               <RotateCcw className="size-[19px]" strokeWidth={2.2} />
             </ControlButton>
           </div>

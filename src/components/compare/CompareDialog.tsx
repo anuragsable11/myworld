@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { ArrowLeftRight, Lightbulb, Search, X } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, useFactbook, type CountryIndex } from '../../hooks/queries';
+import { useChangeSound } from '../../hooks/useChangeSound';
 import { formatShortCount } from '../../lib/format';
 import { haptics } from '../../lib/haptics';
 import { searchCountries } from '../../lib/search';
@@ -73,6 +74,7 @@ export default function CompareDialog({
   onShowCountry: (id: string) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  useChangeSound(open, sounds.open, sounds.close);
   const [left, setLeft] = useState<string | null>(first);
   const [right, setRight] = useState<string | null>(null);
 
@@ -102,7 +104,7 @@ export default function CompareDialog({
                 setLeft(right);
                 setRight(left);
                 haptics.tap();
-                sounds.pop();
+                sounds.morph();
               }}
               aria-label="Swap sides"
               title="Swap sides"
@@ -261,7 +263,14 @@ function Comparison({ a, b, onChange, onShowCountry }: { a: Country; b: Country;
           </button>
         ))}
       </div>
-      <button type="button" onClick={onChange} className="mx-auto block text-[15px] font-semibold text-tint hover:opacity-70">
+      <button
+        type="button"
+        onClick={() => {
+          sounds.tap();
+          onChange();
+        }}
+        className="mx-auto block text-[15px] font-semibold text-tint hover:opacity-70"
+      >
         Pick a Different Country
       </button>
 

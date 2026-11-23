@@ -41,8 +41,9 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
           className="pointer-events-none absolute inset-y-1 left-1 w-[calc((100%-8px)/4)] rounded-full bg-control transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
           style={{ transform: `translateX(${slot * 100}%)` }}
         />
-        <Tab label="Globe" icon={Globe} active={view === 'globe'} onClick={() => onView('globe')} />
-        <Tab label="Map" icon={MapIcon} active={view === 'map'} onClick={() => onView('map')} />
+        {/* Switching views has its own whoosh (and tapping the current one, a zoom out). */}
+        <Tab label="Globe" icon={Globe} active={view === 'globe'} quiet onClick={() => onView('globe')} />
+        <Tab label="Map" icon={MapIcon} active={view === 'map'} quiet onClick={() => onView('map')} />
         <Tab
           label={shuffling ? 'Spinning' : 'Shuffle'}
           icon={Dices}
@@ -57,8 +58,8 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
       <button
         type="button"
         onClick={() => {
+          // The drawer makes its own sound as it slides open.
           haptics.tap();
-          sounds.pop();
           onSearch();
         }}
         aria-label="Search countries"
@@ -96,7 +97,7 @@ function Tab({
       type="button"
       onClick={() => {
         haptics.tap();
-        if (!quiet) sounds.pop();
+        if (!quiet) sounds.tap();
         onClick();
       }}
       disabled={disabled && !spinning}

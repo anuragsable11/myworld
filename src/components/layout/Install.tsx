@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Download, Share, X } from 'lucide-react';
 import { useInstallMode } from '../../hooks/usePwa';
 import { promptInstall, type InstallMode } from '../../lib/pwa';
+import { sounds } from '../../lib/sounds';
 
 const DISMISS_KEY = 'atlas:install-dismissed';
 const DISMISS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -47,7 +48,11 @@ export function InstallButton({ className }: { className?: string }) {
       <button
         type="button"
         aria-expanded={mode === 'prompt' ? undefined : showSteps}
-        onClick={() => (mode === 'prompt' ? void promptInstall() : setShowSteps((s) => !s))}
+        onClick={() => {
+          sounds.tap();
+          if (mode === 'prompt') void promptInstall();
+          else setShowSteps((s) => !s);
+        }}
         className={clsx(
           'ios-press inline-flex items-center gap-2 rounded-full bg-control px-5 py-2.5 text-[16px] font-semibold text-tint hover:bg-control-strong',
           className,
@@ -90,6 +95,7 @@ export function InstallPill() {
   if (dismissed || !canInstall(mode)) return null;
 
   const dismiss = () => {
+    sounds.close();
     setDismissed(true);
     try {
       localStorage.setItem(DISMISS_KEY, String(Date.now()));
@@ -110,7 +116,11 @@ export function InstallPill() {
         <button
           type="button"
           aria-expanded={mode === 'prompt' ? undefined : showSteps}
-          onClick={() => (mode === 'prompt' ? void promptInstall() : setShowSteps((s) => !s))}
+          onClick={() => {
+            sounds.tap();
+            if (mode === 'prompt') void promptInstall();
+            else setShowSteps((s) => !s);
+          }}
           className="ios-press flex items-center gap-1.5 rounded-full bg-tint px-3.5 py-1.5 text-[14px] font-semibold text-white"
         >
           <Download aria-hidden className="size-4" strokeWidth={2.4} />

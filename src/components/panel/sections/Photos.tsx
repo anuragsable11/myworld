@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { ArrowUpRight, Camera, ChevronLeft, ChevronRight, ImageOff, X } from 'lucide-react';
 import { usePhotoCredit, usePhotos, useSymbols } from '../../../hooks/queries';
+import { sounds } from '../../../lib/sounds';
 import type { PhotoGroup } from '../../../lib/sources/photos';
 import type { SymbolKind } from '../../../lib/sources/symbols';
 import { Skeleton, SubHeading } from '../../ui/primitives';
@@ -49,6 +50,11 @@ export function Photos({ country, wikipedia }: CountryDetails) {
   const photos = usePhotos(wikipedia.data?.title);
   const [chosen, setChosen] = useState<PhotoGroup>();
   const [viewing, setViewing] = useState<{ shots: Shot[]; index: number }>();
+  /** Opens the viewer, with a breath of air as it rises. */
+  const view = (next: { shots: Shot[]; index: number }) => {
+    sounds.open();
+    setViewing(next);
+  };
 
   const own = symbols.data?.[country.cca3];
   const symbolShots: Shot[] = SYMBOLS.flatMap(({ kind, label, emoji }) => {
@@ -92,7 +98,7 @@ export function Photos({ country, wikipedia }: CountryDetails) {
           <SubHeading>National symbols</SubHeading>
           <div className="grid grid-cols-3 gap-x-2.5 gap-y-3.5">
             {symbolShots.map((s, i) => (
-              <button key={s.key} type="button" onClick={() => setViewing({ shots: symbolShots, index: i })} className="group min-w-0 text-left">
+              <button key={s.key} type="button" onClick={() => view({ shots: symbolShots, index: i })} className="group min-w-0 text-left">
                 <div className="overflow-hidden rounded-[16px] bg-white shadow-[0_0_0_0.5px_rgb(0_0_0/0.08),0_2px_8px_rgb(0_0_0/0.08)] transition-transform duration-300 group-hover:scale-105">
                   <Picture src={s.thumb} className="aspect-square" />
                 </div>
@@ -114,7 +120,10 @@ export function Photos({ country, wikipedia }: CountryDetails) {
                 key={g.id}
                 type="button"
                 aria-pressed={on}
-                onClick={() => setChosen(g.id)}
+                onClick={() => {
+                  if (!on) sounds.tap();
+                  setChosen(g.id);
+                }}
                 className={clsx(
                   'ios-press shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold',
                   on ? 'bg-tint text-white' : 'bg-control text-label hover:bg-control-strong',
@@ -140,7 +149,7 @@ export function Photos({ country, wikipedia }: CountryDetails) {
             <button
               key={s.key}
               type="button"
-              onClick={() => setViewing({ shots, index: i })}
+              onClick={() => view({ shots, index: i })}
               className="relative block w-full animate-pop text-left transition-transform duration-300 hover:z-10 hover:scale-[1.03]"
               style={{ animationDelay: `${i * 45}ms` }}
             >
@@ -215,7 +224,10 @@ function PhotoViewer({
   const shot = shots[index];
   const title = shot.title || untitled;
   const credit = usePhotoCredit(shot.file);
-  const go = (step: number) => onIndex((index + step + shots.length) % shots.length);
+  const go = (step: number) => {
+    sounds.swipe(step > 0 ? 1 : -1);
+    onIndex((index + step + shots.length) % shots.length);
+  };
 
   useEffect(() => {
     ref.current?.showModal();
@@ -225,7 +237,10 @@ function PhotoViewer({
     <dialog
       ref={ref}
       aria-label={title}
-      onClose={onClose}
+      onClose={() => {
+        sounds.close();
+        onClose();
+      }}
       onClick={(e) => e.target === ref.current && ref.current.close()}
       onKeyDown={(e) => {
         if (e.key === 'ArrowRight') go(1);

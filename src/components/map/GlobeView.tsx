@@ -869,14 +869,20 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       const prev = s.lastRotate;
       s.lastRotate = [...s.rotate];
       if (prev && (s.drag || s.inertia || s.animation?.spin)) {
-        s.turned += Math.hypot(s.rotate[0] - prev[0], s.rotate[1] - prev[1]);
+        const turn = Math.hypot(s.rotate[0] - prev[0], s.rotate[1] - prev[1]);
+        s.turned += turn;
         if (s.turned >= NOTCH_DEGREES && now - s.lastNotch >= NOTCH_MS) {
           s.turned %= NOTCH_DEGREES;
           s.lastNotch = now;
           haptics.notch();
           sounds.tick();
         }
-      } else s.turned = 0;
+        // The air rushing past it, louder and higher the faster it turns.
+        sounds.spin(turn / Math.max(dt, 1));
+      } else {
+        s.turned = 0;
+        sounds.spin(0);
+      }
 
       // Ease the globe toward the centre and size of the unobscured area when cards open and close.
       const [tx, ty] = available().center;

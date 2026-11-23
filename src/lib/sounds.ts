@@ -1,8 +1,10 @@
 /**
- * Cartoon sound effects, synthesised with the Web Audio API: nothing to download or license, and
- * they play on the audio thread, so they never hold up the globe. Browsers only allow sound after a
- * tap, so the audio context starts (or wakes up again) on taps. Sounds can be turned off with the
- * speaker button or in the About dialog.
+ * Sound effects, synthesised with the Web Audio API: nothing to download or license, and they play
+ * on the audio thread, so they never hold up the globe. Every action has its own sound, modelled on
+ * something real (a key, a switch, a pin landing, air rushing past a spinning globe) and varied a
+ * little each time, so repeats never sound mechanical. Browsers only allow sound after a tap, so the
+ * audio context starts (or wakes up again) on taps. Sounds can be turned off with the speaker button
+ * or in the About dialog.
  */
 
 const KEY = 'atlas:sound';
@@ -143,6 +145,8 @@ interface ToneOptions {
   wet?: number;
   /** A low-pass filter closing from one frequency to another: softer, warmer notes. */
   lowpass?: [number, number];
+  /** Where it sits, from left (-1) to right (1). */
+  pan?: number;
 }
 
 function send(c: AudioContext, from: AudioNode, wet: number) {
@@ -153,7 +157,29 @@ function send(c: AudioContext, from: AudioNode, wet: number) {
   amount.connect(reverbBus(c));
 }
 
-function tone(c: AudioContext, { freq, to, type = 'sine', at = 0, attack = 0.005, decay = 0.15, gain = 0.2, wet = 0, lowpass }: ToneOptions) {
+/** Where a voice plays: straight to the output, or through a panner that places it left or right. */
+function out(c: AudioContext, pan = 0): AudioNode {
+  if (!pan || typeof c.createStereoPanner !== 'function') return output!;
+  const panner = c.createStereoPanner();
+  panner.pan.value = Math.max(-1, Math.min(1, pan));
+  panner.connect(output!);
+  return panner;
+}
+
+/** A value nudged up or down by up to `amount` (a share of it), so no two plays are identical. */
+const vary = (value: number, amount: number) => value * (1 + (Math.random() * 2 - 1) * amount);
+
+/** White noise, made once and shared: the raw material of clicks, whooshes and thuds. */
+function noiseBufferFor(c: AudioContext): AudioBuffer {
+  if (!noiseBuffer) {
+    noiseBuffer = c.createBuffer(1, Math.round(c.sampleRate * 1.2), c.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  }
+  return noiseBuffer;
+}
+
+function tone(c: AudioContext, { freq, to, type = 'sine', at = 0, attack = 0.005, decay = 0.15, gain = 0.2, wet = 0, lowpass, pan = 0 }: ToneOptions) {
   const t = c.currentTime + at;
   const osc = c.createOscillator();
   const env = c.createGain();
@@ -174,7 +200,7 @@ function tone(c: AudioContext, { freq, to, type = 'sine', at = 0, attack = 0.005
     last = filter;
   }
   last.connect(env);
-  env.connect(output!);
+  env.connect(out(c, pan));
   send(c, env, wet);
   osc.start(t);
   osc.stop(t + attack + decay + 0.03);
@@ -192,16 +218,12 @@ function noise(
     at = 0,
     kind = 'bandpass',
     wet = 0,
-  }: { duration: number; from: number; to: number; gain: number; q?: number; at?: number; kind?: BiquadFilterType; wet?: number },
+    pan = 0,
+  }: { duration: number; from: number; to: number; gain: number; q?: number; at?: number; kind?: BiquadFilterType; wet?: number; pan?: number },
 ) {
-  if (!noiseBuffer) {
-    noiseBuffer = c.createBuffer(1, Math.round(c.sampleRate * 1.2), c.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-  }
   const t = c.currentTime + at;
   const source = c.createBufferSource();
-  source.buffer = noiseBuffer;
+  source.buffer = noiseBufferFor(c);
   const filter = c.createBiquadFilter();
   filter.type = kind;
   filter.Q.value = q;
@@ -213,10 +235,51 @@ function noise(
   env.gain.exponentialRampToValueAtTime(0.0001, t + duration);
   source.connect(filter);
   filter.connect(env);
-  env.connect(output!);
+  env.connect(out(c, pan));
   send(c, env, wet);
-  source.start(t);
+  // From a random point in the noise, so no two sweeps are quite the same.
+  source.start(t, Math.random() * 0.5);
   source.stop(t + duration + 0.03);
+}
+
+/**
+ * A click: a few milliseconds of noise through a resonant filter, the way a key, a switch or a
+ * ratchet sounds. `freq` sets how bright it is, `q` how woody (higher) or papery (lower).
+ */
+function burst(c: AudioContext, { freq, q = 1, gain, decay = 0.015, at = 0, pan = 0 }: { freq: number; q?: number; gain: number; decay?: number; at?: number; pan?: number }) {
+  const t = c.currentTime + at;
+  const source = c.createBufferSource();
+  source.buffer = noiseBufferFor(c);
+  const filter = c.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = freq;
+  filter.Q.value = q;
+  const env = c.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.exponentialRampToValueAtTime(gain, t + 0.0015);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+  source.connect(filter);
+  filter.connect(env);
+  env.connect(out(c, pan));
+  source.start(t, Math.random() * 1.1);
+  source.stop(t + decay + 0.02);
+}
+
+/**
+ * The air whirring past a spinning globe. It's one looping voice whose loudness and pitch follow
+ * the speed it's given every frame; it fades out on its own soon after the updates stop.
+ */
+let whirr: { source: AudioBufferSourceNode; filter: BiquadFilterNode; level: GainNode; timer: number } | null = null;
+
+function stopWhirr() {
+  if (!whirr || !audio) return;
+  const { source, level, timer } = whirr;
+  whirr = null;
+  window.clearTimeout(timer);
+  const t = audio.currentTime;
+  level.gain.cancelScheduledValues(t);
+  level.gain.setTargetAtTime(0, t, 0.07);
+  source.stop(t + 0.45);
 }
 
 /** Musical notes, in Hz. */
@@ -232,7 +295,7 @@ const NOTE = {
 } as const;
 
 /** A bell: a few inharmonic partials fading at different speeds, ringing in the room. */
-function bell(c: AudioContext, freq: number, { at = 0, decay = 0.6, gain = 0.12, wet = 0.3 } = {}) {
+function bell(c: AudioContext, freq: number, { at = 0, decay = 0.6, gain = 0.12, wet = 0.3, pan = 0 } = {}) {
   (
     [
       [1, 1],
@@ -240,7 +303,7 @@ function bell(c: AudioContext, freq: number, { at = 0, decay = 0.6, gain = 0.12,
       [2.76, 0.16],
       [5.4, 0.05],
     ] as const
-  ).forEach(([ratio, level], i) => tone(c, { freq: freq * ratio, at, attack: 0.003, decay: decay / (1 + i * 0.9), gain: gain * level, wet }));
+  ).forEach(([ratio, level], i) => tone(c, { freq: freq * ratio, at, attack: 0.003, decay: decay / (1 + i * 0.9), gain: gain * level, wet, pan }));
 }
 
 /** A bright, brassy note for fanfares. */
@@ -252,28 +315,160 @@ function horn(c: AudioContext, freq: number, { at = 0, decay = 0.3, gain = 0.07,
 /** The quiz's four answers each have their own note. */
 const ANSWER_NOTES = [NOTE.C5, NOTE.D5, NOTE.E5, NOTE.G5];
 
-/** One click of a prize wheel; the pitch varies a little so a run of them sounds lively. */
+/**
+ * One notch of a turning wheel: a small woody detent, like the wheel of an iPhone date picker. It
+ * varies in pitch and drifts a little left or right, so a run of them sounds like a real ratchet.
+ */
 function click(c: AudioContext, at = 0) {
-  tone(c, { freq: 1500 + Math.random() * 350, to: 950, type: 'triangle', at, attack: 0.002, decay: 0.035, gain: 0.08 });
+  const pan = (Math.random() - 0.5) * 0.4;
+  burst(c, { freq: vary(2400, 0.15), q: 3, gain: 0.34, decay: 0.016, at, pan });
+  tone(c, { freq: vary(1150, 0.1), to: 820, type: 'triangle', at, attack: 0.001, decay: 0.024, gain: 0.075, pan });
 }
 
 export const sounds = {
-  /** A soft pop for buttons and tabs. */
-  pop() {
+  /** A soft click for buttons, tabs and chips, like a key on the iPhone's keyboard. */
+  tap() {
     const c = ready(true);
-    if (c) tone(c, { freq: 430, to: 860, decay: 0.08, gain: 0.16 });
+    if (!c) return;
+    burst(c, { freq: vary(3400, 0.08), q: 1.1, gain: 0.28, decay: 0.022 });
+    tone(c, { freq: vary(190, 0.05), to: 110, attack: 0.002, decay: 0.04, gain: 0.11 });
   },
-  /** Choosing a country: a bright two-note boop. */
+  /** The same click, under its old name. */
+  pop() {
+    sounds.tap();
+  },
+  /** A switch flicking on (it snaps up) or off (it snaps down). */
+  toggle(on: boolean) {
+    const c = ready(true);
+    if (!c) return;
+    burst(c, { freq: on ? 2600 : 3200, q: 1.4, gain: 0.08, decay: 0.018 });
+    burst(c, { freq: on ? 4200 : 2100, q: 1.6, gain: 0.1, decay: 0.022, at: 0.045 });
+    tone(c, { freq: on ? 620 : 520, to: on ? 880 : 380, at: 0.04, attack: 0.003, decay: 0.07, gain: 0.04 });
+  },
+  /** A key on the keyboard while searching; deleting sounds a little deeper. */
+  key(kind: 'char' | 'delete' = 'char') {
+    const c = ready(true);
+    if (!c) return;
+    const del = kind === 'delete';
+    burst(c, { freq: vary(del ? 2200 : 3000, 0.12), q: 0.9, gain: del ? 0.32 : 0.3, decay: del ? 0.028 : 0.022, pan: (Math.random() - 0.5) * 0.3 });
+    tone(c, { freq: vary(del ? 900 : 1500, 0.06), attack: 0.001, decay: 0.018, gain: 0.05 });
+  },
+  /** A sheet, drawer or dialog sliding open: a breath of air rising. */
+  open() {
+    const c = ready(true);
+    if (!c) return;
+    noise(c, { duration: 0.26, from: 320, to: 2000, gain: 0.12, q: 0.9 });
+    burst(c, { freq: 1800, q: 1, gain: 0.05, decay: 0.02 });
+  },
+  /** …and sliding away again. */
+  close() {
+    const c = ready(true);
+    if (c) noise(c, { duration: 0.24, from: 1900, to: 300, gain: 0.1, q: 0.9 });
+  },
+  /** Flicking to the next (1) or previous (-1) photo. */
+  swipe(direction: 1 | -1 = 1) {
+    const c = ready(true);
+    if (c) noise(c, { duration: 0.16, from: 900, to: 3200, gain: 0.1, q: 1.5, pan: direction * 0.35 });
+  },
+  /** Zooming in (the air rises) or out (it falls). */
+  zoom(direction: 'in' | 'out') {
+    const c = ready(true);
+    if (!c) return;
+    const up = direction === 'in';
+    noise(c, { duration: 0.2, from: up ? 500 : 2600, to: up ? 2600 : 500, gain: 0.1, q: 1.3 });
+    tone(c, { freq: up ? 520 : 780, to: up ? 780 : 520, attack: 0.01, decay: 0.12, gain: 0.045 });
+  },
+  /** Switching between the globe and the flat map: a broad whoosh with a soft rising note. */
+  morph() {
+    const c = ready(true);
+    if (!c) return;
+    burst(c, { freq: 2800, q: 1, gain: 0.05, decay: 0.02 });
+    noise(c, { duration: 0.42, from: 250, to: 2400, gain: 0.08, q: 0.6, wet: 0.15 });
+    tone(c, { freq: 392, to: 523.25, at: 0.08, attack: 0.04, decay: 0.3, gain: 0.025, wet: 0.3 });
+  },
+  /** Choosing a country: a wooden tock and a small glass ping. */
   select() {
     const c = ready(true);
     if (!c) return;
-    tone(c, { freq: 660, type: 'triangle', decay: 0.09, gain: 0.14 });
-    tone(c, { freq: 990, type: 'triangle', at: 0.07, decay: 0.15, gain: 0.14 });
+    burst(c, { freq: 1300, q: 2.2, gain: 0.14, decay: 0.03 });
+    tone(c, { freq: 480, to: 420, attack: 0.002, decay: 0.07, gain: 0.12 });
+    tone(c, { freq: vary(1760, 0.01), at: 0.02, attack: 0.003, decay: 0.45, gain: 0.075, wet: 0.3 });
+    tone(c, { freq: 2637, at: 0.02, attack: 0.002, decay: 0.18, gain: 0.028, wet: 0.3 });
+  },
+  /** The map pin landing: a soft thud, or a lighter one for its little bounce. */
+  drop(light = false) {
+    const c = ready(false);
+    if (!c) return;
+    tone(c, { freq: light ? 240 : 170, to: light ? 140 : 65, attack: 0.002, decay: light ? 0.06 : 0.14, gain: light ? 0.07 : 0.17 });
+    burst(c, { freq: light ? 1400 : 900, q: 1.2, gain: light ? 0.025 : 0.05, decay: 0.03 });
   },
   /** One notch of the globe turning under a finger or in a shuffle. */
   tick() {
     const c = ready(false);
     if (c) click(c);
+  },
+  /**
+   * The globe's whirr: call it every frame while the globe turns, with its speed in degrees per
+   * millisecond. Slow turns stay silent; a hard flick rushes like wind.
+   */
+  spin(speed: number) {
+    const amount = Math.min(1, Math.max(0, (speed - 0.05) / 1.1));
+    if (amount <= 0) {
+      // Let a running whirr fade; the timer stops it once the globe has settled.
+      if (whirr && audio) whirr.level.gain.setTargetAtTime(0, audio.currentTime, 0.08);
+      return;
+    }
+    const c = ready(false);
+    if (!c) return;
+    if (!whirr) {
+      const source = c.createBufferSource();
+      source.buffer = noiseBufferFor(c);
+      source.loop = true;
+      const filter = c.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.Q.value = 0.8;
+      const level = c.createGain();
+      level.gain.value = 0;
+      source.connect(filter);
+      filter.connect(level);
+      level.connect(output!);
+      source.start();
+      whirr = { source, filter, level, timer: 0 };
+    }
+    const t = c.currentTime;
+    // Squared, so gentle turns stay a whisper and only real flicks rush.
+    whirr.level.gain.cancelScheduledValues(t);
+    whirr.level.gain.setTargetAtTime(0.004 + amount * amount * 0.07, t, 0.06);
+    whirr.filter.frequency.cancelScheduledValues(t);
+    whirr.filter.frequency.setTargetAtTime(260 + amount * 1100, t, 0.08);
+    window.clearTimeout(whirr.timer);
+    whirr.timer = window.setTimeout(stopWhirr, 220);
+  },
+  /** A country opened for the very first time: a sparkling, rising arpeggio. */
+  discover() {
+    const c = ready(false);
+    if (!c) return;
+    [NOTE.C6, NOTE.E6, NOTE.G6, NOTE.C7].forEach((f, i) => bell(c, f, { at: i * 0.065, decay: 0.5, gain: 0.07, wet: 0.45 }));
+    for (let i = 0; i < 7; i++) {
+      tone(c, { freq: 3000 + Math.random() * 2500, at: 0.2 + i * 0.035, attack: 0.002, decay: 0.08, gain: 0.018, wet: 0.6, pan: (Math.random() - 0.5) * 0.8 });
+    }
+    [NOTE.C5, NOTE.G5].forEach((f) => tone(c, { freq: f, type: 'triangle', at: 0.26, attack: 0.05, decay: 0.9, gain: 0.03, wet: 0.6 }));
+  },
+  /** A milestone of countries explored: a short trophy fanfare and a cascade of bells. */
+  milestone() {
+    const c = ready(false);
+    if (!c) return;
+    const tune = [
+      [NOTE.G5, 0, 0.12],
+      [NOTE.C6, 0.12, 0.12],
+      [NOTE.E6, 0.24, 0.12],
+      [NOTE.G6, 0.38, 0.7],
+    ] as const;
+    for (const [f, at, decay] of tune) {
+      horn(c, f, { at, decay, gain: 0.06 });
+      bell(c, f, { at, decay: decay + 0.2, gain: 0.05 });
+    }
+    for (let i = 0; i < 8; i++) bell(c, NOTE.C6 * Math.pow(2, i / 7), { at: 0.5 + i * 0.05, decay: 0.25, gain: 0.035, wet: 0.6, pan: (i / 7 - 0.5) * 0.8 });
   },
   /** A shuffle setting off. */
   whoosh() {

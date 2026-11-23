@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Check, Flame, Lightbulb, Share, Star, Target, Timer, Trophy, X, Zap } from 'lucide-react';
 import type { Country } from '../../types';
 import { costumeFor } from '../../data/costumes';
+import { useChangeSound } from '../../hooks/useChangeSound';
 import { formatShortCount } from '../../lib/format';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
@@ -109,6 +110,9 @@ export default function FlagQuiz({
   const [bestStreak, setBestStreak] = useState(0);
   const [line, setLine] = useState('');
   const [confirmQuit, setConfirmQuit] = useState(false);
+  // The quit sheet rising and falling, and the whole quiz sliding away (its opening has its own fanfare).
+  useChangeSound(confirmQuit, sounds.open, sounds.close);
+  useChangeSound(open, () => {}, sounds.close);
   /** Played again from the results, rather than just opened: no slide-up then. */
   const [replay, setReplay] = useState(false);
   /** The answered question is sliding away. */

@@ -1,6 +1,12 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Country } from '../../types';
+import { haptics } from '../../lib/haptics';
+import { sounds } from '../../lib/sounds';
 import type { PinHandle } from './types';
+
+/** When the drop animation (900 ms) touches down: first at 45%, then after its little bounce at 82%. */
+const TOUCHDOWN_MS = 405;
+const BOUNCE_MS = 738;
 
 /**
  * Map marker carrying the selected country's flag, in the style of Apple Maps: a white disc with a
@@ -27,6 +33,19 @@ export const MapPin = forwardRef<PinHandle, { country: Country; landingMs?: numb
     }),
     [],
   );
+
+  // The thud of it landing, and a lighter one as it settles.
+  useEffect(() => {
+    const land = window.setTimeout(() => {
+      sounds.drop();
+      haptics.drop();
+    }, landingMs + TOUCHDOWN_MS);
+    const settle = window.setTimeout(() => sounds.drop(true), landingMs + BOUNCE_MS);
+    return () => {
+      window.clearTimeout(land);
+      window.clearTimeout(settle);
+    };
+  }, [landingMs]);
 
   return (
     <div ref={el} aria-hidden className="pointer-events-none absolute left-0 top-0 z-[5] opacity-0 transition-opacity duration-200">

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
+import { sounds } from '../../lib/sounds';
 import { TONES, type Tone } from './tones';
 
 export function Skeleton({ className }: { className?: string }) {
@@ -53,7 +54,10 @@ export function ChipList({ items, limit = 18 }: { items: string[]; limit?: numbe
       {items.length > limit && (
         <button
           type="button"
-          onClick={() => setAll((v) => !v)}
+          onClick={() => {
+            sounds.tap();
+            setAll((v) => !v);
+          }}
           className="rounded-full px-2.5 py-1 text-[13px] font-semibold text-tint hover:opacity-70"
         >
           {all ? 'Show less' : `+${items.length - limit} more`}
@@ -86,7 +90,10 @@ export function ExpandableText({ text, lines = 4 }: { text: string; lines?: numb
       {(overflows || open) && (
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            sounds.tap();
+            setOpen((v) => !v);
+          }}
           className="mt-1.5 text-[14px] font-semibold text-tint hover:opacity-70"
         >
           {open ? 'Show less' : 'Read more'}

@@ -65,7 +65,15 @@ function BarButton({
 
 export function InfoButton({ onClick }: { onClick: () => void }) {
   return (
-    <BarButton label="About this atlas and its data sources" title="About" onClick={onClick}>
+    <BarButton
+      label="About this atlas and its data sources"
+      title="About"
+      // The dialog makes its own sound as it opens.
+      onClick={() => {
+        haptics.tap();
+        onClick();
+      }}
+    >
       <Info className="size-[21px]" strokeWidth={2} />
     </BarButton>
   );
@@ -80,8 +88,11 @@ export function SoundButton() {
       title={on ? 'Mute sound effects' : 'Turn sound effects on'}
       pressed={on}
       onClick={() => {
+        // The switch is heard either way: before muting, or once sound is back on.
+        haptics.toggle();
+        if (on) sounds.toggle(false);
         setSoundEnabled(!on);
-        if (!on) sounds.pop();
+        if (!on) sounds.toggle(true);
       }}
     >
       {on ? <Volume2 className="size-[21px]" strokeWidth={2} /> : <VolumeX className="size-[21px]" strokeWidth={2} />}
@@ -97,11 +108,8 @@ export function NightButton({ on, onClick }: { on: boolean; onClick: () => void 
       title={on ? 'Hide live day & night' : 'Show live day & night'}
       pressed={on}
       active={on}
-      onClick={() => {
-        haptics.tap();
-        sounds.pop();
-        onClick();
-      }}
+      // Toggling night makes its own switch sound and tap.
+      onClick={onClick}
     >
       {on ? <Moon className="size-[20px]" strokeWidth={2} /> : <Sun className="size-[21px]" strokeWidth={2} />}
     </BarButton>
@@ -129,7 +137,13 @@ export function TopBar({
       style={{ top: 'max(10px, env(safe-area-inset-top))' }}
     >
       {onOpenSearch && (
-        <BarButton label="Search countries" onClick={onOpenSearch}>
+        <BarButton
+          label="Search countries"
+          onClick={() => {
+            haptics.tap();
+            onOpenSearch();
+          }}
+        >
           <Search className="size-[20px] text-tint" strokeWidth={2.2} />
         </BarButton>
       )}

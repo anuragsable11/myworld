@@ -1,6 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { ArrowUpRight, X } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
+import { useChangeSound } from '../../hooks/useChangeSound';
 import { haptics, hapticsEnabled, hapticsSupported, setHapticsEnabled, subscribeHaptics } from '../../lib/haptics';
 import { setSoundEnabled, soundEnabled, sounds, subscribeSound } from '../../lib/sounds';
 import { InstallCard } from './Install';
@@ -46,6 +47,7 @@ const SOURCES = [
 
 export function AboutDialog({ open, onClose, index }: { open: boolean; onClose: () => void; index: CountryIndex | undefined }) {
   const ref = useRef<HTMLDialogElement>(null);
+  useChangeSound(open, sounds.open, sounds.close);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -138,8 +140,10 @@ function SoundSetting() {
       detail="Clicks as the globe turns, a whoosh and a chime when you shuffle, pops on buttons."
       on={on}
       onChange={(next) => {
+        // The switch is heard either way: before muting, or once sound is back on.
+        if (!next) sounds.toggle(false);
         setSoundEnabled(next);
-        if (next) sounds.pop();
+        if (next) sounds.toggle(true);
       }}
     />
   );
@@ -155,6 +159,7 @@ function VibrationSetting() {
       detail="A tick as the globe turns under your finger or spins, and a bump when it lands."
       on={on}
       onChange={(next) => {
+        sounds.toggle(next);
         setHapticsEnabled(next);
         if (next) haptics.select();
       }}

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import clsx from 'clsx';
+import { useChangeSound } from '../../hooks/useChangeSound';
 import { useCloseWatcher } from '../../hooks/useCloseWatcher';
 import { haptics } from '../../lib/haptics';
+import { sounds } from '../../lib/sounds';
 
 export const SHEET_PEEK_PX = 300;
 
@@ -70,6 +72,7 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: ()
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useCloseWatcher(open, onClose);
+  useChangeSound(open, sounds.open, sounds.close);
 
   // Once it has slid away, its contents stop rendering (content-visibility: hidden), which also takes
   // them out of the tab order and the accessibility tree. Unlike `inert`, `visibility` or
@@ -334,6 +337,12 @@ export function BottomSheet({
   /** After a mouse drag the browser still sends a click; it isn't a tap. */
   const ignoreClickUntil = useRef(0);
   useCloseWatcher(open && expanded, () => onExpandedChange(false));
+  // Pulling the sheet up or letting it down is heard (closing the profile has its own sound).
+  useChangeSound(
+    expanded,
+    () => open && sounds.open(),
+    () => open && sounds.close(),
+  );
 
   // Slide in from below on open; slide out before unmounting on close.
   useEffect(() => {

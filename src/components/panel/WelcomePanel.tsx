@@ -1,9 +1,12 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { ChevronRight, Coins, Dices, Flag as FlagIcon, Languages, TreePalm, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Coins, Dices, Flag as FlagIcon, Languages, Map as MapIcon, TreePalm, type LucideIcon } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, type CountryIndex } from '../../hooks/queries';
+import { discovered, MILESTONES, subscribeDiscoveries } from '../../lib/discoveries';
 import { formatArea, formatInteger, formatPopulation } from '../../lib/format';
+import { haptics } from '../../lib/haptics';
+import { sounds } from '../../lib/sounds';
 import { Mascot } from '../game/Mascot';
 import { InstallButton } from '../layout/Install';
 import { Flag } from '../ui/Flag';
@@ -59,7 +62,11 @@ export function WelcomePanel({
 
       <button
         type="button"
-        onClick={onPlay}
+        onClick={() => {
+          sounds.tap();
+          haptics.tap();
+          onPlay();
+        }}
         disabled={!facts}
         className="glass-soft ios-press mt-6 flex w-full animate-rise items-center gap-3 rounded-[24px] p-3 pr-4 text-left disabled:opacity-50 [animation-delay:160ms]"
       >
@@ -70,6 +77,8 @@ export function WelcomePanel({
         </span>
         <span className="shrink-0 rounded-full bg-tint px-4 py-1.5 text-[14px] font-semibold text-white">Play</span>
       </button>
+
+      {index && <ExploredCard total={index.sorted.length} />}
 
       {facts ? (
         <>
@@ -154,6 +163,42 @@ export function WelcomePanel({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** How much of the world has been explored, and how far it is to the next milestone. */
+function ExploredCard({ total }: { total: number }) {
+  const explored = useSyncExternalStore(subscribeDiscoveries, discovered).size;
+  const next = MILESTONES.find((m) => m > explored && m < total) ?? total;
+  return (
+    <div className="glass-soft mt-3 animate-rise rounded-[24px] p-4 [animation-delay:200ms]">
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden className="grid size-[30px] shrink-0 place-items-center rounded-[8px] bg-tint text-white">
+          <MapIcon className="size-[18px]" strokeWidth={2.2} />
+        </span>
+        <span className="flex-1 text-[17px] font-semibold tracking-[-0.01em] text-label">Your world map</span>
+        <span className="tabular text-[15px] font-semibold text-tint">
+          {explored} / {total}
+        </span>
+      </div>
+      <div
+        className="mt-3 h-2 overflow-hidden rounded-full bg-control"
+        role="progressbar"
+        aria-label="Countries explored"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={explored}
+      >
+        <div className="h-full rounded-full bg-tint transition-[width] duration-700 ease-out" style={{ width: `${(explored / total) * 100}%` }} />
+      </div>
+      <p className="mt-2 text-[13px] text-secondary">
+        {explored === 0
+          ? 'Open any country to start filling in your map.'
+          : explored >= total
+            ? 'You have explored every country. Amazing!'
+            : `${next - explored} more to reach ${next === total ? 'the whole world' : next}.`}
+      </p>
     </div>
   );
 }

@@ -74,6 +74,14 @@ function buzz(pattern: number | number[]) {
 export const haptics = {
   /** A light tick for buttons and tabs. */
   tap: () => buzz(8),
+  /** A switch flicking. */
+  toggle: () => buzz(12),
+  /** The map pin landing on its country. */
+  drop: () => buzz(18),
+  /** A country opened for the very first time: a happy little flutter. */
+  discover: () => buzz([16, 40, 16, 40, 50]),
+  /** A milestone of countries explored. */
+  milestone: () => buzz([30, 50, 30, 50, 30, 50, 180]),
   /** Choosing a country. */
   select: () => buzz(14),
   /** One notch of the globe turning, under a finger or in a shuffle. */

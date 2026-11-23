@@ -1,6 +1,8 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import clsx from 'clsx';
+import { CircleCheck } from 'lucide-react';
 import type { Country } from '../../types';
+import { discovered, subscribeDiscoveries } from '../../lib/discoveries';
 import { groupLetter } from '../../lib/format';
 import { scrollWithin } from '../../lib/scroll';
 import { isSovereign } from '../../hooks/queries';
@@ -26,6 +28,7 @@ export const CountryList = memo(function CountryList({
   emptyMessage,
 }: CountryListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const explored = useSyncExternalStore(subscribeDiscoveries, discovered);
 
   const groups = useMemo(() => {
     if (!grouped) return [{ letter: '', items: countries }];
@@ -85,8 +88,17 @@ export const CountryList = memo(function CountryList({
                   >
                     <Flag country={c} className="h-[20px] w-[30px] shrink-0 rounded-[4px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.15)]" />
                     <span className="min-w-0 flex-1">
-                      <span className={clsx('block truncate text-[15px] font-medium tracking-[-0.01em]', selected ? 'text-white' : 'text-label')}>
-                        {c.name}
+                      <span className="flex min-w-0 items-center gap-1">
+                        <span className={clsx('truncate text-[15px] font-medium tracking-[-0.01em]', selected ? 'text-white' : 'text-label')}>
+                          {c.name}
+                        </span>
+                        {/* Ticked once opened: a collection to fill in. */}
+                        {explored.has(c.cca3) && (
+                          <>
+                            <CircleCheck aria-hidden className={clsx('size-3.5 shrink-0', selected ? 'text-white/90' : 'text-tint')} strokeWidth={2.4} />
+                            <span className="sr-only">, explored</span>
+                          </>
+                        )}
                       </span>
                       <span className={clsx('block truncate text-[13px]', selected ? 'text-white/80' : 'text-secondary')}>
                         {c.capitals[0]?.name ?? c.subregion ?? c.region}

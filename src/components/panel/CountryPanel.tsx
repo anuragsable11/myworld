@@ -4,7 +4,9 @@ import { ArrowLeftRight, Crosshair, Landmark, Ruler, Users, X, type LucideIcon }
 import type { Country } from '../../types';
 import { isSovereign, useFactbook, useMountains, useWikidata, useWikipedia, useWorldBank, type CountryIndex } from '../../hooks/queries';
 import { formatShortCount } from '../../lib/format';
+import { haptics } from '../../lib/haptics';
 import { scrollWithin } from '../../lib/scroll';
+import { sounds } from '../../lib/sounds';
 import { Flag } from '../ui/Flag';
 import { Skeleton } from '../ui/primitives';
 import type { CountryDetails } from './details';
@@ -159,7 +161,13 @@ const CountryProfile = memo(function CountryProfile({
             />
           </div>
           <div className="flex gap-2">
-            <IconButton label="Show on map" onClick={onLocate}>
+            <IconButton
+              label="Show on map"
+              onClick={() => {
+                sounds.zoom('in');
+                onLocate();
+              }}
+            >
               <Crosshair className="size-[18px]" strokeWidth={2.3} />
             </IconButton>
             <IconButton label="Close" onClick={onClose}>
@@ -177,7 +185,11 @@ const CountryProfile = memo(function CountryProfile({
           <Badge className="bg-control font-mono text-label">{country.cca3}</Badge>
           <button
             type="button"
-            onClick={() => onCompare(country.cca3)}
+            onClick={() => {
+              // Compare makes its own sound as it slides open.
+              haptics.tap();
+              onCompare(country.cca3);
+            }}
             title={`Compare ${country.name} with another country`}
             className="ios-press inline-flex items-center gap-1 rounded-full bg-tint px-3 py-1 text-[13px] font-semibold text-white"
           >
@@ -278,6 +290,10 @@ function SectionNav({ scrollRef }: { scrollRef: RefObject<HTMLDivElement | null>
           type="button"
           data-target={id}
           onClick={() => {
+            if (active !== id) {
+              sounds.tap();
+              haptics.tap();
+            }
             setActive(id);
             holding.current = true;
             const root = scrollRef.current;
@@ -334,7 +350,10 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        haptics.tap();
+        onClick();
+      }}
       title={label}
       aria-label={label}
       className="ios-press grid size-9 place-items-center rounded-full bg-control text-label hover:bg-control-strong"

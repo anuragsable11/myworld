@@ -4,10 +4,12 @@ import { isSovereign, useCountryIndex, useWorld } from './hooks/queries';
 import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMediaQuery';
 import { useSafeArea } from './hooks/useSafeArea';
 import { useSelection } from './hooks/useSelection';
+import { discover, MILESTONES } from './lib/discoveries';
 import { haptics } from './lib/haptics';
 import { sounds } from './lib/sounds';
 import { AboutDialog } from './components/layout/AboutDialog';
 import { BottomNav } from './components/layout/BottomNav';
+import { DiscoveryToast, type Discovery } from './components/layout/DiscoveryToast';
 import { Brand, InfoButton, SoundButton, TopBar } from './components/layout/Header';
 import { InstallPill } from './components/layout/Install';
 import { UpdateToast } from './components/layout/UpdateToast';
@@ -101,25 +103,30 @@ export default function App() {
   const sidebarPx = wide ? 320 : 292;
   const panelPx = wide ? 420 : 380;
 
-  const changeView = useCallback((next: ViewMode) => {
-    setView(next);
-    try {
-      localStorage.setItem(VIEW_KEY, next);
-    } catch {
-      // Preference simply isn't remembered.
-    }
-  }, []);
-
-  const toggleNight = useCallback(() => {
-    setShowNight((on) => {
+  const changeView = useCallback(
+    (next: ViewMode) => {
+      if (next !== view) sounds.morph();
+      setView(next);
       try {
-        localStorage.setItem(NIGHT_KEY, on ? 'off' : 'on');
+        localStorage.setItem(VIEW_KEY, next);
       } catch {
         // Preference simply isn't remembered.
       }
-      return !on;
-    });
-  }, []);
+    },
+    [view],
+  );
+
+  const toggleNight = useCallback(() => {
+    const next = !showNight;
+    sounds.toggle(next);
+    haptics.toggle();
+    setShowNight(next);
+    try {
+      localStorage.setItem(NIGHT_KEY, next ? 'on' : 'off');
+    } catch {
+      // Preference simply isn't remembered.
+    }
+  }, [showNight]);
 
   const show = useCallback(
     (id: string) => {
@@ -145,6 +152,7 @@ export default function App() {
   );
   const handleClose = useCallback(() => {
     stopSpin();
+    sounds.close();
     select(null);
   }, [select, stopSpin]);
   /** Flies to a random sovereign state, the globe taking an extra turn on the way. */
@@ -164,8 +172,10 @@ export default function App() {
   /** Tapping the view that's already showing recentres it, as tapping an app's current tab does. */
   const handleNavView = useCallback(
     (next: ViewMode) => {
-      if (next === view) setResetNonce((n) => n + 1);
-      else changeView(next);
+      if (next === view) {
+        sounds.zoom('out');
+        setResetNonce((n) => n + 1);
+      } else changeView(next);
     },
     [view, changeView],
   );
@@ -223,6 +233,33 @@ export default function App() {
   useEffect(() => {
     document.title = selected ? `${selected.name} — World Atlas` : 'World Atlas — Countries Explorer';
   }, [selected]);
+
+  // The first visit to each country is a small celebration, and milestones a bigger one. The visit
+  // waits in a ref, so the celebration survives React running this effect twice in development.
+  const [discovery, setDiscovery] = useState<Discovery | null>(null);
+  const pendingDiscovery = useRef<{ id: string; count: number } | null>(null);
+  useEffect(() => {
+    if (!shownId || !index?.byId.has(shownId)) return;
+    const visit = discover(shownId);
+    if (visit.first) pendingDiscovery.current = { id: shownId, count: visit.count };
+    const pending = pendingDiscovery.current;
+    if (pending?.id !== shownId) return;
+    // After the select sound and the pin landing, so the moments don't pile up.
+    const timer = window.setTimeout(() => {
+      pendingDiscovery.current = null;
+      const total = index.sorted.length;
+      const milestone = MILESTONES.includes(pending.count) || pending.count >= total;
+      if (milestone) {
+        sounds.milestone();
+        haptics.milestone();
+      } else {
+        sounds.discover();
+        haptics.discover();
+      }
+      setDiscovery({ key: Date.now(), name: index.byId.get(pending.id)?.name ?? pending.id, count: pending.count, total, milestone });
+    }, 1300);
+    return () => window.clearTimeout(timer);
+  }, [shownId, index]);
 
   useEffect(() => {
     if (layout === 'desktop') setDrawerOpen(false);
@@ -437,6 +474,11 @@ export default function App() {
         <GestureHint ready={!!world.data && !selectedId && !spinning && !drawerOpen && !quizOpen} view={view} top={topBarBottom + 12} />
       )}
       <UpdateToast top={layout === 'desktop' ? 16 : topBarBottom + 10} />
+      {/* Centred over the map; on desktop below the globe/map switch */}
+      <DiscoveryToast
+        discovery={discovery}
+        style={layout === 'desktop' ? { top: 68, left: insets.left, right: insets.right } : { top: topBarBottom + 12, left: 0, right: 0 }}
+      />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} index={index} />
       {quizMounted && index && (
         <Suspense fallback={null}>

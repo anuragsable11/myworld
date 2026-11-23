@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import clsx from 'clsx';
-import { Search, X } from 'lucide-react';
+import { CircleCheck, Search, X } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, type CountryIndex } from '../../hooks/queries';
+import { discovered, subscribeDiscoveries } from '../../lib/discoveries';
+import { haptics } from '../../lib/haptics';
 import { searchCountries } from '../../lib/search';
+import { sounds } from '../../lib/sounds';
 import { CountryList } from './CountryList';
 
 export type Scope = 'all' | 'sovereign' | 'territories';
@@ -51,7 +54,14 @@ export function Sidebar({
 }: SidebarProps) {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
+  const explored = useSyncExternalStore(subscribeDiscoveries, discovered).size;
   const listId = 'country-results';
+  /** A choice that changes something clicks, with a tap under the finger. */
+  const click = (changes: boolean) => {
+    if (!changes) return;
+    sounds.tap();
+    haptics.tap();
+  };
 
   const scoped = useMemo(() => filterCountries(index?.sorted ?? [], scope, region), [index, scope, region]);
   const results = useMemo(() => searchCountries(scoped, query), [scoped, query]);
@@ -96,7 +106,12 @@ export function Sidebar({
             ref={searchRef}
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              // Every key is heard, as on a phone keyboard; deleting a little deeper.
+              const next = e.target.value;
+              sounds.key(next.length < query.length ? 'delete' : 'char');
+              setQuery(next);
+            }}
             onKeyDown={onKeyDown}
             placeholder="Search countries, capitals…"
             aria-label="Search countries"
@@ -114,6 +129,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => {
+                sounds.key('delete');
                 setQuery('');
                 searchRef.current?.focus();
               }}
@@ -148,7 +164,10 @@ export function Sidebar({
               type="button"
               role="radio"
               aria-checked={scope === value}
-              onClick={() => onScopeChange(value)}
+              onClick={() => {
+                click(scope !== value);
+                onScopeChange(value);
+              }}
               className={clsx(
                 'relative flex items-baseline justify-center gap-1 whitespace-nowrap rounded-[8px] px-1 py-[5px] text-label transition-colors',
                 scope === value ? 'font-semibold' : 'font-medium hover:text-secondary',
@@ -166,7 +185,10 @@ export function Sidebar({
               key={r ?? 'all'}
               type="button"
               aria-pressed={region === r}
-              onClick={() => onRegionChange(r)}
+              onClick={() => {
+                click(region !== r);
+                onRegionChange(r);
+              }}
               className={clsx(
                 'ios-press shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold',
                 region === r ? 'bg-tint text-white shadow-[0_2px_8px_rgb(0_122_255/0.28)]' : 'bg-control text-label hover:bg-control-strong',
@@ -202,10 +224,17 @@ export function Sidebar({
       </div>
 
       {index && (
-        <div className="border-t border-hairline px-4 py-2.5 text-center text-[12px] text-secondary">
-          {query || region || scope !== 'all'
-            ? `${results.length} of ${index.sorted.length} shown`
-            : `${index.sovereignCount} sovereign states · ${index.sorted.length - index.sovereignCount} territories`}
+        <div className="flex flex-col items-center gap-0.5 border-t border-hairline px-4 py-2 text-[12px] text-secondary">
+          <span>
+            {query || region || scope !== 'all'
+              ? `${results.length} of ${index.sorted.length} shown`
+              : `${index.sovereignCount} sovereign states · ${index.sorted.length - index.sovereignCount} territories`}
+          </span>
+          {/* How much of the world has been explored: every country opened counts. */}
+          <span className="tabular flex items-center gap-1 font-semibold text-tint">
+            <CircleCheck aria-hidden className="size-3.5" strokeWidth={2.4} />
+            {explored} of {index.sorted.length} explored
+          </span>
         </div>
       )}
     </div>
