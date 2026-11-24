@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import clsx from 'clsx';
-import { Dices, Gamepad2, Globe, Map as MapIcon, Search, type LucideIcon } from 'lucide-react';
+import { Dices, Gamepad2, Globe, Map as MapIcon, Plane, Search, type LucideIcon } from 'lucide-react';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
 import { quizIsNew } from '../game/stats';
@@ -16,15 +16,19 @@ interface BottomNavProps {
   onSearch: () => void;
   /** Opens the flag quiz. */
   onPlay: () => void;
+  /** Opens the flight planner. */
+  onFly: () => void;
+  /** A flight is being shown on the globe. */
+  flying: boolean;
   canPlay: boolean;
 }
 
 /**
- * Phone tab bar, as in iOS 26: a floating glass capsule with the two views, shuffle and the flag
- * quiz, and search in its own round button beside it. The page shows through behind it.
+ * Phone tab bar, as in iOS 26: a floating glass capsule with the two views, shuffle, flights and
+ * the flag quiz, and search in its own round button beside it. The page shows through behind it.
  */
 export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function BottomNav(
-  { view, onView, onShuffle, shuffling, canShuffle, onSearch, onPlay, canPlay },
+  { view, onView, onShuffle, shuffling, canShuffle, onSearch, onPlay, onFly, flying, canPlay },
   ref,
 ) {
   const slot = view === 'globe' ? 0 : 1;
@@ -34,11 +38,11 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
       aria-label="Main"
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex animate-rise items-end gap-2.5 px-3.5 pb-[max(10px,env(safe-area-inset-bottom))] pt-2"
     >
-      <div className="glass pointer-events-auto relative mx-auto grid h-[62px] max-w-md flex-1 grid-cols-4 rounded-full p-1">
+      <div className="glass pointer-events-auto relative mx-auto grid h-[62px] max-w-md flex-1 grid-cols-5 rounded-full p-1">
         {/* The lens behind the view that is showing */}
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-y-1 left-1 w-[calc((100%-8px)/4)] rounded-full bg-control transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+          className="pointer-events-none absolute inset-y-1 left-1 w-[calc((100%-8px)/5)] rounded-full bg-control transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
           style={{ transform: `translateX(${slot * 100}%)` }}
         />
         {/* Switching views has its own whoosh (and tapping the current one, a zoom out). */}
@@ -53,6 +57,8 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
           quiet
           onClick={onShuffle}
         />
+        {/* The planner makes its own sound as it slides open. */}
+        <Tab label="Fly" icon={Plane} tinted={flying} quiet onClick={onFly} disabled={!canPlay} />
         <Tab label="Play" icon={Gamepad2} onClick={onPlay} disabled={!canPlay} badge={quizIsNew()} />
       </div>
       <button
@@ -75,6 +81,7 @@ function Tab({
   label,
   icon: Icon,
   active,
+  tinted,
   disabled,
   badge,
   spinning,
@@ -84,6 +91,8 @@ function Tab({
   label: string;
   icon: LucideIcon;
   active?: boolean;
+  /** Coloured like the current tab without being it: something of its kind is under way. */
+  tinted?: boolean;
   disabled?: boolean;
   /** A red dot on the tab, as iOS marks something new. */
   badge?: boolean;
@@ -105,7 +114,7 @@ function Tab({
       aria-current={active ? 'page' : undefined}
       className={clsx(
         'relative flex flex-col items-center justify-center gap-[3px] rounded-full transition-[transform,color] duration-200 active:scale-90 disabled:opacity-40',
-        active ? 'text-tint' : 'text-label',
+        active || tinted ? 'text-tint' : 'text-label',
         spinning && 'pointer-events-none',
       )}
     >

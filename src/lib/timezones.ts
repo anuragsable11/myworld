@@ -25,9 +25,37 @@ function offsetMinutes(s: string): number {
 
 export const compareOffsets = (a: string, b: string) => offsetMinutes(a) - offsetMinutes(b);
 
+/** Minutes a zone's clock is ahead of UTC at a moment (now, unless told otherwise), daylight saving included. */
+export function zoneOffsetMinutes(zone: string, at: Date = new Date()): number | undefined {
+  try {
+    const name = new Intl.DateTimeFormat('en-GB', { timeZone: zone, timeZoneName: 'shortOffset' }).formatToParts(at).find((p) => p.type === 'timeZoneName')?.value ?? '';
+    const m = /GMT(?:([+-])(\d{1,2})(?::(\d{2}))?)?/.exec(name);
+    if (!m) return undefined;
+    if (!m[1]) return 0;
+    return (m[1] === '+' ? 1 : -1) * (Number(m[2]) * 60 + Number(m[3] ?? 0));
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * Picks the zone that best represents the capital: a zone named after it, else one matching the
- * capital's UTC offset (from the Factbook), else the country's first zone.
+ * Capitals that keep the time of a zone named after another city, in countries with several zones
+ * (whose first zone can be hours away from the capital: Alaska's for Washington).
+ */
+const CAPITAL_ZONES: Record<string, string> = {
+  AU: 'Australia/Sydney',
+  BR: 'America/Sao_Paulo',
+  CA: 'America/Toronto',
+  KI: 'Pacific/Tarawa',
+  NZ: 'Pacific/Auckland',
+  PF: 'Pacific/Tahiti',
+  US: 'America/New_York',
+};
+
+/**
+ * Picks the zone that best represents the capital: a zone named after it, else the one known to
+ * cover it, else one matching the capital's UTC offset (from the Factbook), else the country's
+ * first zone.
  */
 export function capitalZone(cca2: string, capital?: string, capitalOffset?: string): string | undefined {
   const zones = zonesFor(cca2);
@@ -37,6 +65,8 @@ export function capitalZone(cca2: string, capital?: string, capitalOffset?: stri
     const named = zones.find((z) => normalizeText(z.split('/').pop() ?? '').replace(/ /g, '_') === c);
     if (named) return named;
   }
+  const known = CAPITAL_ZONES[cca2];
+  if (known && zones.includes(known)) return known;
   const m = capitalOffset ? /UTC\s*([+-])?\s*(\d{1,2})(?::(\d{2}))?/.exec(capitalOffset) : null;
   if (m) {
     const minutes = (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0));

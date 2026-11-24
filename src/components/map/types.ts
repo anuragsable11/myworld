@@ -1,4 +1,5 @@
 import type { RefObject } from 'react';
+import type { FlightPlan } from '../../lib/flight';
 import type { World } from '../../lib/geo';
 
 export interface Insets {
@@ -47,6 +48,19 @@ export interface MapViewProps {
   pinRef: RefObject<PinHandle | null>;
   onSelect: (id: string) => void;
   onHover: (info: HoverInfo | null) => void;
+  /** A flight to show (on the globe only): its two countries light up and a plane flies between them. */
+  flight?: FlightPlan | null;
+  /** The flag pins standing at the two ends of the flight. */
+  flightPins?: FlightPins;
+  /** Called on every frame of a flight with how far along the plane is, from 0 to 1. */
+  onFlightProgress?: (progress: number) => void;
+  /** Called once, as the plane touches down. */
+  onFlightLand?: () => void;
+}
+
+export interface FlightPins {
+  from: RefObject<PinHandle | null>;
+  to: RefObject<PinHandle | null>;
 }
 
 export interface FocusOptions {

@@ -1,6 +1,6 @@
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { ChevronRight, Coins, Dices, Flag as FlagIcon, Languages, Map as MapIcon, TreePalm, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Coins, Dices, Flag as FlagIcon, Languages, Map as MapIcon, Plane, TreePalm, type LucideIcon } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, type CountryIndex } from '../../hooks/queries';
 import { discovered, MILESTONES, subscribeDiscoveries } from '../../lib/discoveries';
@@ -18,11 +18,14 @@ export function WelcomePanel({
   onSelect,
   onSurprise,
   onPlay,
+  onFly,
 }: {
   index: CountryIndex | undefined;
   onSelect: (id: string) => void;
   onSurprise: () => void;
   onPlay: () => void;
+  /** Opens the flight planner. */
+  onFly: () => void;
 }) {
   const facts = useMemo(() => {
     if (!index) return null;
@@ -76,6 +79,29 @@ export function WelcomePanel({
           <span className="mt-0.5 block text-[13px] leading-snug text-secondary">10 flags, from easy to impossible. How far can you get?</span>
         </span>
         <span className="shrink-0 rounded-full bg-tint px-4 py-1.5 text-[14px] font-semibold text-white">Play</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          // The planner makes its own sound as it slides open.
+          haptics.tap();
+          onFly();
+        }}
+        disabled={!facts}
+        className="glass-soft ios-press mt-3 flex w-full animate-rise items-center gap-3 rounded-[24px] p-3 pr-4 text-left disabled:opacity-50 [animation-delay:180ms]"
+      >
+        <span
+          aria-hidden
+          className="grid size-14 shrink-0 place-items-center rounded-[16px] bg-[linear-gradient(160deg,#64d2ff,#007aff)] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.5)]"
+        >
+          <Plane className="size-7" strokeWidth={1.9} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[17px] font-semibold tracking-[-0.01em] text-label">Flight Path</span>
+          <span className="mt-0.5 block text-[13px] leading-snug text-secondary">Pick two countries and watch the plane fly. How far is it?</span>
+        </span>
+        <span className="shrink-0 rounded-full bg-tint px-4 py-1.5 text-[14px] font-semibold text-white">Fly</span>
       </button>
 
       {index && <ExploredCard total={index.sorted.length} />}
@@ -153,6 +179,7 @@ export function WelcomePanel({
           ['G', 'Switch globe and map'],
           ['N', 'Live day & night'],
           ['Q', 'Flag quiz'],
+          ['F', 'Flight path'],
           ['Esc', 'Close the profile'],
         ].map(([key, label], i) => (
           <li key={key} className="pl-4">

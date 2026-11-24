@@ -90,6 +90,8 @@ export const haptics = {
   roll: () => buzz([6, 110, 6, 130, 6, 170, 6, 230, 6]),
   /** The globe settling on its country: a firm bump and a small echo. */
   land: () => buzz([28, 70, 14]),
+  /** A plane leaving the ground: a rumble that builds. */
+  takeoff: () => buzz([10, 50, 16, 50, 24, 50, 34]),
   /** A cartoon character jumping. */
   hop: () => buzz([10, 50, 10]),
   /** A right answer in the quiz: two quick taps and a happy buzz. */

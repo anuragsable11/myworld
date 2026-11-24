@@ -41,7 +41,7 @@ const SOURCES = [
   {
     name: 'Natural Earth',
     href: 'https://www.naturalearthdata.com',
-    what: 'Country boundaries (1:50m) and notable peaks and mountain ranges.',
+    what: 'Country boundaries (1:50m), notable peaks and mountain ranges, and where each capital is, for the flight paths.',
   },
 ];
 

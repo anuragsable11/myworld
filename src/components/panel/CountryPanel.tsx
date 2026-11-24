@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import clsx from 'clsx';
-import { ArrowLeftRight, Crosshair, Landmark, Ruler, Users, X, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Crosshair, Landmark, Plane, Ruler, Users, X, type LucideIcon } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, useFactbook, useMountains, useWikidata, useWikipedia, useWorldBank, type CountryIndex } from '../../hooks/queries';
 import { formatShortCount } from '../../lib/format';
@@ -39,11 +39,13 @@ interface CountryPanelProps {
   onLocate: () => void;
   /** Opens Compare with this country on one side. */
   onCompare: (id: string) => void;
+  /** Opens the flight planner, for a flight leaving this country. */
+  onFly: (id: string) => void;
   /** Rendered in the mobile bottom sheet, where the header doubles as the drag handle. */
   sheetHeader?: ReactNode;
 }
 
-export function CountryPanel({ id, index, onClose, onSelect, onLocate, onCompare, sheetHeader }: CountryPanelProps) {
+export function CountryPanel({ id, index, onClose, onSelect, onLocate, onCompare, onFly, sheetHeader }: CountryPanelProps) {
   const country = index?.byId.get(id);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +75,7 @@ export function CountryPanel({ id, index, onClose, onSelect, onLocate, onCompare
             onSelect={onSelect}
             onLocate={onLocate}
             onCompare={onCompare}
+            onFly={onFly}
             scrollRef={scrollRef}
           />
         ) : index ? (
@@ -105,6 +108,7 @@ const CountryProfile = memo(function CountryProfile({
   onSelect,
   onLocate,
   onCompare,
+  onFly,
   scrollRef,
 }: {
   country: Country;
@@ -113,6 +117,7 @@ const CountryProfile = memo(function CountryProfile({
   onSelect: (id: string) => void;
   onLocate: () => void;
   onCompare: (id: string) => void;
+  onFly: (id: string) => void;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
   const factbook = useFactbook(country.cca3);
@@ -195,6 +200,19 @@ const CountryProfile = memo(function CountryProfile({
           >
             <ArrowLeftRight aria-hidden className="size-3.5" strokeWidth={2.4} />
             Compare
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              // The planner makes its own sound as it slides open.
+              haptics.tap();
+              onFly(country.cca3);
+            }}
+            title={`Fly from ${country.name} to another country`}
+            className="ios-press inline-flex items-center gap-1 rounded-full bg-tint px-3 py-1 text-[13px] font-semibold text-white"
+          >
+            <Plane aria-hidden className="size-3.5" strokeWidth={2.4} />
+            Fly
           </button>
         </div>
       </header>

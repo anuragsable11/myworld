@@ -2,7 +2,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { geoContains, geoDistance, geoGraticule, geoGraticule10, geoOrthographic, geoPath, type GeoContext, type GeoSphere } from 'd3-geo';
 import { easeBackOut, easeCubicInOut, easeSinInOut } from 'd3-ease';
 import { interpolate } from 'd3-interpolate';
-import type { Feature, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
+import type { Feature, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
+import { flightCamera, flightRoute, type FlightPlan, type FlightRoute } from '../../lib/flight';
 import { boundsContain, colorSlotFor, type LowDetail, type Shape, type World } from '../../lib/geo';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
@@ -28,6 +29,20 @@ const INERTIA_MS = 380;
  */
 const NOTCH_DEGREES = 20;
 const NOTCH_MS = 45;
+/**
+ * A flight starts with the camera gliding to the runway while the route draws itself, for this
+ * long; then the plane leaves.
+ */
+const FLIGHT_PREP_MS = 1150;
+/**
+ * While a plane is in the air and the camera follows it, the globe is drawn at every frame, at no
+ * more than this pixel ratio (the slow drift of a resting globe gets by on every other frame).
+ */
+const FLIGHT_DPR = 1.5;
+/** Frames further apart than this (ms, on average) mean the device can't keep up: back to every other frame. */
+const FLIGHT_SLOW_FRAME_MS = 26;
+/** How long after it appears a flag pin touches the ground (see MapPin). */
+const PIN_TOUCHDOWN_MS = 405;
 
 /** Cartoon land colours (one per colour slot, matching the flat map). */
 const LAND = ['#7ee2a8', '#80e4dc', '#ff9f9f', '#c3b1ff', '#ffbd7a', '#c8ec7a', '#ffa7d7'];
@@ -129,8 +144,8 @@ function wavePoints(world: World): [number, number][] {
   return out;
 }
 
-/** A little top-down cartoon plane pointing along +x. */
-function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, size: number) {
+/** A little top-down cartoon plane pointing along +x; or, as a `shadow`, just its dark shape. */
+function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, size: number, shadow = false) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
@@ -138,7 +153,7 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
   ctx.lineJoin = 'round';
   ctx.lineWidth = 1.7;
   ctx.strokeStyle = INK;
-  ctx.fillStyle = '#ff6b81';
+  ctx.fillStyle = shadow ? INK : '#ff6b81';
   for (const side of [-1, 1]) {
     ctx.beginPath();
     ctx.moveTo(-1, 2 * side);
@@ -157,17 +172,19 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
     ctx.fill();
     ctx.stroke();
   }
-  ctx.fillStyle = '#ffffff';
+  if (!shadow) ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.ellipse(0, 0, 16, 4.6, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#7cc8ff';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.arc(9, 0, 2.1, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  if (!shadow) {
+    ctx.fillStyle = '#7cc8ff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(9, 0, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -238,14 +255,37 @@ interface Animation {
   spin: boolean;
 }
 
+/** A flight under way: the plan, its route over the globe, and how far the plane has got. */
+interface Flight {
+  plan: FlightPlan;
+  route: FlightRoute;
+  /** Time since the plan arrived, in ms; it only runs while the globe is being drawn. */
+  elapsed: number;
+  /** How far along the route the plane is, from 0 to 1. */
+  progress: number;
+  /** The progress last passed on to whoever is listening. */
+  reported: number;
+  tookOff: boolean;
+  landed: boolean;
+  /** Time on the ground since landing, in ms: the plane gives way to the flag pin that drops on it. */
+  landedFor: number;
+  /** The camera travels with the plane until someone moves the globe themselves. */
+  follow: boolean;
+  /** A running average of the time between frames, to notice a device that can't keep up. */
+  frameMs: number;
+  halfRate: boolean;
+}
+
 /**
- * Cartoon orthographic globe with a premium finish (lighting, atmosphere, soft shadows) on two canvases: the land layer redraws only when the view changes
+ * Cartoon orthographic globe with a premium finish (lighting, atmosphere, soft shadows) on three canvases: the land layer redraws only when the view changes
  * (simplified while moving, full detail at rest); the scenery layer above it (clouds and an orbiting
- * plane) animates every frame. All per-frame state lives in refs; React only mounts it.
+ * plane) animates every frame; and a flight between two countries, when one is shown, is drawn on
+ * the layer above that. All per-frame state lives in refs; React only mounts it.
  */
 export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(props, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneryRef = useRef<HTMLCanvasElement>(null);
+  const flightRef = useRef<HTMLCanvasElement>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
   /** Restarts the render loop after it has rested while the globe was covered. */
@@ -296,6 +336,9 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     lastMotion: 0,
     detailed: false,
     dirty: true,
+    /** The flight being shown, if any, and whether its canvas has anything on it to wipe. */
+    flight: null as Flight | null,
+    flightDrawn: false,
   });
   const projection = useRef(geoOrthographic().clipAngle(90).precision(0.6)).current;
   // The same view without clipping at the horizon, for shapes wholly on the near side: clipping
@@ -329,6 +372,8 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     while (target[0] - s.rotate[0] < -180) target[0] += 360;
     if (options.spin) target[0] += target[0] >= s.rotate[0] ? 360 : -360;
     s.inertia = null;
+    // Any other move of the camera (zooming, resetting) takes it off the plane's tail.
+    if (s.flight) s.flight.follow = false;
     s.animation = {
       from: { rotate: [...s.rotate], scale: s.scale },
       to: { rotate: target, scale },
@@ -369,8 +414,10 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
   useEffect(() => {
     const canvas = canvasRef.current!;
     const scenery = sceneryRef.current!;
+    const flightCanvas = flightRef.current!;
     const ctx = canvas.getContext('2d')!;
     const sctx = scenery.getContext('2d')!;
+    const fctx = flightCanvas.getContext('2d')!;
     const s = state.current;
     let frame = 0;
     let last = performance.now();
@@ -387,6 +434,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       s.dpr = fullDpr();
       setDpr(canvas, ctx, s.dpr);
       setDpr(scenery, sctx, fullDpr());
+      setDpr(flightCanvas, fctx, fullDpr());
       s.dirty = true;
       // Resizing clears the canvases: draw them again even while resting.
       wake.current();
@@ -448,6 +496,9 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
      */
     const draw = (detail: 'full' | 'low' | 'motion') => {
       const { world, markers, selectedId, neighborIds, activeIds, showNight } = propsRef.current;
+      // A flight lights up the two countries it joins, the way a selection lights up one.
+      const flight = s.flight?.plan;
+      const lit = (id: string | null) => !!id && (id === selectedId || (!!flight && (id === flight.from.id || id === flight.to.id)));
       const full = detail === 'full';
       const geometry = full ? world : detail === 'low' ? world.lowDetail : world.motionDetail;
       projection.precision(detail === 'motion' ? 2.5 : 0.6);
@@ -558,10 +609,12 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       // than it and its neighbours fade back; the region filter fades countries outside it.
       const fill = (id: string | null): [string, number] => {
         if (!id) return [COLORS.inert, 1];
-        if (id === selectedId) return [COLORS.selected, 1];
+        if (lit(id)) return [COLORS.selected, 1];
         const color = LAND[colorSlotFor(world, id)];
         if (activeIds && !activeIds.has(id)) return [color, 0.3];
         if (selectedId && !neighborIds.has(id)) return [color, 0.55];
+        // The rest of the world steps back a little less, as the plane has to cross it.
+        if (flight) return [color, 0.7];
         return [color, 1];
       };
       const groups = new Map<string, LowDetail['shapes']>();
@@ -609,7 +662,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         }
       }
 
-      if (s.hoverId && s.hoverId !== selectedId) {
+      if (s.hoverId && !lit(s.hoverId)) {
         ctx.beginPath();
         for (const shape of geometry.shapes) if (shape.id === s.hoverId) shapePath(shape.feature);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
@@ -619,9 +672,9 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         ctx.stroke();
       }
 
-      if (selectedId) {
+      if (selectedId || flight) {
         ctx.beginPath();
-        for (const shape of geometry.shapes) if (shape.id === selectedId) shapePath(shape.feature);
+        for (const shape of geometry.shapes) if (lit(shape.id)) shapePath(shape.feature);
         ctx.save();
         if (detail !== 'motion') {
           ctx.shadowColor = 'rgba(255, 190, 0, 0.9)';
@@ -643,7 +696,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         if (geoDistance([m.lon, m.lat], center) > Math.PI / 2 - 0.05) continue;
         const p = projection([m.lon, m.lat]);
         if (!p) continue;
-        const selected = m.id === selectedId;
+        const selected = lit(m.id);
         ctx.beginPath();
         ctx.arc(p[0], p[1], selected ? 5.5 : m.id === s.hoverId ? 5 : 4, 0, Math.PI * 2);
         ctx.fillStyle = selected ? COLORS.selected : m.id === s.hoverId ? '#ffffff' : LAND[colorSlotFor(world, m.id)];
@@ -729,7 +782,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       // Thin the clouds when zoomed in or when a country is selected, so the land stays readable.
       // They're painted opaque and the whole layer fades, so overlapping puffs never show their
       // outlines through each other (and the compositor does the fading for free).
-      const opacity = Math.max(0.15, Math.min(1, 1.35 - 0.35 * s.scale)) * (selectedId ? 0.45 : 1);
+      const opacity = Math.max(0.15, Math.min(1, 1.35 - 0.35 * s.scale)) * (selectedId || s.flight ? 0.45 : 1);
       if (Math.abs(opacity - Number(scenery.style.opacity || 1)) > 0.02) scenery.style.opacity = opacity.toFixed(2);
       const puffPass = (puffs: { x: number; y: number; size: number }[], color: string, grow: number, shift: number, k: number) => {
         sctx.fillStyle = color;
@@ -776,8 +829,9 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         sctx.restore();
       }
 
-      // A little plane on a tilted orbit; it passes behind the globe on the far side.
-      if (s.scale > 1.6) return;
+      // A little plane on a tilted orbit; it passes behind the globe on the far side. It stays away
+      // while a flight is shown, which has a plane of its own.
+      if (s.scale > 1.6 || s.flight) return;
       if (!reducedMotion) s.planeAngle += dt * 0.00055;
       const a = R * 1.24;
       const b = R * 0.38;
@@ -823,6 +877,141 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       sctx.restore();
     };
 
+    /** Moves the flag pins at the two ends of a flight onto their places, hiding one that is round the back. */
+    const placeFlightPins = (flight: Flight, center: [number, number]) => {
+      const pins = propsRef.current.flightPins;
+      if (!pins) return;
+      for (const [stop, pinRef] of [
+        [flight.plan.from, pins.from],
+        [flight.plan.to, pins.to],
+      ] as const) {
+        const pin = pinRef.current;
+        if (!pin) continue;
+        const point: [number, number] = [stop.lon, stop.lat];
+        const xy = geoDistance(point, center) < Math.PI / 2 - 0.15 ? projection(point) : null;
+        if (xy) pin.move(xy[0], xy[1]);
+        else pin.hide();
+      }
+    };
+
+    /**
+     * A flight, on its own canvas above the clouds: the way ahead as dots painted on the globe, the
+     * way flown as a solid trail, a marker at each end, and the plane with its shadow.
+     */
+    const drawFlight = (now: number) => {
+      const f = s.flight;
+      if (!f) {
+        if (s.flightDrawn) fctx.clearRect(0, 0, s.width, s.height);
+        s.flightDrawn = false;
+        return;
+      }
+      s.flightDrawn = true;
+      fctx.clearRect(0, 0, s.width, s.height);
+      configure();
+      const { route, plan } = f;
+      const R = projection.scale();
+      const center: [number, number] = [-s.rotate[0], -s.rotate[1]];
+      /** How squarely a place faces us: 1 in the middle of the globe, 0 on its edge, less round the back. */
+      const facing = (point: [number, number]) => Math.cos(geoDistance(point, center));
+
+      // The way ahead: dots a fixed distance apart on the ground, so they stay put as the globe turns
+      // and bunch up towards its edge. They appear one after another while the camera gets ready.
+      const revealed = f.tookOff ? 1 : Math.min(1, f.elapsed / (FLIGHT_PREP_MS * 0.8));
+      const dots = Math.max(2, Math.round((route.angle * (s.radius ?? baseRadius()) * route.scale) / 11));
+      fctx.beginPath();
+      for (let i = 1; i < dots; i++) {
+        const t = i / dots;
+        if (t > revealed) break;
+        if (t < f.progress + 0.5 / dots) continue;
+        const point = route.at(t);
+        const toward = facing(point);
+        if (toward < 0.06) continue;
+        const xy = projection(point);
+        if (!xy) continue;
+        const r = 1.2 + 1.2 * Math.min(1, toward * 1.6);
+        fctx.moveTo(xy[0] + r, xy[1]);
+        fctx.arc(xy[0], xy[1], r, 0, Math.PI * 2);
+      }
+      fctx.fillStyle = '#ffffff';
+      fctx.fill();
+      fctx.strokeStyle = 'rgba(30, 27, 75, 0.55)';
+      fctx.lineWidth = 1.1;
+      fctx.stroke();
+
+      // The way flown: a solid trail from the runway to the plane.
+      if (f.progress > 0) {
+        const steps = Math.max(2, Math.ceil((route.angle * f.progress) / 0.035));
+        const trail: LineString = {
+          type: 'LineString',
+          coordinates: Array.from({ length: steps + 1 }, (_, i) => route.at((f.progress * i) / steps)),
+        };
+        const path = geoPath(projection, fctx);
+        fctx.lineCap = 'round';
+        fctx.lineJoin = 'round';
+        fctx.beginPath();
+        path(trail);
+        fctx.strokeStyle = 'rgba(30, 27, 75, 0.5)';
+        fctx.lineWidth = 6.4;
+        fctx.stroke();
+        fctx.strokeStyle = '#ffffff';
+        fctx.lineWidth = 3.6;
+        fctx.stroke();
+      }
+
+      // A marker at each end, under the flag pins.
+      for (const [stop, destination] of [
+        [plan.from, false],
+        [plan.to, true],
+      ] as const) {
+        const point: [number, number] = [stop.lon, stop.lat];
+        if (facing(point) < 0.05) continue;
+        const xy = projection(point);
+        if (!xy) continue;
+        if (destination && !f.landed) {
+          // The destination calls the plane in: a ring spreading out from it, over and over.
+          const pulse = (now % 1500) / 1500;
+          fctx.beginPath();
+          fctx.arc(xy[0], xy[1], 6 + pulse * 15, 0, Math.PI * 2);
+          fctx.strokeStyle = `rgba(30, 27, 75, ${0.3 * (1 - pulse)})`;
+          fctx.lineWidth = 4.5;
+          fctx.stroke();
+          fctx.strokeStyle = `rgba(255, 255, 255, ${1 - pulse})`;
+          fctx.lineWidth = 2.5;
+          fctx.stroke();
+        }
+        fctx.beginPath();
+        fctx.arc(xy[0], xy[1], 5, 0, Math.PI * 2);
+        fctx.fillStyle = destination ? '#ff6b81' : '#ffffff';
+        fctx.fill();
+        fctx.strokeStyle = INK;
+        fctx.lineWidth = 2;
+        fctx.stroke();
+      }
+
+      // The plane, nose along the route. It climbs away from the ground and comes back down to it:
+      // it looks bigger in the middle of the flight, and its shadow falls further away. Once it has
+      // landed it fades away under the flag pin that drops onto the same spot.
+      const here = route.at(f.progress);
+      const parked = Math.max(0, 1 - Math.max(0, f.landedFor - PIN_TOUCHDOWN_MS) / 350);
+      if (parked > 0 && facing(here) > 0.04) {
+        const xy = projection(here);
+        const behind = projection(route.at(Math.max(0, f.progress - 0.02)));
+        const ahead = projection(route.at(Math.min(1, f.progress + 0.02)));
+        if (xy && behind && ahead) {
+          const heading = Math.atan2(ahead[1] - behind[1], ahead[0] - behind[0]);
+          const lift = Math.sin(Math.PI * f.progress);
+          const size = Math.min(1.35, Math.max(0.62, R / 240)) * (0.82 + 0.4 * lift);
+          fctx.globalAlpha = (0.24 - 0.08 * lift) * parked;
+          drawPlane(fctx, xy[0] + (2 + 9 * lift) * size, xy[1] + (3 + 15 * lift) * size, heading, size * (1 - 0.12 * lift), true);
+          fctx.globalAlpha = parked;
+          drawPlane(fctx, xy[0], xy[1], heading, size);
+          fctx.globalAlpha = 1;
+        }
+      }
+
+      placeFlightPins(f, center);
+    };
+
     const tick = (now: number) => {
       // Covered by an open sheet or menu: rest (no drawing at all) until it's uncovered, once
       // nothing is under way and the last change has been drawn.
@@ -830,9 +1019,44 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         frame = 0;
         return;
       }
-      const dt = Math.min(64, now - last);
+      const sinceLast = now - last;
+      const dt = Math.min(64, sinceLast);
       last = now;
       const { selectedId, reducedMotion } = propsRef.current;
+
+      // A flight: the plane waits while the camera reaches the runway, then flies the route.
+      const f = s.flight;
+      if (f?.landed) f.landedFor += dt;
+      if (f && !f.landed) {
+        f.elapsed += dt;
+        const t = reducedMotion ? 1 : Math.max(0, Math.min(1, (f.elapsed - FLIGHT_PREP_MS) / f.route.airMs));
+        if (t > 0 && !f.tookOff) {
+          f.tookOff = true;
+          if (!reducedMotion) {
+            sounds.takeoff();
+            haptics.takeoff();
+          }
+        }
+        f.progress = easeSinInOut(t);
+        if (f.tookOff && t < 1) {
+          // Full throttle for the climb, easing back at cruising height, then gliding in.
+          sounds.jet(t < 0.2 ? 0.6 + 2 * t : t < 0.75 ? 1 - (t - 0.2) * 0.45 : Math.max(0.1, 0.75 - (t - 0.75) * 2.6));
+          // Frames that keep arriving late mean this device can't draw the globe at every frame.
+          f.frameMs += (Math.min(50, sinceLast) - f.frameMs) * 0.08;
+          if (f.frameMs > FLIGHT_SLOW_FRAME_MS) f.halfRate = true;
+        }
+        if (f.progress !== f.reported) {
+          f.reported = f.progress;
+          propsRef.current.onFlightProgress?.(f.progress);
+        }
+        if (t >= 1) {
+          f.landed = true;
+          sounds.jet(0);
+          sounds.touchdown();
+          haptics.land();
+          propsRef.current.onFlightLand?.();
+        }
+      }
 
       if (s.animation) {
         const a = s.animation;
@@ -850,6 +1074,18 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         }
         s.dirty = true;
         s.lastMotion = now;
+      } else if (f?.follow && f.tookOff && !s.drag && !s.pinch) {
+        // The camera travels with the plane (turning the short way round, like every other move).
+        const camera = flightCamera(f.route, f.progress);
+        let lon = -camera.lon;
+        while (lon - s.rotate[0] > 180) lon -= 360;
+        while (lon - s.rotate[0] < -180) lon += 360;
+        if (Math.abs(lon - s.rotate[0]) > 1e-4 || Math.abs(-camera.lat - s.rotate[1]) > 1e-4 || Math.abs(camera.scale - s.scale) > 1e-4) {
+          s.rotate = [lon, -camera.lat, 0];
+          s.scale = camera.scale;
+          s.dirty = true;
+          s.lastMotion = now;
+        }
       } else if (s.inertia && !s.drag) {
         // A flicked globe keeps turning and slows down smoothly.
         const { vx, vy } = s.inertia;
@@ -858,7 +1094,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         s.inertia = Math.hypot(vx, vy) * decay < 0.004 ? null : { vx: vx * decay, vy: vy * decay };
         s.dirty = true;
         s.lastMotion = s.lastInteraction = now;
-      } else if (!selectedId && !s.drag && !s.pinch && !reducedMotion && now - s.lastInteraction > 2500) {
+      } else if (!selectedId && !f && !s.drag && !s.pinch && !reducedMotion && now - s.lastInteraction > 2500) {
         s.rotate = [s.rotate[0] + dt * 0.007, s.rotate[1], 0];
         s.dirty = true;
         s.lastMotion = now;
@@ -914,7 +1150,10 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       // ratio; once the view has been still for a moment it is drawn again in full detail.
       const resting = now - s.lastMotion > 160;
       const fast = !resting && !!(s.animation || s.inertia || s.drag || s.pinch);
-      const dpr = fast ? Math.min(MOVING_DPR, fullDpr()) : fullDpr();
+      // A plane in the air is drawn at every frame; where the camera travels with it so is the land,
+      // a little less sharply.
+      const airborne = !!f && f.tookOff && !f.landed && !f.halfRate;
+      const dpr = fast ? Math.min(MOVING_DPR, fullDpr()) : airborne && !resting ? Math.min(FLIGHT_DPR, fullDpr()) : fullDpr();
       if (dpr !== s.dpr) {
         s.dpr = dpr;
         setDpr(canvas, ctx, dpr);
@@ -923,7 +1162,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
 
       // While nothing moves fast (slow auto-rotation, drifting clouds), half the frame rate is
       // plenty and saves battery.
-      if (!fast && now - s.lastScenery < 30) {
+      if (!fast && !airborne && now - s.lastScenery < 30) {
         frame = requestAnimationFrame(tick);
         return;
       }
@@ -938,6 +1177,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
 
       if (!reducedMotion) s.cloudDrift += sceneryDt * 0.0024;
       drawScenery(sceneryDt);
+      drawFlight(now);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -959,6 +1199,8 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       s.pointers.set(e.pointerId, p);
       s.animation = null;
       s.inertia = null;
+      // From here the globe is in their hands; the plane flies on without the camera.
+      if (s.flight) s.flight.follow = false;
       s.lastInteraction = performance.now();
       if (s.pointers.size === 2) {
         const [a, b] = [...s.pointers.values()];
@@ -1028,6 +1270,7 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       e.preventDefault();
       s.animation = null;
       s.inertia = null;
+      if (s.flight) s.flight.follow = false;
       s.lastInteraction = performance.now();
       s.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s.scale * Math.exp(-e.deltaY * 0.0015)));
       s.dirty = true;
@@ -1063,6 +1306,24 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
     // Mount-only: the render loop reads the latest props through propsRef.
   }, []);
 
+  // A new flight: the camera glides to where the flight is watched from while the route draws
+  // itself, then the render loop flies the plane. (Below the effect above, so that on a globe which
+  // has only just appeared the flight takes over from its entrance.)
+  const flight = props.flight ?? null;
+  useEffect(() => {
+    const s = state.current;
+    if (flight) {
+      const route = flightRoute(flight);
+      // Without animation the flight is shown as flown, seen from where it ends.
+      const start = flightCamera(route, propsRef.current.reducedMotion ? 1 : 0);
+      animateTo([-start.lon, -start.lat, 0], start.scale, 1000);
+      s.flight = { plan: flight, route, elapsed: 0, progress: 0, reported: -1, tookOff: false, landed: false, landedFor: 0, follow: true, frameMs: 16, halfRate: false };
+    } else s.flight = null;
+    s.dirty = true;
+    wake.current();
+    // animateTo only reads refs.
+  }, [flight]);
+
   // Redraw when anything visual changes (including a freshly mounted pin that needs placing).
   const { selectedId, neighborIds, activeIds, world, markers, insets, showNight, paused } = props;
   useEffect(() => {
@@ -1081,6 +1342,8 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
         aria-label="Interactive 3D globe. Drag to rotate, scroll to zoom, select a country to see its details."
       />
       <canvas ref={sceneryRef} aria-hidden className="pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500" />
+      {/* A flight is drawn above the clouds, on a layer that doesn't fade with them. */}
+      <canvas ref={flightRef} aria-hidden className="pointer-events-none absolute inset-0 h-full w-full" />
     </div>
   );
 });

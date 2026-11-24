@@ -1,7 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { Dices, Gamepad2, Globe, Loader2, Map as MapIcon, Minus, Moon, Plus, RotateCcw, Sun } from 'lucide-react';
+import { Dices, Gamepad2, Globe, Loader2, Map as MapIcon, Minus, Moon, Plane, Plus, RotateCcw, Sun } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
+import type { FlightPlan } from '../../lib/flight';
 import type { World } from '../../lib/geo';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
@@ -11,7 +12,7 @@ import { FlatMap } from './FlatMap';
 import { GlobeView } from './GlobeView';
 import { MapPin } from './MapPin';
 import { MapTooltip, type TooltipHandle } from './MapTooltip';
-import { SHUFFLE_MS, type HoverInfo, type Insets, type MapHandle, type MapMarker, type PinHandle } from './types';
+import { SHUFFLE_MS, type FlightPins, type HoverInfo, type Insets, type MapHandle, type MapMarker, type PinHandle } from './types';
 
 export type ViewMode = 'map' | 'globe';
 
@@ -39,6 +40,13 @@ interface MapStageProps {
   onSurprise: () => void;
   /** Opens the flag quiz. */
   onPlay: () => void;
+  /** Opens the flight planner. */
+  onFly: () => void;
+  /** The flight being shown on the globe, if any, and whether its plane has landed. */
+  flight: FlightPlan | null;
+  flightLanded: boolean;
+  onFlightProgress: (progress: number) => void;
+  onFlightLand: () => void;
   /** The country picked by "Surprise me"; the globe takes a few extra turns on the way there. */
   spinFor: string | null;
   showLegend: boolean;
@@ -67,6 +75,11 @@ export function MapStage({
   onSelect,
   onSurprise,
   onPlay,
+  onFly,
+  flight,
+  flightLanded,
+  onFlightProgress,
+  onFlightLand,
   spinFor,
   showLegend,
   locateKey,
@@ -76,6 +89,9 @@ export function MapStage({
   const mapRef = useRef<MapHandle>(null);
   const tooltipRef = useRef<TooltipHandle>(null);
   const pinRef = useRef<PinHandle>(null);
+  const fromPinRef = useRef<PinHandle>(null);
+  const toPinRef = useRef<PinHandle>(null);
+  const flightPins = useMemo<FlightPins>(() => ({ from: fromPinRef, to: toPinRef }), []);
 
   const names = useMemo(() => {
     const out = new Map<string, string>();
@@ -115,16 +131,25 @@ export function MapStage({
     if (resetKey !== firstReset.current) mapRef.current?.reset();
   }, [resetKey]);
 
-  // Closing a profile returns to the world view.
+  // Closing a profile returns to the world view (unless it closed to make way for a flight, which
+  // has the camera to itself), and so does the end of a flight.
   const previousId = useRef(selectedId);
+  const previousFlight = useRef(flight);
   useEffect(() => {
-    if (previousId.current && !selectedId) mapRef.current?.reset();
+    const closed = previousId.current && !selectedId;
+    const flightOver = previousFlight.current && !flight;
+    if ((closed || flightOver) && !selectedId && !flight) mapRef.current?.reset();
     previousId.current = selectedId;
-  }, [selectedId]);
+    previousFlight.current = flight;
+  }, [selectedId, flight]);
 
   const handleHover = useCallback((info: HoverInfo | null) => tooltipRef.current?.update(info), []);
 
   const selected = selectedId ? index?.byId.get(selectedId) : undefined;
+  // Flights are flown on the globe; its two ends get a flag pin each, the second as the plane lands.
+  const shownFlight = view === 'globe' ? flight : null;
+  const flightFrom = shownFlight ? index?.byId.get(shownFlight.from.id) : undefined;
+  const flightTo = shownFlight && flightLanded ? index?.byId.get(shownFlight.to.id) : undefined;
   const MapView = view === 'globe' ? MemoGlobeView : MemoFlatMap;
   // Controls sit inside the area the floating cards leave uncovered.
   const area = { left: insets.left + 12, right: insets.right + 12, top: insets.top + 12, bottom: insets.bottom + 16 };
@@ -150,6 +175,10 @@ export function MapStage({
           pinRef={pinRef}
           onSelect={onSelect}
           onHover={handleHover}
+          flight={shownFlight}
+          flightPins={flightPins}
+          onFlightProgress={onFlightProgress}
+          onFlightLand={onFlightLand}
         />
       ) : (
         <div className="absolute grid place-items-center" style={area}>
@@ -182,6 +211,11 @@ export function MapStage({
           landingMs={spinFor === selected.cca3 && !reducedMotion ? SHUFFLE_MS[view] - 150 : undefined}
         />
       )}
+      {shownFlight && flightFrom && (
+        // It drops as the camera arrives over the runway.
+        <MapPin key={`from-${shownFlight.key}`} ref={fromPinRef} country={flightFrom} landingMs={reducedMotion ? 0 : 650} />
+      )}
+      {shownFlight && flightTo && <MapPin key={`to-${shownFlight.key}`} ref={toPinRef} country={flightTo} landingMs={0} />}
       <MapTooltip ref={tooltipRef} byId={index?.byId} />
 
       {/* View switch, centred over the uncovered area */}
@@ -252,6 +286,19 @@ export function MapStage({
             </ControlButton>
             <ControlButton label="Surprise me: fly to a random country" title="Surprise me" onClick={onSurprise} disabled={!index}>
               <Dices className="size-[21px]" strokeWidth={2} />
+            </ControlButton>
+            <ControlButton
+              label="Flight path: fly a plane between two countries"
+              title="Flight path"
+              pressed={!!flight}
+              // The planner makes its own sound as it slides open.
+              onClick={() => {
+                haptics.tap();
+                onFly();
+              }}
+              disabled={!index}
+            >
+              <Plane className="size-[20px]" strokeWidth={2} />
             </ControlButton>
           </div>
           <div className="glass flex flex-col overflow-hidden rounded-[18px]">

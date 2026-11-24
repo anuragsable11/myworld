@@ -40,7 +40,7 @@ populations from the World Bank. The header and the About dialog show which sour
 | Photos of places, history, nature, wildlife, food, culture and sport | The country's English Wikipedia article (the pictures its editors chose), files on Wikimedia Commons | Per country, on selection |
 | National animal, bird, flower, tree and dish | Wikipedia's lists of national symbols | Static file in `src/data` |
 | GDP, GDP per capita, PPP, growth, population | World Bank API | Per country, on selection |
-| Boundaries (1:50m), notable peaks and mountain ranges | Natural Earth | Static files in `src/data` |
+| Boundaries (1:50m), notable peaks and mountain ranges, where each capital is | Natural Earth | Static files in `src/data` |
 | Live local time | IANA time zone database (`countries-and-timezones`) | Bundled |
 
 When a source has nothing for a country (for example, the Factbook lists major rivers for only about 80 countries), the
@@ -54,6 +54,7 @@ src/data/world.topo.json      Natural Earth 1:50m boundaries keyed by ISO alpha-
 src/data/mountains.json       Peaks and ranges per country
 src/data/factbook-index.json  ISO alpha-3 → Factbook profile path
 src/data/symbols.json         National animal, bird, flower, tree and dish per country
+src/data/capitals.json        Where each capital is, for the flight paths
 src/lib/sources/              One module per data source, each normalising into typed models
 src/lib/geo.ts                Boundary loading, low-detail globe geometry, per-country zoom framing
 src/hooks/                    React Query hooks, URL-hash selection, responsive layout, online/install state
@@ -92,6 +93,15 @@ src/components/panel/         Country profile and its sections
   second from its neighbours, well-known countries or a search; then a headline difference, bars for population, area
   and density (each bar labelled with its flag), and capital, languages, money, driving side, neighbours, coast, status
   and the time difference. Swap the sides, or open either country.
+- **Flight Path** (`src/components/flight/`, `src/lib/flight.ts`): the Fly button on a profile, the plane button by
+  the map, the Fly tab on phones or `F` opens a planner; pick two countries and a plane flies between their capitals
+  on the globe, along the shortest way over it. The camera glides to the runway while the route appears as dots painted
+  on the ground, then travels with the plane (sitting still over a short hop, so the plane crosses the view); the way
+  flown is a solid trail, a flag pin stands at each end, and the engines, take-off and touchdown are heard. A card
+  counts the distance up with the plane and gives the flight time at 850 km/h, the clock on landing and how far apart
+  the two places' clocks are, plus the same trip by train, by car and on foot. Fly it again, fly back, or open the
+  country it landed in. Capitals come from `src/data/capitals.json`; a place without one is flown to its middle. Started
+  from the flat map, a flight borrows the globe and hands the map back when it ends.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
 - **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
   list and profile on floating cards (desktop); a list drawer and floating panel on tablets. Phones get an app-style
@@ -140,7 +150,7 @@ src/components/panel/         Country profile and its sections
   the far side are skipped, and countries wholly in front are projected without horizon clipping; it is redrawn in full
   detail once still. A flicked globe keeps turning and slows down, and slow auto-rotation runs at half frame rate.
 - **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `N` toggles day and night, `Q`
-  starts the flag quiz, `Esc` closes the search drawer or the profile.
+  starts the flag quiz, `F` plans a flight, `Esc` closes the search drawer, the profile or the flight.
 
 ## Install and offline use
 

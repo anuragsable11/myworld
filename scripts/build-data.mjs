@@ -7,9 +7,11 @@
  *   src/data/factbook-index.json  ISO alpha-3 -> CIA World Factbook profile path (factbook/factbook.json)
  *   src/data/symbols.json         National animal, bird, flower, tree and dish per country, read from
  *                                 Wikipedia's lists of national symbols, with each article's lead picture
+ *   src/data/capitals.json        Where each capital city is (Natural Earth 1:10m populated places), for
+ *                                 the flight paths
  *
  * Usage: npm run data            (everything)
- *        npm run data -- symbols (only the named steps: boundaries, mountains, factbook, symbols)
+ *        npm run data -- symbols (only the named steps: boundaries, mountains, factbook, symbols, capitals)
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -751,6 +753,75 @@ async function buildSymbols(countries) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Capital cities
+// ---------------------------------------------------------------------------------------------
+
+/** A capital listed for a tiny territory is only accepted this close to it, when found by name alone. */
+const CAPITAL_NEARBY_KM = 120;
+
+/**
+ * Where each country's capital is: { cca3: [name, lat, lng] }. Capitals are matched by name to
+ * Natural Earth's populated places inside the country; territories too small to have one there are
+ * left out, and the app flies from the middle of the country instead.
+ */
+async function buildCapitals(countries) {
+  const places = (await getJson(`${NE_BASE}/ne_10m_populated_places_simple.geojson`)).features.map((f) => f.properties);
+  // National capitals first, then seats of government, then the capitals of territories.
+  const rank = (p) =>
+    p.featurecla === 'Admin-0 capital' ? 0 : p.featurecla === 'Admin-0 capital alt' ? 1 : p.featurecla === 'Admin-0 region capital' ? 2 : 3;
+  const called = (p, name) =>
+    [p.name, p.nameascii, p.namealt, p.namepar, p.meganame, p.ls_name].some(
+      (x) => x && String(x).split('|').some((part) => norm(part) === norm(name)),
+    );
+  const best = (list) => [...list].sort((a, b) => rank(a) - rank(b) || b.pop_max - a.pop_max)[0];
+  // "Ulan Bator" and "Ulaanbaatar" are one city under two spellings; "St. George's" and "Saint George's" share a word.
+  const sameCity = (a, b) => norm(a).split(' ').some((w) => w.length >= 4 && norm(b).split(' ').includes(w));
+
+  const result = {};
+  const respelled = [];
+  const missing = [];
+  for (const c of [...countries].sort((a, b) => a.cca3.localeCompare(b.cca3))) {
+    const inCountry = places.filter((p) => p.iso_a2 === c.cca2 || p.adm0_a3 === c.cca3);
+    const names = c.capital ?? [];
+    let hit;
+    for (const name of names) {
+      const matches = inCountry.filter((p) => called(p, name));
+      if (matches.length) {
+        hit = { name, place: best(matches) };
+        break;
+      }
+    }
+    // Spelled differently in the two data sets: the one place Natural Earth marks as the capital.
+    if (!hit && names.length) {
+      const flagged = inCountry.filter((p) => rank(p) === 0);
+      if (flagged.length === 1) hit = { name: sameCity(names[0], flagged[0].name) ? names[0] : flagged[0].name, place: flagged[0] };
+    }
+    // Filed under another country code (Kosovo), or a city that is its own territory (Hong Kong).
+    if (!hit && c.latlng) {
+      const centre = [c.latlng[1], c.latlng[0]];
+      const near = places.filter((p) => geoDistance([p.longitude, p.latitude], centre) * 6371 < CAPITAL_NEARBY_KM);
+      for (const name of [...names, c.name.common]) {
+        const matches = near.filter((p) => called(p, name));
+        if (matches.length) {
+          hit = { name, place: best(matches) };
+          break;
+        }
+      }
+    }
+    if (!hit) {
+      missing.push(c.cca3);
+      continue;
+    }
+    if (names.length && hit.name !== names[0]) respelled.push(`${c.cca3} ${names[0]} -> ${hit.name}`);
+    result[c.cca3] = [hit.name, Number(hit.place.latitude.toFixed(3)), Number(hit.place.longitude.toFixed(3))];
+  }
+  await fs.writeFile(path.join(root, 'src/data/capitals.json'), JSON.stringify(result));
+  console.log(`  capitals: ${Object.keys(result).length} of ${countries.length} countries`);
+  if (respelled.length) console.log(`  named differently from the country dataset: ${respelled.join('; ')}`);
+  if (missing.length) console.log(`  no capital found (the app uses the middle of the country): ${missing.join(' ')}`);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Pass step names to run only some of them, e.g. `npm run data -- symbols`.
 const steps = process.argv.slice(2);
 const run = (step) => !steps.length || steps.includes(step);
@@ -772,5 +843,9 @@ if (run('factbook')) {
 if (run('symbols')) {
   console.log('Building national symbols…');
   await buildSymbols(countries);
+}
+if (run('capitals')) {
+  console.log('Building capital cities…');
+  await buildCapitals(countries);
 }
 console.log('Done.');

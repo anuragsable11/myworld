@@ -5,8 +5,10 @@ import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMe
 import { useSafeArea } from './hooks/useSafeArea';
 import { useSelection } from './hooks/useSelection';
 import { discover, MILESTONES } from './lib/discoveries';
+import { returnFlight, sameFlight, type FlightPlan } from './lib/flight';
 import { haptics } from './lib/haptics';
 import { sounds } from './lib/sounds';
+import { FlightCard, type FlightCardHandle } from './components/flight/FlightCard';
 import { AboutDialog } from './components/layout/AboutDialog';
 import { BottomNav } from './components/layout/BottomNav';
 import { DiscoveryToast, type Discovery } from './components/layout/DiscoveryToast';
@@ -27,6 +29,9 @@ const FlagQuiz = lazy(loadQuiz);
 // Compare loads the same way, once it's first opened.
 const loadCompare = () => import('./components/compare/CompareDialog');
 const CompareDialog = lazy(loadCompare);
+// And so does the flight planner.
+const loadFlightPicker = () => import('./components/flight/FlightPicker');
+const FlightPicker = lazy(loadFlightPicker);
 
 const VIEW_KEY = 'atlas:view';
 const NIGHT_KEY = 'atlas:night';
@@ -78,6 +83,17 @@ export default function App() {
   /** Compare: open, and the country it was opened from. It also stays mounted once opened. */
   const [compare, setCompare] = useState<{ open: boolean; first: string | null }>({ open: false, first: null });
   const [compareMounted, setCompareMounted] = useState(false);
+  /** Flight Path: its planner (open, and the country it was opened from), which also stays mounted… */
+  const [planner, setPlanner] = useState<{ open: boolean; from: string | null }>({ open: false, from: null });
+  const [plannerMounted, setPlannerMounted] = useState(false);
+  /** …and the flight being flown on the globe, with whether its plane has landed. */
+  const [flight, setFlight] = useState<FlightPlan | null>(null);
+  const [flightLanded, setFlightLanded] = useState(false);
+  /** The view to go back to after a flight that had to leave it for the globe. */
+  const viewBeforeFlight = useRef<ViewMode | null>(null);
+  const flightCard = useRef<FlightCardHandle>(null);
+  const [flightCardHeight, setFlightCardHeight] = useState(0);
+  const flightCardObserver = useRef<ResizeObserver | null>(null);
   const [locateNonce, setLocateNonce] = useState(0);
   const [resetNonce, setResetNonce] = useState(0);
   const [spinFor, setSpinFor] = useState<string | null>(null);
@@ -106,6 +122,13 @@ export default function App() {
   const changeView = useCallback(
     (next: ViewMode) => {
       if (next !== view) sounds.morph();
+      // Flights are flown on the globe, so choosing the map ends one; and from here the view is
+      // theirs, not one to go back from.
+      viewBeforeFlight.current = null;
+      if (next !== 'globe') {
+        setFlight(null);
+        setFlightLanded(false);
+      }
       setView(next);
       try {
         localStorage.setItem(VIEW_KEY, next);
@@ -140,15 +163,23 @@ export default function App() {
     window.clearTimeout(spinTimer.current);
     setSpinning(false);
   }, []);
+  /** Ends the flight being shown, returning to the map if the flight had left it for the globe. */
+  const clearFlight = useCallback(() => {
+    setFlight(null);
+    setFlightLanded(false);
+    if (viewBeforeFlight.current) setView(viewBeforeFlight.current);
+    viewBeforeFlight.current = null;
+  }, []);
   const handleSelect = useCallback(
     (id: string) => {
       stopSpin();
       setSpinFor(null);
+      clearFlight();
       haptics.select();
       sounds.select();
       show(id);
     },
-    [show, stopSpin],
+    [show, stopSpin, clearFlight],
   );
   const handleClose = useCallback(() => {
     stopSpin();
@@ -160,13 +191,16 @@ export default function App() {
     const pool = index?.sorted.filter((c) => isSovereign(c) && c.cca3 !== selectedId) ?? [];
     if (!pool.length) return;
     const pick = pool[Math.floor(Math.random() * pool.length)].cca3;
+    // A flight makes way, and the shuffle lands on the view the flight had borrowed the globe from.
+    const landingView = viewBeforeFlight.current ?? view;
+    clearFlight();
     setSpinFor(pick);
     show(pick);
     window.clearTimeout(spinTimer.current);
     if (reducedMotion) return setSpinning(false);
     setSpinning(true);
-    spinTimer.current = window.setTimeout(() => setSpinning(false), SHUFFLE_MS[view]);
-  }, [index, selectedId, show, reducedMotion, view]);
+    spinTimer.current = window.setTimeout(() => setSpinning(false), SHUFFLE_MS[landingView]);
+  }, [index, selectedId, show, reducedMotion, view, clearFlight]);
   useEffect(() => () => window.clearTimeout(spinTimer.current), []);
 
   /** Tapping the view that's already showing recentres it, as tapping an app's current tab does. */
@@ -215,11 +249,66 @@ export default function App() {
     },
     [handleSelect],
   );
+  /** Opens the flight planner, from a country (which the flight then leaves) or from the map. */
+  const openPlanner = useCallback(
+    (from?: string) => {
+      if (!index) return;
+      stopSpin();
+      setDrawerOpen(false);
+      setPlannerMounted(true);
+      setPlanner({ open: true, from: from ?? null });
+    },
+    [index, stopSpin],
+  );
+  const closePlanner = useCallback(() => setPlanner((p) => ({ ...p, open: false })), []);
+  /** Take-off: the profile makes way, the globe takes the stage and the plane flies. */
+  const fly = useCallback(
+    (plan: FlightPlan) => {
+      stopSpin();
+      setSpinFor(null);
+      setPlanner((p) => ({ ...p, open: false }));
+      setDrawerOpen(false);
+      setSheetExpanded(false);
+      if (view !== 'globe') {
+        // Borrowed for the flight, so not remembered as their choice.
+        viewBeforeFlight.current = view;
+        setView('globe');
+      }
+      select(null);
+      haptics.select();
+      sounds.boarding();
+      setFlightLanded(false);
+      setFlight(plan);
+    },
+    [select, stopSpin, view],
+  );
+  const closeFlight = useCallback(() => {
+    sounds.close();
+    clearFlight();
+  }, [clearFlight]);
+  const flyAgain = useCallback(() => flight && fly(sameFlight(flight)), [flight, fly]);
+  const flyBack = useCallback(() => flight && fly(returnFlight(flight)), [flight, fly]);
+  // The globe reports the plane's progress frame by frame, straight to the card.
+  const handleFlightProgress = useCallback((progress: number) => flightCard.current?.progress(progress), []);
+  const handleFlightLand = useCallback(() => setFlightLanded(true), []);
+  // The phone's flight card floats above the tab bar; the globe makes room for however tall it is.
+  const flightCardBox = useCallback((box: HTMLElement | null) => {
+    flightCardObserver.current?.disconnect();
+    if (!box) return setFlightCardHeight(0);
+    flightCardObserver.current = new ResizeObserver(() => setFlightCardHeight(box.offsetHeight));
+    flightCardObserver.current.observe(box);
+  }, []);
+  // A country that arrives by any other road (the back button, a link) ends the flight too.
+  useEffect(() => {
+    if (selectedId) clearFlight();
+  }, [selectedId, clearFlight]);
+
   useEffect(() => {
     const idle = (window as unknown as { requestIdleCallback?: (fn: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
     const fetchAhead = () => {
       void loadQuiz();
       void loadCompare();
+      void loadFlightPicker();
     };
     const timer = window.setTimeout(() => (idle ? idle(fetchAhead, { timeout: 5000 }) : fetchAhead()), 4000);
     return () => window.clearTimeout(timer);
@@ -231,8 +320,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.title = selected ? `${selected.name} — World Atlas` : 'World Atlas — Countries Explorer';
-  }, [selected]);
+    document.title = flight
+      ? `${flight.from.place} to ${flight.to.place} — World Atlas`
+      : selected
+        ? `${selected.name} — World Atlas`
+        : 'World Atlas — Countries Explorer';
+  }, [selected, flight]);
 
   // The first visit to each country is a small celebration, and milestones a bigger one. The visit
   // waits in a ref, so the celebration survives React running this effect twice in development.
@@ -275,7 +368,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // Keyboard shortcuts: "/" or Ctrl/⌘+K search, "g" toggles the globe, Esc closes things.
+  // Keyboard shortcuts: "/" or Ctrl/⌘+K search, "g" toggles the globe, "f" plans a flight, Esc closes things.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // A dialog (the quiz, About) has the keyboard to itself.
@@ -294,22 +387,26 @@ export default function App() {
         toggleNight();
       } else if (e.key.toLowerCase() === 'q' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         openQuiz();
+      } else if (e.key.toLowerCase() === 'f' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // From the country that's open, if one is.
+        openPlanner(selectedId ?? undefined);
       } else if (e.key === 'Escape' && !e.defaultPrevented) {
         // One thing at a time, like back on Android. Handled here, so the close watchers that back
         // also reaches don't close a second thing for the same key press.
         if (drawerOpen) setDrawerOpen(false);
         else if (layout === 'mobile' && sheetExpanded && selectedId) setSheetExpanded(false);
         else if (selectedId && !isTyping(e.target)) handleClose();
+        else if (flight && !isTyping(e.target)) closeFlight();
         else return;
         e.preventDefault();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layout, view, changeView, toggleNight, drawerOpen, sheetExpanded, selectedId, handleClose, openQuiz]);
+  }, [layout, view, changeView, toggleNight, drawerOpen, sheetExpanded, selectedId, handleClose, openQuiz, openPlanner, flight, closeFlight]);
 
   /** The map is out of sight behind an open sheet, menu or dialog, so it can stop animating. */
-  const covered = (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen || quizOpen || compare.open;
+  const covered = (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen || quizOpen || compare.open || planner.open;
 
   const activeIds = useMemo(
     () => (region && index ? new Set(index.sorted.filter((c) => c.region === region).map((c) => c.cca3)) : null),
@@ -320,9 +417,9 @@ export default function App() {
   const insets = useMemo<Insets>(() => {
     // Cards carry a 6px hard shadow, so leave room for it too.
     if (layout === 'desktop') return { top: 0, bottom: 0, left: sidebarPx + GAP + 6, right: panelPx + GAP + 10 };
-    if (layout === 'tablet') return { top: topBarBottom, bottom: 0, left: 0, right: shownId || spinning ? TABLET_PANEL_PX + GAP : 0 };
-    return { top: topBarBottom, bottom: navHeight + (shownId ? peek : 0), left: 0, right: 0 };
-  }, [layout, shownId, spinning, sidebarPx, panelPx, topBarBottom, navHeight, peek]);
+    if (layout === 'tablet') return { top: topBarBottom, bottom: 0, left: 0, right: shownId || spinning || flight ? TABLET_PANEL_PX + GAP : 0 };
+    return { top: topBarBottom, bottom: navHeight + (shownId ? peek : flight ? flightCardHeight + 14 : 0), left: 0, right: 0 };
+  }, [layout, shownId, spinning, flight, flightCardHeight, sidebarPx, panelPx, topBarBottom, navHeight, peek]);
 
   const sidebar = (
     <Sidebar
@@ -359,7 +456,25 @@ export default function App() {
         onSelect={handleSelect}
         onLocate={handleLocate}
         onCompare={openCompare}
+        onFly={openPlanner}
         sheetHeader={sheetHeader}
+      />
+    ) : null;
+
+  /** The flight being flown: the whole story beside the map, or a short card above a phone's tab bar. */
+  const flightInfo = (compact: boolean) =>
+    flight ? (
+      <FlightCard
+        ref={flightCard}
+        plan={flight}
+        index={index}
+        landed={flightLanded}
+        compact={compact}
+        onAgain={flyAgain}
+        onReturn={flyBack}
+        onNew={() => openPlanner()}
+        onExplore={handleSelect}
+        onClose={closeFlight}
       />
     ) : null;
 
@@ -386,6 +501,11 @@ export default function App() {
           onSelect={handleSelect}
           onSurprise={handleSurprise}
           onPlay={openQuiz}
+          onFly={openPlanner}
+          flight={flight}
+          flightLanded={flightLanded}
+          onFlightProgress={handleFlightProgress}
+          onFlightLand={handleFlightLand}
           spinFor={spinFor}
           showLegend={layout === 'desktop'}
         />
@@ -403,12 +523,14 @@ export default function App() {
             className={`${card} absolute bottom-4 right-4 top-3 z-20 animate-rise [animation-delay:90ms]`}
             style={{ width: panelPx }}
           >
-            {spinning ? (
+            {flight ? (
+              flightInfo(false)
+            ) : spinning ? (
               <SpinningCard />
             ) : shownId ? (
               panel(shownId)
             ) : (
-              <WelcomePanel index={index} onSelect={handleSelect} onSurprise={handleSurprise} onPlay={openQuiz} />
+              <WelcomePanel index={index} onSelect={handleSelect} onSurprise={handleSurprise} onPlay={openQuiz} onFly={openPlanner} />
             )}
           </aside>
         </>
@@ -427,13 +549,24 @@ export default function App() {
         </>
       )}
 
-      {layout === 'tablet' && (shownId || spinning) && (
+      {layout === 'tablet' && flight ? (
+        // As tall as its story, and no taller than the screen.
         <aside
-          className={`${card} absolute bottom-4 right-4 z-20 animate-rise`}
-          style={{ width: TABLET_PANEL_PX, top: topBarBottom + GAP }}
+          className={`${card} absolute right-4 z-20 animate-rise`}
+          style={{ width: TABLET_PANEL_PX, top: topBarBottom + GAP, maxHeight: `calc(100% - ${topBarBottom + GAP + 16}px)` }}
         >
-          {spinning ? <SpinningCard /> : panel(shownId)}
+          {flightInfo(false)}
         </aside>
+      ) : (
+        layout === 'tablet' &&
+        (shownId || spinning) && (
+          <aside
+            className={`${card} absolute bottom-4 right-4 z-20 animate-rise`}
+            style={{ width: TABLET_PANEL_PX, top: topBarBottom + GAP }}
+          >
+            {spinning ? <SpinningCard /> : panel(shownId)}
+          </aside>
+        )
       )}
 
       {layout === 'mobile' && (
@@ -449,6 +582,15 @@ export default function App() {
           >
             {(handle) => panel(sheetId, handle)}
           </BottomSheet>
+          {flight && (
+            <aside
+              ref={flightCardBox}
+              className={`${card} fixed inset-x-3 z-30 animate-rise [--glass-alpha:0.68]`}
+              style={{ bottom: navHeight + 8 }}
+            >
+              {flightInfo(true)}
+            </aside>
+          )}
           <BottomNav
             ref={navRef}
             view={view}
@@ -458,20 +600,22 @@ export default function App() {
             canShuffle={!!index}
             onSearch={() => setDrawerOpen(true)}
             onPlay={openQuiz}
+            onFly={openPlanner}
+            flying={!!flight}
             canPlay={!!index}
           />
         </>
       )}
 
       {/* Desktop offers installing from the welcome card instead. */}
-      {(layout === 'tablet' || (layout === 'mobile' && !shownId && !spinning)) && (
+      {(layout === 'tablet' || (layout === 'mobile' && !shownId && !spinning && !flight)) && (
         <div className="absolute z-10" style={{ left: insets.left + 12, bottom: insets.bottom + 16 }}>
           <InstallPill />
         </div>
       )}
 
       {layout !== 'desktop' && (
-        <GestureHint ready={!!world.data && !selectedId && !spinning && !drawerOpen && !quizOpen} view={view} top={topBarBottom + 12} />
+        <GestureHint ready={!!world.data && !selectedId && !spinning && !drawerOpen && !quizOpen && !flight && !planner.open} view={view} top={topBarBottom + 12} />
       )}
       <UpdateToast top={layout === 'desktop' ? 16 : topBarBottom + 10} />
       {/* Centred over the map; on desktop below the globe/map switch */}
@@ -488,6 +632,11 @@ export default function App() {
       {compareMounted && index && (
         <Suspense fallback={null}>
           <CompareDialog open={compare.open} first={compare.first} index={index} onClose={closeCompare} onShowCountry={showFromCompare} />
+        </Suspense>
+      )}
+      {plannerMounted && index && (
+        <Suspense fallback={null}>
+          <FlightPicker open={planner.open} from={planner.from} index={index} world={world.data} onClose={closePlanner} onFly={fly} />
         </Suspense>
       )}
     </div>

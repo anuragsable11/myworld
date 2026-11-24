@@ -282,6 +282,25 @@ function stopWhirr() {
   source.stop(t + 0.45);
 }
 
+/**
+ * A jet's engines, heard from the ground far below: a soft hiss of air over a low hum. Like the
+ * whirr it's one voice that follows the throttle it's given every frame, and it fades out on its
+ * own soon after the updates stop.
+ */
+let jet: { air: AudioBufferSourceNode; hum: OscillatorNode[]; filter: BiquadFilterNode; level: GainNode; timer: number } | null = null;
+
+function stopJet() {
+  if (!jet || !audio) return;
+  const { air, hum, level, timer } = jet;
+  jet = null;
+  window.clearTimeout(timer);
+  const t = audio.currentTime;
+  level.gain.cancelScheduledValues(t);
+  level.gain.setTargetAtTime(0, t, 0.12);
+  air.stop(t + 0.7);
+  hum.forEach((osc) => osc.stop(t + 0.7));
+}
+
 /** Musical notes, in Hz. */
 const NOTE = {
   C5: 523.25,
@@ -443,6 +462,80 @@ export const sounds = {
     whirr.filter.frequency.setTargetAtTime(260 + amount * 1100, t, 0.08);
     window.clearTimeout(whirr.timer);
     whirr.timer = window.setTimeout(stopWhirr, 220);
+  },
+  /** A flight is booked: the cabin's "bing" before the seat-belt sign. */
+  boarding() {
+    const c = ready(true);
+    if (!c) return;
+    bell(c, NOTE.E6, { decay: 0.7, gain: 0.1, wet: 0.35 });
+    tone(c, { freq: NOTE.E5, type: 'triangle', attack: 0.004, decay: 0.3, gain: 0.03, wet: 0.3 });
+  },
+  /** The plane leaving the ground: its engines winding up and the air starting to rush. */
+  takeoff() {
+    const c = ready(false);
+    if (!c) return;
+    noise(c, { duration: 1.3, from: 220, to: 2600, gain: 0.17, q: 0.7, wet: 0.12 });
+    tone(c, { freq: 90, to: 250, type: 'sawtooth', attack: 0.25, decay: 1, gain: 0.035, lowpass: [500, 1500] });
+    tone(c, { freq: 420, to: 1250, attack: 0.3, decay: 0.95, gain: 0.014, wet: 0.2 });
+  },
+  /**
+   * The plane in the air: call it every frame of a flight with the throttle, from 0 (gliding in) to
+   * 1 (climbing away).
+   */
+  jet(throttle: number) {
+    const amount = Math.min(1, Math.max(0, throttle));
+    if (amount <= 0) {
+      if (jet && audio) jet.level.gain.setTargetAtTime(0, audio.currentTime, 0.1);
+      return;
+    }
+    const c = ready(false);
+    if (!c) return;
+    if (!jet) {
+      const air = c.createBufferSource();
+      air.buffer = noiseBufferFor(c);
+      air.loop = true;
+      const filter = c.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.Q.value = 0.5;
+      const level = c.createGain();
+      level.gain.value = 0;
+      air.connect(filter);
+      filter.connect(level);
+      // Two low notes a little apart beat slowly against each other, like a pair of engines.
+      const hum = [118, 119.3].map((freq) => {
+        const osc = c.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        const share = c.createGain();
+        share.gain.value = 0.3;
+        osc.connect(share);
+        share.connect(level);
+        osc.start();
+        return osc;
+      });
+      level.connect(output!);
+      air.start(0, Math.random() * 0.5);
+      jet = { air, hum, filter, level, timer: 0 };
+    }
+    const t = c.currentTime;
+    jet.level.gain.cancelScheduledValues(t);
+    // Kept under every other sound: it lasts for seconds, where they last a moment.
+    jet.level.gain.setTargetAtTime(0.008 + amount * 0.023, t, 0.25);
+    jet.filter.frequency.cancelScheduledValues(t);
+    jet.filter.frequency.setTargetAtTime(380 + amount * 700, t, 0.3);
+    window.clearTimeout(jet.timer);
+    jet.timer = window.setTimeout(stopJet, 240);
+  },
+  /** Wheels on the runway: a chirp of tyres, the engines roaring back, then the cabin's "bing-bong". */
+  touchdown() {
+    const c = ready(false);
+    if (!c) return;
+    burst(c, { freq: 2900, q: 5, gain: 0.1, decay: 0.07 });
+    burst(c, { freq: 2500, q: 5, gain: 0.07, decay: 0.06, at: 0.11 });
+    tone(c, { freq: 150, to: 60, attack: 0.003, decay: 0.2, gain: 0.15 });
+    noise(c, { duration: 0.75, from: 1500, to: 240, gain: 0.1, q: 0.6, at: 0.05, wet: 0.1 });
+    bell(c, NOTE.E6, { at: 0.62, decay: 0.55, gain: 0.1, wet: 0.35 });
+    bell(c, NOTE.C6, { at: 0.94, decay: 0.95, gain: 0.1, wet: 0.4 });
   },
   /** A country opened for the very first time: a sparkling, rising arpeggio. */
   discover() {

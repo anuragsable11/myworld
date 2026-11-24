@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { ArrowLeftRight, Lightbulb, Search, X } from 'lucide-react';
+import { ArrowLeftRight, Lightbulb, X } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, useFactbook, type CountryIndex } from '../../hooks/queries';
 import { useChangeSound } from '../../hooks/useChangeSound';
 import { formatShortCount } from '../../lib/format';
 import { haptics } from '../../lib/haptics';
-import { searchCountries } from '../../lib/search';
 import { sounds } from '../../lib/sounds';
-import { capitalZone } from '../../lib/timezones';
-import { Mascot } from '../game/Mascot';
+import { capitalZone, zoneOffsetMinutes } from '../../lib/timezones';
+import { CountryPicker, withFamous } from '../ui/CountryPicker';
 import { Flag } from '../ui/Flag';
 
 /** The two sides of every comparison: colour of the bars, the dots and the values (iOS blue and pink). */
@@ -17,9 +16,6 @@ const SIDES = [
   { dot: 'bg-tint', bar: 'bg-tint', text: 'text-[#0062cc]' },
   { dot: 'bg-ios-pink', bar: 'bg-ios-pink', text: 'text-[#d6204a]' },
 ] as const;
-
-/** Well-known countries offered after a country's neighbours. */
-const FAMOUS = ['USA', 'CHN', 'IND', 'BRA', 'JPN', 'GBR', 'FRA', 'DEU', 'AUS', 'CAN', 'RUS', 'ZAF', 'MEX', 'EGY', 'ITA', 'KOR'];
 
 /** Population, from the country record or else the Factbook. */
 function usePopulation(country: Country | undefined) {
@@ -30,16 +26,7 @@ function usePopulation(country: Country | undefined) {
 /** Minutes the capital's clock is ahead of UTC right now. */
 function utcOffsetMinutes(country: Country): number | undefined {
   const zone = capitalZone(country.cca2, country.capitals[0]?.name);
-  if (!zone) return undefined;
-  try {
-    const name = new Intl.DateTimeFormat('en-GB', { timeZone: zone, timeZoneName: 'shortOffset' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value ?? '';
-    const m = /GMT(?:([+-])(\d{1,2})(?::(\d{2}))?)?/.exec(name);
-    if (!m) return undefined;
-    if (!m[1]) return 0;
-    return (m[1] === '+' ? 1 : -1) * (Number(m[2]) * 60 + Number(m[3] ?? 0));
-  } catch {
-    return undefined;
-  }
+  return zone ? zoneOffsetMinutes(zone) : undefined;
 }
 
 const times = (a: number, b: number) => {
@@ -90,6 +77,8 @@ export default function CompareDialog({
 
   const a = left ? index.byId.get(left) : undefined;
   const b = right ? index.byId.get(right) : undefined;
+  // Its neighbours first, then well-known countries of the world.
+  const suggestions = useMemo(() => (a ? withFamous(index, a.borders, a.cca3) : []), [index, a]);
 
   return (
     <dialog ref={ref} aria-label="Compare countries" className="quiz-dialog" onClose={() => open && onClose()}>
@@ -124,11 +113,13 @@ export default function CompareDialog({
         </header>
         <main className="mx-auto w-full max-w-2xl min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(20px,env(safe-area-inset-bottom))]">
           {a && !b && (
-            <Picker
+            <CountryPicker
               index={index}
               exclude={a.cca3}
-              suggested={a.borders}
+              suggestions={suggestions}
+              caption={a.borders.length ? 'Neighbours, then well-known countries' : undefined}
               title={`Compare ${a.name} with…`}
+              inputId="compare-search"
               onPick={(id) => {
                 setRight(id);
                 haptics.select();
@@ -140,73 +131,6 @@ export default function CompareDialog({
         </main>
       </div>
     </dialog>
-  );
-}
-
-function Picker({
-  index,
-  exclude,
-  suggested,
-  title,
-  onPick,
-}: {
-  index: CountryIndex;
-  exclude: string;
-  suggested: string[];
-  title: string;
-  onPick: (id: string) => void;
-}) {
-  const [query, setQuery] = useState('');
-  const results = useMemo(() => {
-    if (query.trim()) return searchCountries(index.sorted, query).filter((c) => c.cca3 !== exclude).slice(0, 30);
-    // Its neighbours first, then well-known countries of the world.
-    const near = suggested.map((id) => index.byId.get(id)).filter((c): c is Country => !!c);
-    const famous = FAMOUS.map((id) => index.byId.get(id)).filter((c): c is Country => !!c && c.cca3 !== exclude && !suggested.includes(c.cca3));
-    return [...near, ...famous];
-  }, [query, index, exclude, suggested]);
-
-  return (
-    <div className="pt-2">
-      <label htmlFor="compare-search" className="block text-[20px] font-semibold tracking-[-0.015em] text-label">
-        {title}
-      </label>
-      <div className="relative mt-3">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-[17px] -translate-y-1/2 text-secondary" strokeWidth={2.3} />
-        <input
-          id="compare-search"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search a country or capital"
-          autoComplete="off"
-          spellCheck={false}
-          className="h-10 w-full rounded-[11px] bg-[rgb(118_118_128/0.12)] pl-9 pr-4 text-[16px] text-label transition-shadow duration-200 placeholder:text-secondary focus:shadow-[0_0_0_3px_rgb(0_122_255/0.25)] focus:outline-none"
-        />
-      </div>
-      {!query.trim() && suggested.length > 0 && (
-        <p className="ml-4 mt-5 text-[13px] font-semibold uppercase tracking-[0.04em] text-secondary">Neighbours, then well-known countries</p>
-      )}
-      <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {results.map((c) => (
-          <li key={c.cca3}>
-            <button
-              type="button"
-              onClick={() => onPick(c.cca3)}
-              className="ios-press flex w-full items-center gap-2.5 rounded-[14px] bg-white px-3 py-2.5 text-left hover:bg-white/70"
-            >
-              <Flag country={c} className="h-5 w-[30px] shrink-0 rounded-[4px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.15)]" />
-              <span className="min-w-0 truncate text-[15px] font-medium">{c.name}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      {query.trim() && !results.length && (
-        <div className="mt-6 flex flex-col items-center text-center">
-          <Mascot mood="think" className="w-20" />
-          <p className="mt-2 text-[15px] text-secondary">No country matches “{query}”.</p>
-        </div>
-      )}
-    </div>
   );
 }
 
