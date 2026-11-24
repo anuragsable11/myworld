@@ -94,14 +94,17 @@ src/components/panel/         Country profile and its sections
   and density (each bar labelled with its flag), and capital, languages, money, driving side, neighbours, coast, status
   and the time difference. Swap the sides, or open either country.
 - **Flight Path** (`src/components/flight/`, `src/lib/flight.ts`): the Fly button on a profile, the plane button by
-  the map, the Fly tab on phones or `F` opens a planner; pick two countries and a plane flies between their capitals
-  on the globe, along the shortest way over it. The camera glides to the runway while the route appears as dots painted
-  on the ground, then travels with the plane (sitting still over a short hop, so the plane crosses the view); the way
-  flown is a solid trail, a flag pin stands at each end, and the engines, take-off and touchdown are heard. A card
-  counts the distance up with the plane and gives the flight time at 850 km/h, the clock on landing and how far apart
-  the two places' clocks are, plus the same trip by train, by car and on foot. Fly it again, fly back, or open the
-  country it landed in. Capitals come from `src/data/capitals.json`; a place without one is flown to its middle. Started
-  from the flat map, a flight borrows the globe and hands the map back when it ends.
+  the map, the Fly tab on phones or `F` opens a planner; pick two countries and an airliner flies between their capitals
+  on the globe, along the shortest way over it. The route is an arc through the air ("up" is up the screen, the way the
+  flag pins stand) with its shadow on the ground beneath: dotted ahead of the plane, a solid trail behind it. The camera
+  travels with the plane like the shots of a film: close in on the runway while the route draws itself, pulling back as
+  the plane climbs until both ends are in view (or the whole globe, on a long haul), and closing in again for the
+  landing. A flag pin with the city's name drops at each end, the second onto the plane as it lands among rings and
+  sparkles, and the engines, take-off and touchdown are heard. A card counts the distance up with the plane and gives the
+  flight time at 850 km/h, the clock on landing and how far apart the two places' clocks are, plus the same trip by
+  train, by car and on foot. Fly it again, fly back, or open the country it landed in. Capitals come from
+  `src/data/capitals.json`; a place without one is flown to its middle. Started from the flat map, a flight borrows the
+  globe and hands the map back when it ends.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
 - **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
   list and profile on floating cards (desktop); a list drawer and floating panel on tablets. Phones get an app-style

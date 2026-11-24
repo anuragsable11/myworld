@@ -1,9 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { geoContains, geoDistance, geoGraticule, geoGraticule10, geoOrthographic, geoPath, type GeoContext, type GeoSphere } from 'd3-geo';
-import { easeBackOut, easeCubicInOut, easeSinInOut } from 'd3-ease';
+import { easeBackOut, easeCubicInOut, easeCubicOut, easeSinInOut } from 'd3-ease';
 import { interpolate } from 'd3-interpolate';
-import type { Feature, LineString, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
-import { flightCamera, flightRoute, type FlightPlan, type FlightRoute } from '../../lib/flight';
+import type { Feature, MultiLineString, MultiPolygon, Polygon, Position } from 'geojson';
+import { FLIGHT_PREP_MS, flightCamera, flightHeight, flightRoute, type FlightPlan, type FlightRoute } from '../../lib/flight';
 import { boundsContain, colorSlotFor, type LowDetail, type Shape, type World } from '../../lib/geo';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
@@ -29,11 +29,6 @@ const INERTIA_MS = 380;
  */
 const NOTCH_DEGREES = 20;
 const NOTCH_MS = 45;
-/**
- * A flight starts with the camera gliding to the runway while the route draws itself, for this
- * long; then the plane leaves.
- */
-const FLIGHT_PREP_MS = 1150;
 /**
  * While a plane is in the air and the camera follows it, the globe is drawn at every frame, at no
  * more than this pixel ratio (the slow drift of a resting globe gets by on every other frame).
@@ -144,8 +139,8 @@ function wavePoints(world: World): [number, number][] {
   return out;
 }
 
-/** A little top-down cartoon plane pointing along +x; or, as a `shadow`, just its dark shape. */
-function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, size: number, shadow = false) {
+/** A little top-down cartoon plane pointing along +x. */
+function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, size: number) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
@@ -153,7 +148,7 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
   ctx.lineJoin = 'round';
   ctx.lineWidth = 1.7;
   ctx.strokeStyle = INK;
-  ctx.fillStyle = shadow ? INK : '#ff6b81';
+  ctx.fillStyle = '#ff6b81';
   for (const side of [-1, 1]) {
     ctx.beginPath();
     ctx.moveTo(-1, 2 * side);
@@ -172,20 +167,174 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
     ctx.fill();
     ctx.stroke();
   }
-  if (!shadow) ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.ellipse(0, 0, 16, 4.6, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  if (!shadow) {
-    ctx.fillStyle = '#7cc8ff';
-    ctx.lineWidth = 1.2;
+  ctx.fillStyle = '#7cc8ff';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(9, 0, 2.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * The airliner of a flight path, seen from above with its nose along +x: 60 units from nose to tail
+ * before `size` scales it. `shade` is the side away from the light (1 or -1 across the body) and
+ * `beacon` (0–1) how brightly the lamp on its back is flashing. As a `shadow` it is only its dark shape.
+ */
+function drawAirliner(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  size: number,
+  { shadow = false, shade = 1, beacon = 0 }: { shadow?: boolean; shade?: number; beacon?: number } = {},
+) {
+  const wing = (side: number) => {
     ctx.beginPath();
-    ctx.arc(9, 0, 2.1, 0, Math.PI * 2);
+    ctx.moveTo(8.5, 3 * side);
+    ctx.lineTo(-8, 26 * side);
+    ctx.lineTo(-13.5, 26 * side);
+    ctx.lineTo(-6, 3 * side);
+    ctx.closePath();
+  };
+  const tailplane = (side: number) => {
+    ctx.beginPath();
+    ctx.moveTo(-19, 2.2 * side);
+    ctx.lineTo(-27.5, 10.5 * side);
+    ctx.lineTo(-30.5, 10.5 * side);
+    ctx.lineTo(-25.5, 1.8 * side);
+    ctx.closePath();
+  };
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(29, 0);
+    ctx.bezierCurveTo(28.5, -2.6, 24, -4.6, 17, -4.6);
+    ctx.lineTo(-13, -4.6);
+    ctx.bezierCurveTo(-21, -4.4, -26, -2.4, -29.5, -0.9);
+    ctx.quadraticCurveTo(-30.6, 0, -29.5, 0.9);
+    ctx.bezierCurveTo(-26, 2.4, -21, 4.4, -13, 4.6);
+    ctx.lineTo(17, 4.6);
+    ctx.bezierCurveTo(24, 4.6, 28.5, 2.6, 29, 0);
+    ctx.closePath();
+  };
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(size, size);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  if (shadow) {
+    ctx.fillStyle = INK;
+    for (const side of [-1, 1]) {
+      wing(side);
+      ctx.fill();
+      tailplane(side);
+      ctx.fill();
+    }
+    body();
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  ctx.strokeStyle = INK;
+  for (const side of [-1, 1]) {
+    // An engine under each wing, its back half hidden by the wing
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(4.6, 11.5 * side, 4.8, 2.4, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#dfe5ff';
+    ctx.fill();
+    ctx.stroke();
+    ctx.lineWidth = 1.7;
+    ctx.fillStyle = '#ff6b81';
+    wing(side);
+    ctx.fill();
+    ctx.stroke();
+    tailplane(side);
     ctx.fill();
     ctx.stroke();
   }
+  // The flaps: a faint line along the back of each wing
+  ctx.save();
+  ctx.strokeStyle = 'rgba(30, 27, 75, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    ctx.moveTo(-4.8, 6.5 * side);
+    ctx.lineTo(-10.8, 23.5 * side);
+  }
+  ctx.stroke();
   ctx.restore();
+
+  body();
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  // Its far side from the light, in shade
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = 'rgba(30, 27, 75, 0.13)';
+  ctx.fillRect(-31, shade > 0 ? 1.1 : -5, 61, 3.9);
+  ctx.restore();
+  body();
+  ctx.stroke();
+
+  // The tail fin, seen edge on
+  ctx.beginPath();
+  ctx.moveTo(-14.5, 0);
+  ctx.lineTo(-28.5, -1.5);
+  ctx.lineTo(-28.5, 1.5);
+  ctx.closePath();
+  ctx.fillStyle = '#ff6b81';
+  ctx.fill();
+  ctx.lineWidth = 1.1;
+  ctx.stroke();
+  // The windscreen
+  ctx.beginPath();
+  ctx.moveTo(22.2, -3.5);
+  ctx.quadraticCurveTo(26.6, 0, 22.2, 3.5);
+  ctx.quadraticCurveTo(24.3, 0, 22.2, -3.5);
+  ctx.fillStyle = '#2f3a8f';
+  ctx.fill();
+  // Red to port, green to starboard, as on every aircraft
+  for (const [side, color] of [
+    [-1, '#ff3b30'],
+    [1, '#34c759'],
+  ] as const) {
+    ctx.beginPath();
+    ctx.arc(-10.6, 25.4 * side, 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  if (beacon > 0) {
+    const glow = ctx.createRadialGradient(-3, 0, 0, -3, 0, 10);
+    glow.addColorStop(0, `rgba(255, 255, 255, ${0.95 * beacon})`);
+    glow.addColorStop(0.35, `rgba(255, 255, 255, ${0.45 * beacon})`);
+    glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(-3, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** The outline of a four-pointed sparkle, ready to fill. */
+function sparklePath(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, turn: number) {
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = turn + (i * Math.PI) / 4;
+    const d = i % 2 ? r * 0.38 : r;
+    if (i) ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+    else ctx.moveTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+  }
+  ctx.closePath();
 }
 
 /** Cartoon sun marking where the sun is directly overhead right now. */
@@ -259,6 +408,14 @@ interface Animation {
 interface Flight {
   plan: FlightPlan;
   route: FlightRoute;
+  /** Points along the route, evenly spaced, with how high the arc is above each. */
+  samples: { point: [number, number]; x: number; y: number; z: number; height: number }[];
+  /** Where each sample is on screen in the frame being drawn, and how squarely it faces us. */
+  xs: Float64Array;
+  ys: Float64Array;
+  facings: Float64Array;
+  /** How many dots mark the way ahead. */
+  dots: number;
   /** Time since the plan arrived, in ms; it only runs while the globe is being drawn. */
   elapsed: number;
   /** How far along the route the plane is, from 0 to 1. */
@@ -877,26 +1034,36 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       sctx.restore();
     };
 
-    /** Moves the flag pins at the two ends of a flight onto their places, hiding one that is round the back. */
+    /**
+     * Moves the flag pins at the two ends of a flight onto their places, hiding one that is round
+     * the back, and their name tags when the two stand too close together for both to be read.
+     */
     const placeFlightPins = (flight: Flight, center: [number, number]) => {
       const pins = propsRef.current.flightPins;
       if (!pins) return;
-      for (const [stop, pinRef] of [
-        [flight.plan.from, pins.from],
-        [flight.plan.to, pins.to],
-      ] as const) {
-        const pin = pinRef.current;
-        if (!pin) continue;
+      const [a, b] = (
+        [
+          [flight.plan.from, pins.from.current],
+          [flight.plan.to, pins.to.current],
+        ] as const
+      ).map(([stop, pin]) => {
         const point: [number, number] = [stop.lon, stop.lat];
-        const xy = geoDistance(point, center) < Math.PI / 2 - 0.15 ? projection(point) : null;
+        return { pin, xy: geoDistance(point, center) < Math.PI / 2 - 0.15 ? projection(point) : null };
+      });
+      const crowded = !!a.xy && !!b.xy && Math.hypot(a.xy[0] - b.xy[0], a.xy[1] - b.xy[1]) < 96;
+      for (const { pin, xy } of [a, b]) {
+        if (!pin) continue;
         if (xy) pin.move(xy[0], xy[1]);
         else pin.hide();
+        pin.crowd?.(crowded);
       }
     };
 
     /**
-     * A flight, on its own canvas above the clouds: the way ahead as dots painted on the globe, the
-     * way flown as a solid trail, a marker at each end, and the plane with its shadow.
+     * A flight, on its own canvas above the clouds. The route is an arc through the air: it leaves
+     * the ground at one city and comes down at the other, and "up" is up the screen, the way the
+     * flag pins stand. Its shadow lies on the ground beneath. Ahead of the plane the arc is dotted;
+     * behind it is a solid trail. The plane rides the arc, its own shadow on the ground below it.
      */
     const drawFlight = (now: number) => {
       const f = s.flight;
@@ -908,29 +1075,137 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       s.flightDrawn = true;
       fctx.clearRect(0, 0, s.width, s.height);
       configure();
-      const { route, plan } = f;
+      const { route, samples, xs, ys, facings } = f;
       const R = projection.scale();
       const center: [number, number] = [-s.rotate[0], -s.rotate[1]];
-      /** How squarely a place faces us: 1 in the middle of the globe, 0 on its edge, less round the back. */
-      const facing = (point: [number, number]) => Math.cos(geoDistance(point, center));
-
-      // The way ahead: dots a fixed distance apart on the ground, so they stay put as the globe turns
-      // and bunch up towards its edge. They appear one after another while the camera gets ready.
-      const revealed = f.tookOff ? 1 : Math.min(1, f.elapsed / (FLIGHT_PREP_MS * 0.8));
-      const dots = Math.max(2, Math.round((route.angle * (s.radius ?? baseRadius()) * route.scale) / 11));
-      fctx.beginPath();
-      for (let i = 1; i < dots; i++) {
-        const t = i / dots;
-        if (t > revealed) break;
-        if (t < f.progress + 0.5 / dots) continue;
+      const [vx, vy, vz] = unit(center[0], center[1]);
+      const still = propsRef.current.reducedMotion;
+      /** The arc's height on screen at its top: zooming in brings it closer like everything else. */
+      const climb = route.climb * R;
+      /** A place a share `t` of the way along: on the ground, in the air above it, and how squarely it faces us. */
+      const see = (t: number) => {
         const point = route.at(t);
-        const toward = facing(point);
-        if (toward < 0.06) continue;
-        const xy = projection(point);
-        if (!xy) continue;
-        const r = 1.2 + 1.2 * Math.min(1, toward * 1.6);
-        fctx.moveTo(xy[0] + r, xy[1]);
-        fctx.arc(xy[0], xy[1], r, 0, Math.PI * 2);
+        const [x, y, z] = unit(point[0], point[1]);
+        const xy = projection(point) ?? [0, 0];
+        return { x: xy[0], ground: xy[1], y: xy[1] - climb * flightHeight(t), facing: x * vx + y * vy + z * vz };
+      };
+      const n = samples.length - 1;
+      for (let i = 0; i <= n; i++) {
+        const sample = samples[i];
+        const xy = projection(sample.point);
+        xs[i] = xy ? xy[0] : 0;
+        ys[i] = xy ? xy[1] : 0;
+        facings[i] = sample.x * vx + sample.y * vy + sample.z * vz;
+      }
+      /** Lays the route down as a path from its start as far as `to` (0–1): the arc itself, or its line on the ground. */
+      const trace = (to: number, lifted: boolean) => {
+        fctx.beginPath();
+        let drawing = false;
+        const last = Math.min(n, Math.floor(to * n + 1e-9));
+        for (let i = 0; i <= last; i++) {
+          if (facings[i] < 0.03) {
+            drawing = false;
+            continue;
+          }
+          const y = lifted ? ys[i] - climb * samples[i].height : ys[i];
+          if (drawing) fctx.lineTo(xs[i], y);
+          else fctx.moveTo(xs[i], y);
+          drawing = true;
+        }
+        // …and on to the exact spot, between two samples.
+        if (to * n > last) {
+          const tip = see(to);
+          if (tip.facing >= 0.03) {
+            if (drawing) fctx.lineTo(tip.x, lifted ? tip.y : tip.ground);
+            else fctx.moveTo(tip.x, lifted ? tip.y : tip.ground);
+          }
+        }
+      };
+      /** A ring spreading out over the ground. */
+      const ring = (x: number, y: number, radius: number, alpha: number) => {
+        fctx.beginPath();
+        fctx.arc(x, y, radius, 0, Math.PI * 2);
+        fctx.strokeStyle = `rgba(30, 27, 75, ${0.3 * alpha})`;
+        fctx.lineWidth = 4.5;
+        fctx.stroke();
+        fctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        fctx.lineWidth = 2.5;
+        fctx.stroke();
+      };
+      fctx.lineCap = 'round';
+      fctx.lineJoin = 'round';
+
+      // The route's shadow on the ground. It runs out from the first city while the camera gets ready.
+      const revealed = f.tookOff ? 1 : Math.min(1, f.elapsed / (FLIGHT_PREP_MS * 0.75));
+      trace(revealed, false);
+      fctx.strokeStyle = 'rgba(30, 27, 75, 0.17)';
+      fctx.lineWidth = 4.2;
+      fctx.stroke();
+
+      // A marker on the ground at each end, under the flag pins.
+      const origin = see(0);
+      const arrival = see(1);
+      const sinceTakeoff = f.elapsed - FLIGHT_PREP_MS;
+      if (origin.facing > 0.05) {
+        // The plane leaves a ripple behind as it lifts off.
+        if (!still && f.tookOff && sinceTakeoff < 800) ring(origin.x, origin.ground, 6 + 34 * easeCubicOut(sinceTakeoff / 800), 1 - sinceTakeoff / 800);
+        fctx.beginPath();
+        fctx.arc(origin.x, origin.ground, 5, 0, Math.PI * 2);
+        fctx.fillStyle = '#ffffff';
+        fctx.fill();
+        fctx.strokeStyle = INK;
+        fctx.lineWidth = 2;
+        fctx.stroke();
+      }
+      if (arrival.facing > 0.05) {
+        if (!f.landed && !still) {
+          // The destination calls the plane in: rings spreading out from it, one after another.
+          for (const offset of [0, 0.5]) {
+            const pulse = (now / 1700 + offset) % 1;
+            ring(arrival.x, arrival.ground, 6 + pulse * 18, 1 - pulse);
+          }
+        }
+        fctx.beginPath();
+        fctx.arc(arrival.x, arrival.ground, 5, 0, Math.PI * 2);
+        fctx.fillStyle = '#ff6b81';
+        fctx.fill();
+        fctx.strokeStyle = INK;
+        fctx.lineWidth = 2;
+        fctx.stroke();
+      }
+
+      // The plane: where it is, which way it points (along the arc, so its nose rises as it climbs),
+      // and how big. It looks bigger high up, and once landed it fades away under the flag pin that
+      // drops onto the same spot.
+      const here = see(f.progress);
+      const height = flightHeight(f.progress);
+      const parked = Math.max(0, 1 - Math.max(0, f.landedFor - PIN_TOUCHDOWN_MS) / 350);
+      const shown = parked > 0 && here.facing > 0.04;
+      const behind = see(f.progress - 0.02);
+      const ahead = see(f.progress + 0.02);
+      const heading = Math.atan2(ahead.y - behind.y, ahead.x - behind.x);
+      const size = Math.min(1.05, Math.max(0.68, (s.radius ?? baseRadius()) / 255)) * 0.86 * (0.8 + 0.36 * height);
+      if (shown) {
+        // Its shadow, on the ground straight below (and a touch down and right, where the light throws the clouds' shadows).
+        fctx.globalAlpha = (0.26 - 0.07 * height) * parked;
+        drawAirliner(fctx, here.x + 2 * size, here.ground + 3 * size, Math.atan2(ahead.ground - behind.ground, ahead.x - behind.x), size * (0.95 - 0.1 * height), {
+          shadow: true,
+        });
+        fctx.globalAlpha = 1;
+      }
+
+      // The way ahead: dots along the arc, a fixed distance apart on the route, so they stay put as
+      // the globe turns and bunch up towards its edge.
+      fctx.beginPath();
+      for (let i = 1; i < f.dots; i++) {
+        const t = i / f.dots;
+        if (t > revealed) break;
+        if (t < f.progress + 0.6 / f.dots) continue;
+        const dot = see(t);
+        if (dot.facing < 0.06) continue;
+        const r = 1.3 + 1.2 * Math.min(1, dot.facing * 1.6);
+        fctx.moveTo(dot.x + r, dot.y);
+        fctx.arc(dot.x, dot.y, r, 0, Math.PI * 2);
       }
       fctx.fillStyle = '#ffffff';
       fctx.fill();
@@ -938,75 +1213,68 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       fctx.lineWidth = 1.1;
       fctx.stroke();
 
-      // The way flown: a solid trail from the runway to the plane.
+      // The way flown: a solid trail along the arc, from the runway to the plane.
       if (f.progress > 0) {
-        const steps = Math.max(2, Math.ceil((route.angle * f.progress) / 0.035));
-        const trail: LineString = {
-          type: 'LineString',
-          coordinates: Array.from({ length: steps + 1 }, (_, i) => route.at((f.progress * i) / steps)),
-        };
-        const path = geoPath(projection, fctx);
-        fctx.lineCap = 'round';
-        fctx.lineJoin = 'round';
-        fctx.beginPath();
-        path(trail);
+        trace(f.progress, true);
         fctx.strokeStyle = 'rgba(30, 27, 75, 0.5)';
-        fctx.lineWidth = 6.4;
+        fctx.lineWidth = 6.6;
         fctx.stroke();
         fctx.strokeStyle = '#ffffff';
-        fctx.lineWidth = 3.6;
+        fctx.lineWidth = 3.8;
         fctx.stroke();
       }
 
-      // A marker at each end, under the flag pins.
-      for (const [stop, destination] of [
-        [plan.from, false],
-        [plan.to, true],
-      ] as const) {
-        const point: [number, number] = [stop.lon, stop.lat];
-        if (facing(point) < 0.05) continue;
-        const xy = projection(point);
-        if (!xy) continue;
-        if (destination && !f.landed) {
-          // The destination calls the plane in: a ring spreading out from it, over and over.
-          const pulse = (now % 1500) / 1500;
-          fctx.beginPath();
-          fctx.arc(xy[0], xy[1], 6 + pulse * 15, 0, Math.PI * 2);
-          fctx.strokeStyle = `rgba(30, 27, 75, ${0.3 * (1 - pulse)})`;
-          fctx.lineWidth = 4.5;
-          fctx.stroke();
-          fctx.strokeStyle = `rgba(255, 255, 255, ${1 - pulse})`;
-          fctx.lineWidth = 2.5;
-          fctx.stroke();
+      // Touchdown: rings over the ground and a burst of sparkles round the city.
+      if (f.landed && !still && f.landedFor < 1150 && arrival.facing > 0.05) {
+        for (const delay of [0, 170]) {
+          const k = (f.landedFor - delay) / 800;
+          if (k > 0 && k < 1) ring(arrival.x, arrival.ground, 8 + 46 * easeCubicOut(k), 1 - k);
         }
-        fctx.beginPath();
-        fctx.arc(xy[0], xy[1], 5, 0, Math.PI * 2);
-        fctx.fillStyle = destination ? '#ff6b81' : '#ffffff';
-        fctx.fill();
+        const k = Math.min(1, f.landedFor / 1050);
+        const out = easeCubicOut(k);
         fctx.strokeStyle = INK;
-        fctx.lineWidth = 2;
-        fctx.stroke();
+        fctx.lineWidth = 1.2;
+        fctx.globalAlpha = 1 - k * k;
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2 + rand(i + 3) * 0.5;
+          const reach = (26 + 40 * rand(i * 7 + 1)) * out;
+          const r = (4.5 + 4.5 * rand(i * 13 + 5)) * (1 - k * k);
+          if (r < 0.5) continue;
+          sparklePath(fctx, arrival.x + Math.cos(a) * reach, arrival.ground + Math.sin(a) * reach - 12 * out, r, a);
+          fctx.fillStyle = ['#ffd23f', '#ffffff', '#ff6b81'][i % 3];
+          fctx.fill();
+          fctx.stroke();
+        }
+        fctx.globalAlpha = 1;
       }
 
-      // The plane, nose along the route. It climbs away from the ground and comes back down to it:
-      // it looks bigger in the middle of the flight, and its shadow falls further away. Once it has
-      // landed it fades away under the flag pin that drops onto the same spot.
-      const here = route.at(f.progress);
-      const parked = Math.max(0, 1 - Math.max(0, f.landedFor - PIN_TOUCHDOWN_MS) / 350);
-      if (parked > 0 && facing(here) > 0.04) {
-        const xy = projection(here);
-        const behind = projection(route.at(Math.max(0, f.progress - 0.02)));
-        const ahead = projection(route.at(Math.min(1, f.progress + 0.02)));
-        if (xy && behind && ahead) {
-          const heading = Math.atan2(ahead[1] - behind[1], ahead[0] - behind[0]);
-          const lift = Math.sin(Math.PI * f.progress);
-          const size = Math.min(1.35, Math.max(0.62, R / 240)) * (0.82 + 0.4 * lift);
-          fctx.globalAlpha = (0.24 - 0.08 * lift) * parked;
-          drawPlane(fctx, xy[0] + (2 + 9 * lift) * size, xy[1] + (3 + 15 * lift) * size, heading, size * (1 - 0.12 * lift), true);
-          fctx.globalAlpha = parked;
-          drawPlane(fctx, xy[0], xy[1], heading, size);
-          fctx.globalAlpha = 1;
+      if (shown) {
+        // Air rushing past, while it is up and moving.
+        if (!still && f.tookOff && !f.landed && height > 0.15) {
+          fctx.save();
+          fctx.translate(here.x, here.y);
+          fctx.rotate(heading);
+          fctx.strokeStyle = '#ffffff';
+          fctx.lineWidth = 1.7 * size;
+          [-31, -19, 19, 31].forEach((offset, i) => {
+            const phase = (now / (520 + i * 70) + i * 0.31) % 1;
+            const x = (18 - 66 * phase) * size;
+            fctx.globalAlpha = Math.sin(Math.PI * phase) * 0.62 * height;
+            fctx.beginPath();
+            fctx.moveTo(x, offset * size);
+            fctx.lineTo(x - 12 * size, offset * size);
+            fctx.stroke();
+          });
+          fctx.restore();
         }
+        // The lamp on its back flashes about once a second.
+        const flash = (now % 1150) / 1150;
+        fctx.globalAlpha = parked;
+        drawAirliner(fctx, here.x, here.y, heading, size, {
+          shade: Math.cos(heading) >= 0 ? 1 : -1,
+          beacon: still || f.landed || flash > 0.14 ? 0 : Math.sin((Math.PI * flash) / 0.14),
+        });
+        fctx.globalAlpha = 1;
       }
 
       placeFlightPins(f, center);
@@ -1316,8 +1584,33 @@ export const GlobeView = forwardRef<MapHandle, MapViewProps>(function GlobeView(
       const route = flightRoute(flight);
       // Without animation the flight is shown as flown, seen from where it ends.
       const start = flightCamera(route, propsRef.current.reducedMotion ? 1 : 0);
-      animateTo([-start.lon, -start.lat, 0], start.scale, 1000);
-      s.flight = { plan: flight, route, elapsed: 0, progress: 0, reported: -1, tookOff: false, landed: false, landedFor: 0, follow: true, frameMs: 16, halfRate: false };
+      animateTo([-start.lon, -start.lat, 0], start.scale, FLIGHT_PREP_MS - 200);
+      const count = Math.max(48, Math.min(180, Math.ceil(route.angle / 0.02)));
+      const samples = Array.from({ length: count + 1 }, (_, i) => {
+        const point = route.at(i / count);
+        const [x, y, z] = unit(point[0], point[1]);
+        return { point, x, y, z, height: flightHeight(i / count) };
+      });
+      // About eleven pixels apart, at a zoom between the closest and the widest of the flight.
+      const dots = Math.max(2, Math.min(170, Math.round((route.angle * baseRadius() * Math.sqrt(route.closeScale * route.cruiseScale)) / 11)));
+      s.flight = {
+        plan: flight,
+        route,
+        samples,
+        xs: new Float64Array(count + 1),
+        ys: new Float64Array(count + 1),
+        facings: new Float64Array(count + 1),
+        dots,
+        elapsed: 0,
+        progress: 0,
+        reported: -1,
+        tookOff: false,
+        landed: false,
+        landedFor: 0,
+        follow: true,
+        frameMs: 16,
+        halfRate: false,
+      };
     } else s.flight = null;
     s.dirty = true;
     wake.current();

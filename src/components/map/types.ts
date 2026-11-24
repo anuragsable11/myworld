@@ -28,6 +28,8 @@ export interface MapMarker {
 export interface PinHandle {
   move: (x: number, y: number) => void;
   hide: () => void;
+  /** Another pin stands too close for both name tags to be read: put this one's away (or bring it back). */
+  crowd?: (crowded: boolean) => void;
 }
 
 export interface MapViewProps {

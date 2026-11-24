@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'r
 import clsx from 'clsx';
 import { Dices, Gamepad2, Globe, Loader2, Map as MapIcon, Minus, Moon, Plane, Plus, RotateCcw, Sun } from 'lucide-react';
 import type { CountryIndex } from '../../hooks/queries';
-import type { FlightPlan } from '../../lib/flight';
+import { FLIGHT_PREP_MS, type FlightPlan } from '../../lib/flight';
 import type { World } from '../../lib/geo';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
@@ -212,10 +212,29 @@ export function MapStage({
         />
       )}
       {shownFlight && flightFrom && (
-        // It drops as the camera arrives over the runway.
-        <MapPin key={`from-${shownFlight.key}`} ref={fromPinRef} country={flightFrom} landingMs={reducedMotion ? 0 : 650} />
+        // The plane has the runway to itself; once it has left, the pin drops where it stood, then its name.
+        <MapPin
+          key={`from-${shownFlight.key}`}
+          ref={fromPinRef}
+          country={flightFrom}
+          small
+          landingMs={reducedMotion ? 0 : FLIGHT_PREP_MS + 500}
+          label={shownFlight.from.place}
+          labelDelayMs={reducedMotion ? 0 : FLIGHT_PREP_MS + 1250}
+        />
       )}
-      {shownFlight && flightTo && <MapPin key={`to-${shownFlight.key}`} ref={toPinRef} country={flightTo} landingMs={0} />}
+      {shownFlight && flightTo && (
+        // It drops onto the plane as it lands, and its name follows.
+        <MapPin
+          key={`to-${shownFlight.key}`}
+          ref={toPinRef}
+          country={flightTo}
+          small
+          landingMs={0}
+          label={shownFlight.to.place}
+          labelDelayMs={reducedMotion ? 0 : 850}
+        />
+      )}
       <MapTooltip ref={tooltipRef} byId={index?.byId} />
 
       {/* View switch, centred over the uncovered area */}

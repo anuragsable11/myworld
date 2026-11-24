@@ -87,10 +87,19 @@ export function clockAt(zone: string | undefined, at: number): { time: string; d
 
 // ---------------------------------------------------------------------------- the globe's view
 
+/**
+ * A flight opens with the camera gliding to the runway while the route draws itself, for this
+ * long (ms); then the plane leaves.
+ */
+export const FLIGHT_PREP_MS = 1500;
 /** The camera never looks straight down on a pole, where a north-up globe would spin wildly. */
 const CAMERA_MAX_LATITUDE = 65;
-/** Short hops are flown close up, but no closer than this, so the countries around stay in view. */
+/** Take-off and landing are watched from this close, near enough to know the country. */
+const CLOSE_SCALE = 1.9;
+/** Short hops are flown closer still, but no closer than this, so the countries around stay in view. */
 const MAX_FLIGHT_SCALE = 9;
+/** A long haul is watched from a little further back than the globe usually sits. */
+const WIDE_SCALE = 0.92;
 
 /** A flight as the globe flies it. */
 export interface FlightRoute {
@@ -100,14 +109,12 @@ export interface FlightRoute {
   at: (t: number) => [number, number];
   /** How long the plane is in the air on screen, in ms: long hauls take longer. */
   airMs: number;
-  /** The zoom that suits it: both ends of a short hop fill the view. */
-  scale: number;
-  /**
-   * How much of the route the camera travels (0–1). Over a short hop it sits still above the middle
-   * and watches the plane cross; on a long haul it follows, a little behind at first and a little
-   * ahead at the end, so the plane still moves across the screen.
-   */
-  follow: number;
+  /** The zoom at take-off and landing. */
+  closeScale: number;
+  /** The zoom in the middle of the flight: both ends in view when they fit, else the whole globe. */
+  cruiseScale: number;
+  /** How high the plane climbs at the middle of the flight, as a share of the globe's radius. */
+  climb: number;
 }
 
 export function flightRoute(plan: FlightPlan): FlightRoute {
@@ -115,6 +122,9 @@ export function flightRoute(plan: FlightPlan): FlightRoute {
   const b = point(plan.to);
   const angle = geoDistance(a, b);
   const along = geoInterpolate(a, b);
+  // The zoom at which the two ends sit about half a globe's width apart.
+  const fit = Math.min(MAX_FLIGHT_SCALE, 0.5 / Math.max(Math.sin(angle / 2), 1e-6));
+  const closeScale = Math.max(CLOSE_SCALE, fit);
   return {
     angle,
     at: (t) => {
@@ -122,18 +132,26 @@ export function flightRoute(plan: FlightPlan): FlightRoute {
       // Exactly opposite points have no single shortest way between them.
       return Number.isFinite(p[0]) && Number.isFinite(p[1]) ? p : a;
     },
-    airMs: Math.max(3000, Math.min(9000, 2600 + angle * 2100)),
-    scale: Math.max(1, Math.min(MAX_FLIGHT_SCALE, 0.55 / Math.max(Math.sin(angle / 2), 1e-6))),
-    follow: Math.max(0, Math.min(0.85, (angle - 0.5) / 0.9)),
+    airMs: Math.max(3200, Math.min(9500, 2800 + angle * 2200)),
+    closeScale,
+    cruiseScale: Math.max(WIDE_SCALE, Math.min(closeScale, fit)),
+    // A sixth as high as the flight is long, up to about a ninth of the globe's radius.
+    climb: Math.min(0.115, angle * 0.17),
   };
 }
 
 /**
- * Where the globe's camera is when the plane is a share `progress` of the way: the point it looks
- * straight down on, and the zoom (it pulls back a little in the middle of a long flight).
+ * Where the globe's camera is when the plane is a share `progress` of the way. It travels with the
+ * plane, looking straight down on it, close in for the take-off, pulling back as the plane climbs
+ * and closing in again for the landing, like the opening and closing shots of a film.
  */
 export function flightCamera(route: FlightRoute, progress: number): { lon: number; lat: number; scale: number } {
-  const [lon, lat] = route.at(0.5 + (progress - 0.5) * route.follow);
-  const dip = 0.1 * route.follow * Math.sin(Math.PI * progress);
-  return { lon, lat: Math.max(-CAMERA_MAX_LATITUDE, Math.min(CAMERA_MAX_LATITUDE, lat)), scale: route.scale * (1 - dip) };
+  const [lon, lat] = route.at(progress);
+  // 1 at each end, 0 through the middle of the flight; zoom is felt in ratios, so it is blended in them.
+  const close = Math.pow(Math.abs(Math.cos(Math.PI * progress)), 2.4);
+  const scale = route.cruiseScale * Math.pow(route.closeScale / route.cruiseScale, close);
+  return { lon, lat: Math.max(-CAMERA_MAX_LATITUDE, Math.min(CAMERA_MAX_LATITUDE, lat)), scale };
 }
+
+/** How high above the ground the route is a share `t` of the way along, from 0 to 1 at its top. */
+export const flightHeight = (t: number) => Math.sin(Math.PI * Math.max(0, Math.min(1, t)));

@@ -112,10 +112,11 @@ export const FlightCard = forwardRef<FlightCardHandle, FlightCardProps>(function
   );
 
   const route = (
-    <div className={clsx('flex items-start gap-1.5', compact ? 'mt-2.5' : 'mt-5')}>
+    <div className={clsx('relative flex items-start justify-between gap-3', compact ? 'mt-2.5' : 'mt-5')}>
       <Stop stop={from} country={index?.byId.get(from.id)} compact={compact} onOpen={press(() => onExplore(from.id))} />
-      {/* As tall as the flags, so the plane crosses from one flag to the other */}
-      <div aria-hidden className={clsx('relative min-w-12 flex-1', compact ? 'h-7' : 'h-10')}>
+      <Stop stop={to} country={destination} compact={compact} end onOpen={press(() => onExplore(to.id))} />
+      {/* From one flag to the other, and as tall as they are; the names below have the full width to themselves. */}
+      <div aria-hidden className={clsx('pointer-events-none absolute top-0', compact ? 'inset-x-[66px] h-7' : 'inset-x-[92px] h-10')}>
         <span className="absolute inset-x-3.5 top-1/2 -mt-px border-t-2 border-dotted border-tertiary" />
         <span ref={fillRef} className="absolute left-0 top-1/2 -mt-[1.5px] h-[3px] rounded-full bg-tint" style={{ width: along(0) }} />
         <span
@@ -126,7 +127,6 @@ export const FlightCard = forwardRef<FlightCardHandle, FlightCardProps>(function
           <Plane className="size-4 rotate-45" strokeWidth={2.3} />
         </span>
       </div>
-      <Stop stop={to} country={destination} compact={compact} end onOpen={press(() => onExplore(to.id))} />
     </div>
   );
 
@@ -274,7 +274,7 @@ function Stop({ stop, country, compact, end, onOpen }: { stop: FlightStop; count
       type="button"
       onClick={onOpen}
       title={`Open ${stop.country}`}
-      className={clsx('ios-press flex w-[34%] min-w-0 flex-col', end ? 'items-end text-right' : 'items-start text-left')}
+      className={clsx('ios-press flex min-w-0 max-w-[48%] flex-col', end ? 'items-end text-right' : 'items-start text-left')}
     >
       {country && (
         <Flag
@@ -282,8 +282,9 @@ function Stop({ stop, country, compact, end, onOpen }: { stop: FlightStop; count
           variant="full"
           eager
           className={clsx(
-            'w-auto max-w-full rounded-[7px] bg-white object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.12),0_3px_10px_rgb(0_0_0/0.12)]',
-            compact ? 'h-7' : 'h-10',
+            // No wider than the room the little route leaves beside it (the longest flags are a touch letterboxed).
+            'w-auto rounded-[7px] bg-white object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.12),0_3px_10px_rgb(0_0_0/0.12)]',
+            compact ? 'h-7 max-w-[58px]' : 'h-10 max-w-[84px]',
           )}
         />
       )}
