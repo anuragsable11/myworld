@@ -105,6 +105,22 @@ src/components/panel/         Country profile and its sections
   train, by car and on foot. Fly it again, fly back, or open the country it landed in. Capitals come from
   `src/data/capitals.json`; a place without one is flown to its middle. Started from the flat map, a flight borrows the
   globe and hands the map back when it ends.
+- **Mystery Country** (`src/components/game/MysteryGame.tsx`, `src/lib/mystery.ts`): a new one every day, the same for
+  everybody (a seeded shuffle of the sovereign states, so none returns until all have had their day). Globy hides in a
+  country and you get six guesses. Each wrong one is told how far off it is, which way to look and how warm it was, from
+  freezing to boiling (next door counts as boiling), and opens the next of six clues read from the country's record:
+  where on Earth, the continent, its size, its neighbours, its flag out of focus, and the first letter of its capital.
+  The day's guesses, a streak of days solved in a row and the best streak are kept on the device; the Play tab wears a
+  red dot until the day's mystery has been tried. Opened with `M`.
+- **Globy's Tour** (`src/components/tour/`, `src/lib/tour.ts`): pick a continent and Globy flies the map round eight of
+  its countries (its record holders, then the ones not explored yet), hopping from each to the nearest one left. At
+  every stop it says two things worth knowing, chosen as the most striking of what the records show: world and
+  continent records for size and people, crowding, neighbours and coasts, languages, national symbols with their
+  pictures, the highest peak, the clock there against yours. Nothing is written by hand. The tour moves on by itself
+  once there has been time to read, and can be paused or stepped through; each country it calls at joins the explored
+  ones. It runs on the globe and the flat map alike. Opened with `T`.
+- **Play** (`src/components/game/PlayMenu.tsx`): the game button by the map and the Play tab open one menu with the
+  day's mystery, the flag quiz, Globy's tours and flight paths.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
 - **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
   list and profile on floating cards (desktop); a list drawer and floating panel on tablets. Phones get an app-style
@@ -153,7 +169,7 @@ src/components/panel/         Country profile and its sections
   the far side are skipped, and countries wholly in front are projected without horizon clipping; it is redrawn in full
   detail once still. A flicked globe keeps turning and slows down, and slow auto-rotation runs at half frame rate.
 - **Keyboard**: `/` or `Ctrl/⌘ K` opens search (arrow keys and Enter to pick), `G` switches between map and globe, `N` toggles day and night, `Q`
-  starts the flag quiz, `F` plans a flight, `Esc` closes the search drawer, the profile or the flight.
+  starts the flag quiz, `M` opens the day's mystery, `T` a tour, `F` plans a flight, `Esc` closes the search drawer, the profile or the flight.
 
 ## Install and offline use
 

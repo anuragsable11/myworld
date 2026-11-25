@@ -1,11 +1,12 @@
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { ChevronRight, Coins, Dices, Flag as FlagIcon, Languages, Map as MapIcon, Plane, TreePalm, type LucideIcon } from 'lucide-react';
+import { Check, ChevronRight, Coins, Dices, Flag as FlagIcon, Flame, Languages, Map as MapIcon, Plane, TreePalm, type LucideIcon } from 'lucide-react';
 import type { Country } from '../../types';
 import { isSovereign, type CountryIndex } from '../../hooks/queries';
 import { discovered, MILESTONES, subscribeDiscoveries } from '../../lib/discoveries';
 import { formatArea, formatInteger, formatPopulation } from '../../lib/format';
 import { haptics } from '../../lib/haptics';
+import { gameOn, MAX_GUESSES, mysteryDay, mysteryRecord, mysteryStatus, streakOn, subscribeMystery } from '../../lib/mystery';
 import { sounds } from '../../lib/sounds';
 import { Mascot } from '../game/Mascot';
 import { InstallButton } from '../layout/Install';
@@ -19,13 +20,20 @@ export function WelcomePanel({
   onSurprise,
   onPlay,
   onFly,
+  onMystery,
+  onTour,
 }: {
   index: CountryIndex | undefined;
   onSelect: (id: string) => void;
   onSurprise: () => void;
+  /** Opens the flag quiz. */
   onPlay: () => void;
   /** Opens the flight planner. */
   onFly: () => void;
+  /** Opens the day's Mystery Country. */
+  onMystery: () => void;
+  /** Opens Globy's choice of continents to tour. */
+  onTour: () => void;
 }) {
   const facts = useMemo(() => {
     if (!index) return null;
@@ -63,46 +71,47 @@ export function WelcomePanel({
         <InstallButton />
       </div>
 
-      <button
-        type="button"
-        onClick={() => {
-          sounds.tap();
-          haptics.tap();
-          onPlay();
-        }}
-        disabled={!facts}
-        className="glass-soft ios-press mt-6 flex w-full animate-rise items-center gap-3 rounded-[24px] p-3 pr-4 text-left disabled:opacity-50 [animation-delay:160ms]"
-      >
-        <Mascot mood="idle" className="w-14 shrink-0" />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[17px] font-semibold tracking-[-0.01em] text-label">Flag Quiz</span>
-          <span className="mt-0.5 block text-[13px] leading-snug text-secondary">10 flags, from easy to impossible. How far can you get?</span>
-        </span>
-        <span className="shrink-0 rounded-full bg-tint px-4 py-1.5 text-[14px] font-semibold text-white">Play</span>
-      </button>
+      <MysteryCard disabled={!facts} onOpen={onMystery} />
 
-      <button
-        type="button"
-        onClick={() => {
-          // The planner makes its own sound as it slides open.
-          haptics.tap();
-          onFly();
-        }}
-        disabled={!facts}
-        className="glass-soft ios-press mt-3 flex w-full animate-rise items-center gap-3 rounded-[24px] p-3 pr-4 text-left disabled:opacity-50 [animation-delay:180ms]"
-      >
-        <span
-          aria-hidden
-          className="grid size-14 shrink-0 place-items-center rounded-[16px] bg-[linear-gradient(160deg,#64d2ff,#007aff)] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.5)]"
-        >
-          <Plane className="size-7" strokeWidth={1.9} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[17px] font-semibold tracking-[-0.01em] text-label">Flight Path</span>
-          <span className="mt-0.5 block text-[13px] leading-snug text-secondary">Pick two countries and watch the plane fly. How far is it?</span>
-        </span>
-        <span className="shrink-0 rounded-full bg-tint px-4 py-1.5 text-[14px] font-semibold text-white">Fly</span>
-      </button>
+      {/* The other things to do, side by side */}
+      <div className="mt-3 grid animate-rise grid-cols-3 gap-2.5 [animation-delay:190ms]">
+        <Tile
+          art={<Mascot mood="happy" className="w-11" />}
+          title="Flag Quiz"
+          text="10 flags, easy to impossible"
+          disabled={!facts}
+          onClick={() => {
+            sounds.tap();
+            haptics.tap();
+            onPlay();
+          }}
+        />
+        <Tile
+          art={<Mascot mood="idle" className="w-11" />}
+          title="Globy's Tour"
+          text="A trip round a continent"
+          disabled={!facts}
+          // The menu and the planner make their own sounds as they open.
+          onClick={() => {
+            haptics.tap();
+            onTour();
+          }}
+        />
+        <Tile
+          art={
+            <span className="grid size-11 place-items-center rounded-[13px] bg-[linear-gradient(160deg,#64d2ff,#007aff)] text-white shadow-[inset_0_0.5px_0_rgb(255_255_255/0.5)]">
+              <Plane className="size-[22px]" strokeWidth={1.9} />
+            </span>
+          }
+          title="Flight Path"
+          text="Fly between two countries"
+          disabled={!facts}
+          onClick={() => {
+            haptics.tap();
+            onFly();
+          }}
+        />
+      </div>
 
       {index && <ExploredCard total={index.sorted.length} />}
 
@@ -178,7 +187,9 @@ export function WelcomePanel({
           ['/', 'Search countries'],
           ['G', 'Switch globe and map'],
           ['N', 'Live day & night'],
+          ['M', "Today's mystery country"],
           ['Q', 'Flag quiz'],
+          ['T', "Globy's tour"],
           ['F', 'Flight path'],
           ['Esc', 'Close the profile'],
         ].map(([key, label], i) => (
@@ -191,6 +202,73 @@ export function WelcomePanel({
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Today's Mystery Country: whether it is still to play, under way or done, and the streak it is keeping up. */
+function MysteryCard({ disabled, onOpen }: { disabled: boolean; onOpen: () => void }) {
+  const record = useSyncExternalStore(subscribeMystery, mysteryRecord);
+  const day = mysteryDay();
+  const status = mysteryStatus(day, record);
+  const streak = streakOn(day, record);
+  const used = gameOn(day, record).guesses.length;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        // The game makes its own sound as it slides open.
+        haptics.tap();
+        onOpen();
+      }}
+      disabled={disabled}
+      className="glass-soft ios-press mt-6 flex w-full animate-rise items-center gap-3 rounded-[24px] p-3 pr-4 text-left disabled:opacity-50 [animation-delay:160ms]"
+    >
+      <Mascot mood={status === 'won' ? 'party' : status === 'lost' ? 'sad' : 'think'} className="w-14 shrink-0" />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-[17px] font-semibold tracking-[-0.01em] text-label">Mystery Country</span>
+          {streak > 0 && (
+            <span className="tabular flex shrink-0 items-center gap-0.5 rounded-full bg-ios-orange/15 px-2 py-0.5 text-[12px] font-bold text-[#b25f00]" title="Days solved in a row">
+              <Flame aria-hidden className="size-3.5 fill-ios-orange text-ios-orange" strokeWidth={2} />
+              {streak}
+            </span>
+          )}
+        </span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-secondary">
+          {status === 'new'
+            ? 'Globy is hiding in a country today. Can you find it in 6 guesses?'
+            : status === 'playing'
+              ? `${used} of ${MAX_GUESSES} guesses used. Globy is still hiding!`
+              : status === 'won'
+                ? 'Found it! Globy hides somewhere new tomorrow.'
+                : 'It got away today. A new mystery comes tomorrow.'}
+        </span>
+      </span>
+      {status === 'won' ? (
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-ios-green/15 px-3 py-1.5 text-[14px] font-semibold text-[#248a3d]">
+          <Check aria-hidden className="size-4" strokeWidth={3} />
+          Solved
+        </span>
+      ) : (
+        <span className="relative shrink-0 rounded-full bg-tint px-4 py-1.5 text-[14px] font-semibold text-white">
+          {status === 'new' ? 'Play' : status === 'playing' ? 'Go on' : 'See'}
+          {status === 'new' && <span aria-hidden className="absolute -right-0.5 -top-0.5 size-3 rounded-full bg-ios-red ring-2 ring-white" />}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Something else to do, as a small tile: a picture, its name and a few words. */
+function Tile({ art, title, text, disabled, onClick }: { art: ReactNode; title: string; text: string; disabled: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className="glass-soft ios-press flex min-w-0 flex-col items-start rounded-[20px] p-2.5 text-left disabled:opacity-50">
+      <span aria-hidden className="grid h-12 place-items-end">
+        {art}
+      </span>
+      <span className="mt-1.5 block max-w-full truncate text-[14px] font-semibold tracking-[-0.01em] text-label">{title}</span>
+      <span className="mt-0.5 block text-[12px] leading-tight text-secondary">{text}</span>
+    </button>
   );
 }
 

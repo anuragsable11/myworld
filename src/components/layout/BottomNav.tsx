@@ -1,7 +1,8 @@
-import { forwardRef } from 'react';
+import { forwardRef, useSyncExternalStore } from 'react';
 import clsx from 'clsx';
 import { Dices, Gamepad2, Globe, Map as MapIcon, Plane, Search, type LucideIcon } from 'lucide-react';
 import { haptics } from '../../lib/haptics';
+import { mysteryDay, mysteryRecord, mysteryStatus, subscribeMystery } from '../../lib/mystery';
 import { sounds } from '../../lib/sounds';
 import { quizIsNew } from '../game/stats';
 import type { ViewMode } from '../map/MapStage';
@@ -14,7 +15,7 @@ interface BottomNavProps {
   shuffling: boolean;
   canShuffle: boolean;
   onSearch: () => void;
-  /** Opens the flag quiz. */
+  /** Opens the menu of games. */
   onPlay: () => void;
   /** Opens the flight planner. */
   onFly: () => void;
@@ -25,13 +26,16 @@ interface BottomNavProps {
 
 /**
  * Phone tab bar, as in iOS 26: a floating glass capsule with the two views, shuffle, flights and
- * the flag quiz, and search in its own round button beside it. The page shows through behind it.
+ * the games, and search in its own round button beside it. The page shows through behind it.
  */
 export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function BottomNav(
   { view, onView, onShuffle, shuffling, canShuffle, onSearch, onPlay, onFly, flying, canPlay },
   ref,
 ) {
   const slot = view === 'globe' ? 0 : 1;
+  // The Play tab wears a red dot while there is something new: the day's mystery, or a first quiz.
+  const mystery = useSyncExternalStore(subscribeMystery, mysteryRecord);
+  const somethingNew = quizIsNew() || mysteryStatus(mysteryDay(), mystery) === 'new';
   return (
     <nav
       ref={ref}
@@ -59,7 +63,8 @@ export const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function Bottom
         />
         {/* The planner makes its own sound as it slides open. */}
         <Tab label="Fly" icon={Plane} tinted={flying} quiet onClick={onFly} disabled={!canPlay} />
-        <Tab label="Play" icon={Gamepad2} onClick={onPlay} disabled={!canPlay} badge={quizIsNew()} />
+        {/* The menu makes its own sound as it opens. */}
+        <Tab label="Play" icon={Gamepad2} quiet onClick={onPlay} disabled={!canPlay} badge={somethingNew} />
       </div>
       <button
         type="button"

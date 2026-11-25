@@ -10,6 +10,7 @@ import { sounds } from '../../lib/sounds';
 import { Figure } from '../panel/dress/Figure';
 import { Flag } from '../ui/Flag';
 import { Mascot, type Look, type Mood } from './Mascot';
+import { Bubble, Confetti, SPARK_COLOURS } from './shared';
 import { buildQuiz, type Level, type Question } from './quiz';
 import { rankOf, recordRound, type QuizStats } from './stats';
 
@@ -689,26 +690,6 @@ function Progress({ value, total, color }: { value: number; total: number; color
   );
 }
 
-/** Globy's speech bubble, like a message on iPhone; the words pop in one after another as it talks. */
-function Bubble({ text }: { text: string }) {
-  const words = text.split(' ');
-  return (
-    <p className="relative mb-7 min-w-0 flex-1 animate-pop rounded-[20px] bg-white px-4 py-2.5 text-[17px] leading-snug text-label shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
-      <span aria-hidden className="absolute -left-[5px] bottom-3 size-3 rotate-45 rounded-[2px] bg-white" />
-      <span className="relative">
-        {words.map((word, i) => (
-          <span key={i}>
-            {i > 0 && ' '}
-            <span className="inline-block animate-word" style={{ animationDelay: `${110 + i * 55}ms` }}>
-              {word}
-            </span>
-          </span>
-        ))}
-      </span>
-    </p>
-  );
-}
-
 function MysteryFlag({ country, glow }: { country: Country; glow: boolean }) {
   const [state, setState] = useState<'loading' | 'loaded' | 'failed'>('loading');
   return (
@@ -758,7 +739,6 @@ function SpeedBar({ running, forfeited }: { running: boolean; forfeited: boolean
   );
 }
 
-const SPARK_COLOURS = ['#ffd23f', '#ff7ab6', '#4cb8f5', '#7ed957', '#a78bfa', '#ff7a59'];
 const SPARKS = Array.from({ length: 14 }, (_, i) => {
   const angle = (i / 14) * Math.PI * 2;
   const reach = 46 + (i % 3) * 16;
@@ -1019,44 +999,6 @@ function Stat({ label, icon, value }: { label: string; icon: ReactNode; value: R
         {icon}
         {value}
       </dd>
-    </div>
-  );
-}
-
-function Confetti() {
-  const pieces = useMemo(
-    () =>
-      Array.from({ length: 40 }, (_, i) => ({
-        left: Math.random() * 100,
-        delay: Math.random() * 0.7,
-        duration: 2.2 + Math.random() * 1.6,
-        size: 7 + Math.random() * 6,
-        drift: (Math.random() - 0.5) * 140,
-        spin: 360 + Math.random() * 720,
-        colour: SPARK_COLOURS[i % SPARK_COLOURS.length],
-      })),
-    [],
-  );
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-      {pieces.map((p, i) => (
-        <span
-          key={i}
-          className="absolute top-0 animate-confetti-fall rounded-[2px]"
-          style={
-            {
-              left: `${p.left}%`,
-              width: p.size,
-              height: p.size * 0.6,
-              background: p.colour,
-              animationDelay: `${p.delay}s`,
-              animationDuration: `${p.duration}s`,
-              '--drift': `${p.drift}px`,
-              '--spin': `${p.spin}deg`,
-            } as CSSProperties
-          }
-        />
-      ))}
     </div>
   );
 }

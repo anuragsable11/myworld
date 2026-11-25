@@ -22,6 +22,7 @@ export function withFamous(index: CountryIndex, first: string[], exclude?: strin
 export function CountryPicker({
   index,
   exclude,
+  pool,
   suggestions,
   caption,
   title,
@@ -32,6 +33,8 @@ export function CountryPicker({
   index: CountryIndex;
   /** The country already chosen, which is left out. */
   exclude?: string | null;
+  /** The countries that may be chosen, when not every one may. */
+  pool?: Country[];
   /** Offered until something is typed. */
   suggestions: Country[];
   /** Says what the suggestions are. */
@@ -45,8 +48,8 @@ export function CountryPicker({
   const [query, setQuery] = useState('');
   const searching = !!query.trim();
   const results = useMemo(
-    () => (searching ? searchCountries(index.sorted, query).filter((c) => c.cca3 !== exclude).slice(0, 30) : suggestions),
-    [searching, query, index, exclude, suggestions],
+    () => (searching ? searchCountries(pool ?? index.sorted, query).filter((c) => c.cca3 !== exclude).slice(0, 30) : suggestions),
+    [searching, query, index, pool, exclude, suggestions],
   );
 
   return (

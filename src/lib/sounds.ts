@@ -537,6 +537,33 @@ export const sounds = {
     bell(c, NOTE.E6, { at: 0.62, decay: 0.55, gain: 0.1, wet: 0.35 });
     bell(c, NOTE.C6, { at: 0.94, decay: 0.95, gain: 0.1, wet: 0.4 });
   },
+  /**
+   * Mystery Country: how warm a guess is. A plucked note that sits higher the closer the guess, and a
+   * second one above it if this guess is warmer than the last, below it if colder.
+   */
+  heat(warmth: number, trend = 0) {
+    const c = ready(true);
+    if (!c) return;
+    const scale = [NOTE.C5, NOTE.D5, NOTE.E5, NOTE.G5, 880, NOTE.C6];
+    const note = scale[Math.round(Math.min(1, Math.max(0, warmth)) * (scale.length - 1))];
+    const pluck = (freq: number, at: number) => {
+      tone(c, { freq: freq * 1.5, to: freq, at, attack: 0.004, decay: 0.2, gain: 0.15, wet: 0.15 });
+      tone(c, { freq: freq * 3, type: 'triangle', at, attack: 0.002, decay: 0.06, gain: 0.03 });
+    };
+    pluck(note, 0);
+    // A fourth up, or a fourth down.
+    if (trend) pluck(note * (trend > 0 ? 4 / 3 : 3 / 4), 0.14);
+  },
+  /** Globy talking: a run of quick soft blips, like a cartoon voice, one for every few words. */
+  babble(blips = 7) {
+    const c = ready(true);
+    if (!c) return;
+    const n = Math.max(3, Math.min(12, Math.round(blips)));
+    for (let i = 0; i < n; i++) {
+      const freq = vary(540, 0.26);
+      tone(c, { freq, to: freq * vary(1.1, 0.12), type: 'triangle', at: 0.12 + i * 0.078 + Math.random() * 0.02, attack: 0.006, decay: 0.055, gain: 0.04, lowpass: [2600, 1400] });
+    }
+  },
   /** A country opened for the very first time: a sparkling, rising arpeggio. */
   discover() {
     const c = ready(false);

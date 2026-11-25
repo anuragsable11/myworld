@@ -38,10 +38,12 @@ interface MapStageProps {
   onViewChange: (view: ViewMode) => void;
   onSelect: (id: string) => void;
   onSurprise: () => void;
-  /** Opens the flag quiz. */
+  /** Opens the menu of games. */
   onPlay: () => void;
   /** Opens the flight planner. */
   onFly: () => void;
+  /** The country Globy's tour is at, if one is running: the map shows it as it would a selection. */
+  tourStop: string | null;
   /** The flight being shown on the globe, if any, and whether its plane has landed. */
   flight: FlightPlan | null;
   flightLanded: boolean;
@@ -76,6 +78,7 @@ export function MapStage({
   onSurprise,
   onPlay,
   onFly,
+  tourStop,
   flight,
   flightLanded,
   onFlightProgress,
@@ -112,40 +115,42 @@ export function MapStage({
     return out;
   }, [world, index]);
 
+  // What the map shows as chosen: the country that is open, or the one a tour has stopped at.
+  const shownId = tourStop ?? selectedId;
   const neighborIds = useMemo(() => {
-    const borders = selectedId ? index?.byId.get(selectedId)?.borders : undefined;
+    const borders = shownId ? index?.byId.get(shownId)?.borders : undefined;
     return borders?.length ? new Set(borders) : NO_NEIGHBORS;
-  }, [index, selectedId]);
+  }, [index, shownId]);
 
   // A shuffle spins once; later re-focusing (view switch, "Show on map") just flies there.
   const spun = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedId || !world) return;
-    const spin = spinFor === selectedId && spun.current !== spinFor;
+    if (!shownId || !world) return;
+    const spin = spinFor === shownId && spun.current !== spinFor;
     if (spin) spun.current = spinFor;
-    mapRef.current?.focus(selectedId, { spin });
-  }, [selectedId, view, world, index, locateKey, spinFor]);
+    mapRef.current?.focus(shownId, { spin });
+  }, [shownId, view, world, index, locateKey, spinFor]);
 
   const firstReset = useRef(resetKey);
   useEffect(() => {
     if (resetKey !== firstReset.current) mapRef.current?.reset();
   }, [resetKey]);
 
-  // Closing a profile returns to the world view (unless it closed to make way for a flight, which
-  // has the camera to itself), and so does the end of a flight.
-  const previousId = useRef(selectedId);
+  // Closing a profile (or ending a tour) returns to the world view, unless it made way for a flight,
+  // which has the camera to itself; and so does the end of a flight.
+  const previousId = useRef(shownId);
   const previousFlight = useRef(flight);
   useEffect(() => {
-    const closed = previousId.current && !selectedId;
+    const closed = previousId.current && !shownId;
     const flightOver = previousFlight.current && !flight;
-    if ((closed || flightOver) && !selectedId && !flight) mapRef.current?.reset();
-    previousId.current = selectedId;
+    if ((closed || flightOver) && !shownId && !flight) mapRef.current?.reset();
+    previousId.current = shownId;
     previousFlight.current = flight;
-  }, [selectedId, flight]);
+  }, [shownId, flight]);
 
   const handleHover = useCallback((info: HoverInfo | null) => tooltipRef.current?.update(info), []);
 
-  const selected = selectedId ? index?.byId.get(selectedId) : undefined;
+  const selected = shownId ? index?.byId.get(shownId) : undefined;
   // Flights are flown on the globe; its two ends get a flag pin each, the second as the plane lands.
   const shownFlight = view === 'globe' ? flight : null;
   const flightFrom = shownFlight ? index?.byId.get(shownFlight.from.id) : undefined;
@@ -165,7 +170,7 @@ export function MapStage({
           world={world}
           markers={markers}
           names={names}
-          selectedId={selectedId}
+          selectedId={shownId}
           neighborIds={neighborIds}
           activeIds={activeIds}
           insets={insets}
@@ -209,6 +214,10 @@ export function MapStage({
           country={selected}
           // After a shuffle the pin waits for the flight to land.
           landingMs={spinFor === selected.cca3 && !reducedMotion ? SHUFFLE_MS[view] - 150 : undefined}
+          // On a tour the globe's pin says where we are, since no profile is open to say so (the flat
+          // map writes every country's name on it already).
+          label={tourStop && view === 'globe' ? selected.name : undefined}
+          labelDelayMs={reducedMotion ? 0 : 1500}
         />
       )}
       {shownFlight && flightFrom && (
@@ -284,10 +293,10 @@ export function MapStage({
         >
           <div className="glass flex flex-col overflow-hidden rounded-[18px]">
             <ControlButton
-              label="Play the flag quiz"
-              title="Flag quiz"
+              label="Play: the day's mystery, the flag quiz and Globy's tours"
+              title="Play"
+              // The menu makes its own sound as it opens.
               onClick={() => {
-                sounds.tap();
                 haptics.tap();
                 onPlay();
               }}

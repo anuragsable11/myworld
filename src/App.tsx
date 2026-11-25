@@ -1,14 +1,19 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dices } from 'lucide-react';
 import { isSovereign, useCountryIndex, useWorld } from './hooks/queries';
 import { useLayout, useMediaQuery, usePrefersReducedMotion } from './hooks/useMediaQuery';
 import { useSafeArea } from './hooks/useSafeArea';
 import { useSelection } from './hooks/useSelection';
 import { discover, MILESTONES } from './lib/discoveries';
-import { returnFlight, sameFlight, type FlightPlan } from './lib/flight';
+ import { returnFlight, sameFlight, type FlightPlan } from './lib/flight';
 import { haptics } from './lib/haptics';
 import { sounds } from './lib/sounds';
+import { fetchMountains } from './lib/sources/mountains';
+import { fetchSymbols } from './lib/sources/symbols';
+import { buildTour, type Tour } from './lib/tour';
 import { FlightCard, type FlightCardHandle } from './components/flight/FlightCard';
+import type { PlayPage } from './components/game/PlayMenu';
 import { AboutDialog } from './components/layout/AboutDialog';
 import { BottomNav } from './components/layout/BottomNav';
 import { DiscoveryToast, type Discovery } from './components/layout/DiscoveryToast';
@@ -22,6 +27,7 @@ import { SHUFFLE_MS, type Insets } from './components/map/types';
 import { CountryPanel } from './components/panel/CountryPanel';
 import { WelcomePanel } from './components/panel/WelcomePanel';
 import { Sidebar, type Scope } from './components/sidebar/Sidebar';
+import { TourCard } from './components/tour/TourCard';
 
 // The quiz loads on demand (and is fetched ahead once the page is idle, so it opens at once).
 const loadQuiz = () => import('./components/game/FlagQuiz');
@@ -32,6 +38,11 @@ const CompareDialog = lazy(loadCompare);
 // And so does the flight planner.
 const loadFlightPicker = () => import('./components/flight/FlightPicker');
 const FlightPicker = lazy(loadFlightPicker);
+// The menu of games, and the daily Mystery Country, too.
+const loadPlayMenu = () => import('./components/game/PlayMenu');
+const PlayMenu = lazy(loadPlayMenu);
+const loadMystery = () => import('./components/game/MysteryGame');
+const MysteryGame = lazy(loadMystery);
 
 const VIEW_KEY = 'atlas:view';
 const NIGHT_KEY = 'atlas:night';
@@ -94,6 +105,16 @@ export default function App() {
   const flightCard = useRef<FlightCardHandle>(null);
   const [flightCardHeight, setFlightCardHeight] = useState(0);
   const flightCardObserver = useRef<ResizeObserver | null>(null);
+  /** Play: the menu of games (open, and the page it opens at) and the daily Mystery Country, both mounted once opened… */
+  const [playMenu, setPlayMenu] = useState<{ open: boolean; page: PlayPage }>({ open: false, page: 'games' });
+  const [playMounted, setPlayMounted] = useState(false);
+  const [mysteryOpen, setMysteryOpen] = useState(false);
+  const [mysteryMounted, setMysteryMounted] = useState(false);
+  /** …and Globy's tour: its stops, the one showing, whether it moves on by itself, and how many countries it has added to the world map. */
+  const [tour, setTour] = useState<Tour | null>(null);
+  const [tourStep, setTourStep] = useState(0);
+  const [tourPlaying, setTourPlaying] = useState(true);
+  const [tourFresh, setTourFresh] = useState(0);
   const [locateNonce, setLocateNonce] = useState(0);
   const [resetNonce, setResetNonce] = useState(0);
   const [spinFor, setSpinFor] = useState<string | null>(null);
@@ -170,16 +191,18 @@ export default function App() {
     if (viewBeforeFlight.current) setView(viewBeforeFlight.current);
     viewBeforeFlight.current = null;
   }, []);
+  const clearTour = useCallback(() => setTour(null), []);
   const handleSelect = useCallback(
     (id: string) => {
       stopSpin();
       setSpinFor(null);
       clearFlight();
+      clearTour();
       haptics.select();
       sounds.select();
       show(id);
     },
-    [show, stopSpin, clearFlight],
+    [show, stopSpin, clearFlight, clearTour],
   );
   const handleClose = useCallback(() => {
     stopSpin();
@@ -194,13 +217,14 @@ export default function App() {
     // A flight makes way, and the shuffle lands on the view the flight had borrowed the globe from.
     const landingView = viewBeforeFlight.current ?? view;
     clearFlight();
+    clearTour();
     setSpinFor(pick);
     show(pick);
     window.clearTimeout(spinTimer.current);
     if (reducedMotion) return setSpinning(false);
     setSpinning(true);
     spinTimer.current = window.setTimeout(() => setSpinning(false), SHUFFLE_MS[landingView]);
-  }, [index, selectedId, show, reducedMotion, view, clearFlight]);
+  }, [index, selectedId, show, reducedMotion, view, clearFlight, clearTour]);
   useEffect(() => () => window.clearTimeout(spinTimer.current), []);
 
   /** Tapping the view that's already showing recentres it, as tapping an app's current tab does. */
@@ -275,12 +299,13 @@ export default function App() {
         setView('globe');
       }
       select(null);
+      clearTour();
       haptics.select();
       sounds.boarding();
       setFlightLanded(false);
       setFlight(plan);
     },
-    [select, stopSpin, view],
+    [select, stopSpin, view, clearTour],
   );
   const closeFlight = useCallback(() => {
     sounds.close();
@@ -298,10 +323,94 @@ export default function App() {
     flightCardObserver.current = new ResizeObserver(() => setFlightCardHeight(box.offsetHeight));
     flightCardObserver.current.observe(box);
   }, []);
-  // A country that arrives by any other road (the back button, a link) ends the flight too.
+  // A country that arrives by any other road (the back button, a link) ends the flight, or the tour, too.
   useEffect(() => {
-    if (selectedId) clearFlight();
-  }, [selectedId, clearFlight]);
+    if (!selectedId) return;
+    clearFlight();
+    clearTour();
+  }, [selectedId, clearFlight, clearTour]);
+
+  /** Opens the menu of games, at the games themselves or straight at Globy's choice of continents. */
+  const openPlay = useCallback(
+    (page: PlayPage = 'games') => {
+      if (!index) return;
+      stopSpin();
+      setDrawerOpen(false);
+      setPlayMounted(true);
+      setPlayMenu({ open: true, page });
+    },
+    [index, stopSpin],
+  );
+  const closePlay = useCallback(() => setPlayMenu((m) => ({ ...m, open: false })), []);
+  const openMystery = useCallback(() => {
+    if (!index) return;
+    stopSpin();
+    setDrawerOpen(false);
+    setPlayMenu((m) => ({ ...m, open: false }));
+    setMysteryMounted(true);
+    setMysteryOpen(true);
+  }, [index, stopSpin]);
+  const closeMystery = useCallback(() => setMysteryOpen(false), []);
+  /** From the mystery, once it's over: see the country in the atlas. */
+  const showFromMystery = useCallback(
+    (id: string) => {
+      setMysteryOpen(false);
+      handleSelect(id);
+    },
+    [handleSelect],
+  );
+  /** From the menu: on to one of the other games. */
+  const playQuiz = useCallback(() => {
+    setPlayMenu((m) => ({ ...m, open: false }));
+    openQuiz();
+  }, [openQuiz]);
+  const playFlight = useCallback(() => {
+    setPlayMenu((m) => ({ ...m, open: false }));
+    openPlanner();
+  }, [openPlanner]);
+  /** Globy's tour sets off: whatever was showing makes way, and the map flies to the first stop. */
+  const startTour = useCallback(
+    (next: Tour) => {
+      stopSpin();
+      setSpinFor(null);
+      clearFlight();
+      setPlayMenu((m) => ({ ...m, open: false }));
+      setDrawerOpen(false);
+      setSheetExpanded(false);
+      select(null);
+      setTourStep(0);
+      setTourPlaying(true);
+      setTourFresh(0);
+      setTour(next);
+    },
+    [select, stopSpin, clearFlight],
+  );
+  const closeTour = useCallback(() => {
+    sounds.close();
+    clearTour();
+  }, [clearTour]);
+  /**
+   * The same continent again, by another route. The files its facts are drawn from were loaded
+   * when the first tour was planned, so they come straight from the cache.
+   */
+  const queryClient = useQueryClient();
+  const tourAgain = useCallback(async () => {
+    if (!tour || !index) return;
+    const file = <T,>(key: string, load: (signal?: AbortSignal) => Promise<T>) =>
+      queryClient.fetchQuery({ queryKey: [key], queryFn: ({ signal }) => load(signal), staleTime: Infinity }).catch(() => undefined);
+    const [symbols, mountains] = await Promise.all([file('symbols', fetchSymbols), file('mountains', fetchMountains)]);
+    const next = buildTour(tour.continent, index, { world: world.data, symbols, mountains });
+    if (next) startTour(next);
+  }, [tour, index, world.data, queryClient, startTour]);
+  const stepTour = useCallback((step: number) => setTourStep(Math.max(0, step)), []);
+  const chooseTour = useCallback(() => openPlay('tour'), [openPlay]);
+  /** The country the tour is at; at its end the map stays on the last one. */
+  const tourStop = tour ? tour.stops[Math.min(tourStep, tour.stops.length - 1)].id : null;
+  // Every country the tour calls at joins the world map, quietly: the tour counts them up at its end.
+  useEffect(() => {
+    const stop = tour?.stops[tourStep];
+    if (stop && discover(stop.id).first) setTourFresh((n) => n + 1);
+  }, [tour, tourStep]);
 
   useEffect(() => {
     const idle = (window as unknown as { requestIdleCallback?: (fn: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
@@ -309,6 +418,8 @@ export default function App() {
       void loadQuiz();
       void loadCompare();
       void loadFlightPicker();
+      void loadPlayMenu();
+      void loadMystery();
     };
     const timer = window.setTimeout(() => (idle ? idle(fetchAhead, { timeout: 5000 }) : fetchAhead()), 4000);
     return () => window.clearTimeout(timer);
@@ -322,10 +433,12 @@ export default function App() {
   useEffect(() => {
     document.title = flight
       ? `${flight.from.place} to ${flight.to.place} — World Atlas`
-      : selected
-        ? `${selected.name} — World Atlas`
-        : 'World Atlas — Countries Explorer';
-  }, [selected, flight]);
+      : tour
+        ? `Globy's tour of ${tour.continent} — World Atlas`
+        : selected
+          ? `${selected.name} — World Atlas`
+          : 'World Atlas — Countries Explorer';
+  }, [selected, flight, tour]);
 
   // The first visit to each country is a small celebration, and milestones a bigger one. The visit
   // waits in a ref, so the celebration survives React running this effect twice in development.
@@ -368,7 +481,8 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // Keyboard shortcuts: "/" or Ctrl/⌘+K search, "g" toggles the globe, "f" plans a flight, Esc closes things.
+  // Keyboard shortcuts: "/" or Ctrl/⌘+K search, "g" toggles the globe, "f" plans a flight, "m" opens the
+  // day's mystery, "t" a tour, Esc closes things.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // A dialog (the quiz, About) has the keyboard to itself.
@@ -390,6 +504,10 @@ export default function App() {
       } else if (e.key.toLowerCase() === 'f' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         // From the country that's open, if one is.
         openPlanner(selectedId ?? undefined);
+      } else if (e.key.toLowerCase() === 'm' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        openMystery();
+      } else if (e.key.toLowerCase() === 't' && !isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        openPlay('tour');
       } else if (e.key === 'Escape' && !e.defaultPrevented) {
         // One thing at a time, like back on Android. Handled here, so the close watchers that back
         // also reaches don't close a second thing for the same key press.
@@ -397,16 +515,20 @@ export default function App() {
         else if (layout === 'mobile' && sheetExpanded && selectedId) setSheetExpanded(false);
         else if (selectedId && !isTyping(e.target)) handleClose();
         else if (flight && !isTyping(e.target)) closeFlight();
+        else if (tour && !isTyping(e.target)) closeTour();
         else return;
         e.preventDefault();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [layout, view, changeView, toggleNight, drawerOpen, sheetExpanded, selectedId, handleClose, openQuiz, openPlanner, flight, closeFlight]);
+  }, [layout, view, changeView, toggleNight, drawerOpen, sheetExpanded, selectedId, handleClose, openQuiz, openPlanner, flight, closeFlight, openMystery, openPlay, tour, closeTour]);
 
   /** The map is out of sight behind an open sheet, menu or dialog, so it can stop animating. */
-  const covered = (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen || quizOpen || compare.open || planner.open;
+  const covered =
+    (layout === 'mobile' && !!shownId && sheetExpanded) || drawerOpen || aboutOpen || quizOpen || compare.open || planner.open || playMenu.open || mysteryOpen;
+  /** A flight or a tour has the card beside the map (above the tab bar, on a phone). */
+  const guided = !!flight || !!tour;
 
   const activeIds = useMemo(
     () => (region && index ? new Set(index.sorted.filter((c) => c.region === region).map((c) => c.cca3)) : null),
@@ -417,9 +539,9 @@ export default function App() {
   const insets = useMemo<Insets>(() => {
     // Cards carry a 6px hard shadow, so leave room for it too.
     if (layout === 'desktop') return { top: 0, bottom: 0, left: sidebarPx + GAP + 6, right: panelPx + GAP + 10 };
-    if (layout === 'tablet') return { top: topBarBottom, bottom: 0, left: 0, right: shownId || spinning || flight ? TABLET_PANEL_PX + GAP : 0 };
-    return { top: topBarBottom, bottom: navHeight + (shownId ? peek : flight ? flightCardHeight + 14 : 0), left: 0, right: 0 };
-  }, [layout, shownId, spinning, flight, flightCardHeight, sidebarPx, panelPx, topBarBottom, navHeight, peek]);
+    if (layout === 'tablet') return { top: topBarBottom, bottom: 0, left: 0, right: shownId || spinning || guided ? TABLET_PANEL_PX + GAP : 0 };
+    return { top: topBarBottom, bottom: navHeight + (shownId ? peek : guided ? flightCardHeight + 14 : 0), left: 0, right: 0 };
+  }, [layout, shownId, spinning, guided, flightCardHeight, sidebarPx, panelPx, topBarBottom, navHeight, peek]);
 
   const sidebar = (
     <Sidebar
@@ -478,6 +600,27 @@ export default function App() {
       />
     ) : null;
 
+  /** Globy's tour, a stop at a time, in the same places a flight's card goes. */
+  const tourInfo = (compact: boolean) =>
+    tour ? (
+      <TourCard
+        tour={tour}
+        index={index}
+        step={tourStep}
+        playing={tourPlaying}
+        paused={covered}
+        fresh={tourFresh}
+        compact={compact}
+        onStep={stepTour}
+        onPlaying={setTourPlaying}
+        onExplore={handleSelect}
+        onAnother={chooseTour}
+        onAgain={tourAgain}
+        onClose={closeTour}
+      />
+    ) : null;
+  const guide = (compact: boolean) => (tour ? tourInfo(compact) : flightInfo(compact));
+
   return (
     <div className="relative h-dvh overflow-hidden">
       <main className="absolute inset-0">
@@ -500,8 +643,9 @@ export default function App() {
           onViewChange={changeView}
           onSelect={handleSelect}
           onSurprise={handleSurprise}
-          onPlay={openQuiz}
+          onPlay={openPlay}
           onFly={openPlanner}
+          tourStop={tourStop}
           flight={flight}
           flightLanded={flightLanded}
           onFlightProgress={handleFlightProgress}
@@ -523,14 +667,22 @@ export default function App() {
             className={`${card} absolute bottom-4 right-4 top-3 z-20 animate-rise [animation-delay:90ms]`}
             style={{ width: panelPx }}
           >
-            {flight ? (
-              flightInfo(false)
+            {guided ? (
+              guide(false)
             ) : spinning ? (
               <SpinningCard />
             ) : shownId ? (
               panel(shownId)
             ) : (
-              <WelcomePanel index={index} onSelect={handleSelect} onSurprise={handleSurprise} onPlay={openQuiz} onFly={openPlanner} />
+              <WelcomePanel
+                index={index}
+                onSelect={handleSelect}
+                onSurprise={handleSurprise}
+                onPlay={openQuiz}
+                onFly={openPlanner}
+                onMystery={openMystery}
+                onTour={chooseTour}
+              />
             )}
           </aside>
         </>
@@ -549,13 +701,13 @@ export default function App() {
         </>
       )}
 
-      {layout === 'tablet' && flight ? (
+      {layout === 'tablet' && guided ? (
         // As tall as its story, and no taller than the screen.
         <aside
           className={`${card} absolute right-4 z-20 animate-rise`}
           style={{ width: TABLET_PANEL_PX, top: topBarBottom + GAP, maxHeight: `calc(100% - ${topBarBottom + GAP + 16}px)` }}
         >
-          {flightInfo(false)}
+          {guide(false)}
         </aside>
       ) : (
         layout === 'tablet' &&
@@ -582,13 +734,13 @@ export default function App() {
           >
             {(handle) => panel(sheetId, handle)}
           </BottomSheet>
-          {flight && (
+          {guided && (
             <aside
               ref={flightCardBox}
               className={`${card} fixed inset-x-3 z-30 animate-rise [--glass-alpha:0.68]`}
               style={{ bottom: navHeight + 8 }}
             >
-              {flightInfo(true)}
+              {guide(true)}
             </aside>
           )}
           <BottomNav
@@ -599,7 +751,7 @@ export default function App() {
             shuffling={spinning}
             canShuffle={!!index}
             onSearch={() => setDrawerOpen(true)}
-            onPlay={openQuiz}
+            onPlay={openPlay}
             onFly={openPlanner}
             flying={!!flight}
             canPlay={!!index}
@@ -608,14 +760,18 @@ export default function App() {
       )}
 
       {/* Desktop offers installing from the welcome card instead. */}
-      {(layout === 'tablet' || (layout === 'mobile' && !shownId && !spinning && !flight)) && (
+      {(layout === 'tablet' || (layout === 'mobile' && !shownId && !spinning && !guided)) && (
         <div className="absolute z-10" style={{ left: insets.left + 12, bottom: insets.bottom + 16 }}>
           <InstallPill />
         </div>
       )}
 
       {layout !== 'desktop' && (
-        <GestureHint ready={!!world.data && !selectedId && !spinning && !drawerOpen && !quizOpen && !flight && !planner.open} view={view} top={topBarBottom + 12} />
+        <GestureHint
+          ready={!!world.data && !selectedId && !spinning && !drawerOpen && !quizOpen && !guided && !planner.open && !playMenu.open && !mysteryOpen}
+          view={view}
+          top={topBarBottom + 12}
+        />
       )}
       <UpdateToast top={layout === 'desktop' ? 16 : topBarBottom + 10} />
       {/* Centred over the map; on desktop below the globe/map switch */}
@@ -637,6 +793,26 @@ export default function App() {
       {plannerMounted && index && (
         <Suspense fallback={null}>
           <FlightPicker open={planner.open} from={planner.from} index={index} world={world.data} onClose={closePlanner} onFly={fly} />
+        </Suspense>
+      )}
+      {playMounted && index && (
+        <Suspense fallback={null}>
+          <PlayMenu
+            open={playMenu.open}
+            page={playMenu.page}
+            index={index}
+            world={world.data}
+            onClose={closePlay}
+            onMystery={openMystery}
+            onQuiz={playQuiz}
+            onFlight={playFlight}
+            onTour={startTour}
+          />
+        </Suspense>
+      )}
+      {mysteryMounted && index && (
+        <Suspense fallback={null}>
+          <MysteryGame open={mysteryOpen} index={index} world={world.data} onClose={closeMystery} onShowCountry={showFromMystery} />
         </Suspense>
       )}
     </div>
