@@ -28,6 +28,7 @@ import {
 import { sounds } from '../../lib/sounds';
 import { CountryPicker } from '../ui/CountryPicker';
 import { Flag } from '../ui/Flag';
+import { WavingFlag } from '../ui/WavingFlag';
 import { Mascot, type Mood } from './Mascot';
 import { Bubble, Confetti } from './shared';
 
@@ -232,12 +233,7 @@ export default function MysteryGame({
 
               {game.result && (
                 <div className="animate-pop rounded-[24px] bg-white p-4 text-center">
-                  <Flag
-                    country={answer}
-                    variant="full"
-                    eager
-                    className="mx-auto h-20 w-auto max-w-full rounded-[10px] object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.12),0_6px_18px_rgb(0_0_0/0.14)]"
-                  />
+                  <WavingFlag country={answer} height={80} maxWidth={150} radius={10} />
                   <p className="ios-title mt-3 text-[28px] leading-tight">{answer.name}</p>
                   <p className="mt-0.5 text-[15px] text-secondary">
                     {game.result === 'won'

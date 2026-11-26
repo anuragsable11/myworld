@@ -9,6 +9,7 @@ import { continentProgress, readingMs, type Tour } from '../../lib/tour';
 import { Mascot } from '../game/Mascot';
 import { Bubble } from '../game/shared';
 import { Flag } from '../ui/Flag';
+import { WavingFlag } from '../ui/WavingFlag';
 
 interface TourCardProps {
   tour: Tour;
@@ -250,14 +251,7 @@ export function TourCard({ tour, index, step, playing, paused, fresh, compact, o
       ) : (
         <div key={stop.id} className="animate-rise">
           <button type="button" onClick={press(() => onExplore(stop.id))} title={`Open ${country?.name ?? 'this country'}`} className="ios-press mt-5 flex w-full items-center gap-3.5 text-left">
-            {country && (
-              <Flag
-                country={country}
-                variant="full"
-                eager
-                className="h-[52px] w-auto max-w-[96px] rounded-[10px] bg-white object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.12),0_6px_18px_rgb(0_0_0/0.14)]"
-              />
-            )}
+            {country && <WavingFlag country={country} height={52} maxWidth={96} radius={10} className="shrink-0" />}
             <span className="min-w-0 flex-1">
               <span className="ios-title line-clamp-2 block text-[28px] leading-[1.08]">{country?.name}</span>
               <span className="mt-0.5 block truncate text-[14px] text-secondary">

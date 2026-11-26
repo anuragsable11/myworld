@@ -121,6 +121,12 @@ src/components/panel/         Country profile and its sections
   ones. It runs on the globe and the flat map alike. Opened with `T`.
 - **Play** (`src/components/game/PlayMenu.tsx`): the game button by the map and the Play tab open one menu with the
   day's mystery, the flag quiz, Globy's tours and flight paths.
+- **Flying flags** (`src/components/ui/WavingFlag.tsx`): the flag at the top of a profile, on the map pin, on a tour
+  stop and on a solved mystery flies in a light breeze. The picture is cut into thirteen upright strips; each rides a
+  wave a little later than the one before and leans with its slope, so they join up into one rippling cloth, held at
+  the pole and free at the far end, with the light and shade of its folds sliding across. Only transforms move, on
+  layers the graphics chip animates by itself (the Web Animations API), and a flag out of sight hangs still. Tapping a
+  profile's flag sends a gust through it. With reduced motion the flag is a plain picture.
 - **Selection** is stored in the URL hash (`#/FRA`), so profiles can be linked and the back button works.
 - **Layout**: a cartoon theme (ink outlines, sticker cards, Fredoka and Nunito) with the map filling the screen and the
   list and profile on floating cards (desktop); a list drawer and floating panel on tablets. Phones get an app-style

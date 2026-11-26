@@ -1,7 +1,8 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import type { Country } from '../../types';
 import { haptics } from '../../lib/haptics';
 import { sounds } from '../../lib/sounds';
+import { WavingFlag } from '../ui/WavingFlag';
 import type { PinHandle } from './types';
 
 /** When the drop animation (900 ms) touches down: first at 45%, then after its little bounce at 82%. */
@@ -28,8 +29,6 @@ interface MapPinProps {
 export const MapPin = forwardRef<PinHandle, MapPinProps>(function MapPin({ country, landingMs = 850, label, labelDelayMs = 0, small }, ref) {
   const el = useRef<HTMLDivElement>(null);
   const tag = useRef<HTMLDivElement>(null);
-  // Offline, the flag image may not be cached; the flag emoji stands in.
-  const [flagFailed, setFlagFailed] = useState(false);
 
   useImperativeHandle(
     ref,
@@ -69,17 +68,8 @@ export const MapPin = forwardRef<PinHandle, MapPinProps>(function MapPin({ count
       <div className={small ? 'absolute bottom-0 left-0 origin-bottom -translate-x-1/2 scale-[0.86]' : 'absolute bottom-0 left-0 -translate-x-1/2'}>
         <div className="flex origin-bottom animate-pin-drop flex-col items-center" style={{ animationDelay: `${landingMs}ms` }}>
           <div className="grid size-[46px] place-items-center rounded-full bg-white shadow-[0_0_0_0.5px_rgb(0_0_0/0.1),0_4px_14px_rgb(0_0_0/0.28)]">
-            {flagFailed ? (
-              <span className="grid size-[38px] place-items-center text-[22px] leading-none">{country.flag.emoji ?? '🏳️'}</span>
-            ) : (
-              <img
-                src={country.flag.svg}
-                alt=""
-                className="size-[38px] rounded-full object-cover shadow-[inset_0_0_0_0.5px_rgb(0_0_0/0.1)]"
-                draggable={false}
-                onError={() => setFlagFailed(true)}
-              />
-            )}
+            {/* Rippling in the breeze; offline, if the picture was never seen, the flag emoji stands in. */}
+            <WavingFlag country={country} height={38} round />
           </div>
           {/* The point, in the same white as the disc */}
           <svg viewBox="0 0 14 9" className="-mt-px block w-3.5 drop-shadow-[0_2px_2px_rgb(0_0_0/0.18)]">

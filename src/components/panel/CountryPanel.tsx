@@ -7,8 +7,8 @@ import { formatShortCount } from '../../lib/format';
 import { haptics } from '../../lib/haptics';
 import { scrollWithin } from '../../lib/scroll';
 import { sounds } from '../../lib/sounds';
-import { Flag } from '../ui/Flag';
 import { Skeleton } from '../ui/primitives';
+import { WavingFlag } from '../ui/WavingFlag';
 import type { CountryDetails } from './details';
 import { Basics, populationOf } from './sections/Basics';
 import { Cities } from './sections/Cities';
@@ -158,12 +158,7 @@ const CountryProfile = memo(function CountryProfile({
       <header className="relative px-5 pb-4 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div className="group animate-pop">
-            <Flag
-              country={country}
-              variant="full"
-              eager
-              className="h-[68px] w-auto max-w-[120px] rounded-[12px] bg-white object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.12),0_6px_18px_rgb(0_0_0/0.14)] transition-transform duration-300 group-hover:scale-105"
-            />
+            <WavingFlag country={country} height={68} maxWidth={120} radius={12} gusty className="transition-transform duration-300 group-hover:scale-105" />
           </div>
           <div className="flex gap-2">
             <IconButton
